@@ -1,0 +1,342 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@layer base {
+  :root {
+    --background: 228 22% 6%;
+    --foreground: 210 20% 93%;
+
+    --card: 228 18% 9%;
+    --card-foreground: 210 20% 93%;
+
+    --popover: 228 18% 10%;
+    --popover-foreground: 210 20% 93%;
+
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 228 14% 13%;
+    --secondary-foreground: 210 12% 75%;
+
+    --muted: 228 12% 16%;
+    --muted-foreground: 220 10% 44%;
+
+    --accent: 0 60% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 228 14% 12%;
+    --input: 228 14% 12%;
+    --ring: 0 72% 51%;
+
+    --radius: 0.625rem;
+
+    /* Extended palette */
+    --card-elevated: 228 16% 11%;
+    --glow-primary: 0 72% 51% / 0.08;
+    --glow-success: 160 60% 45% / 0.08;
+
+    --sidebar-background: 228 18% 7%;
+    --sidebar-foreground: 210 12% 80%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 14% 13%;
+    --sidebar-accent-foreground: 210 12% 80%;
+    --sidebar-border: 228 14% 12%;
+    --sidebar-ring: 0 72% 51%;
+  }
+
+  .light {
+    --background: 220 14% 96%;
+    --foreground: 228 20% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 20% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 20% 14%;
+
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 228 12% 35%;
+
+    --muted: 220 10% 90%;
+    --muted-foreground: 220 10% 48%;
+
+    --accent: 0 60% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 90%;
+    --input: 220 12% 90%;
+    --ring: 0 72% 51%;
+
+    --card-elevated: 0 0% 100%;
+    --glow-primary: 0 72% 51% / 0.06;
+    --glow-success: 160 60% 45% / 0.06;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 228 12% 35%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 95%;
+    --sidebar-accent-foreground: 228 12% 35%;
+    --sidebar-border: 220 12% 90%;
+    --sidebar-ring: 0 72% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@layer components {
+  /* ─── Surfaces ─── */
+  .surface {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    @apply rounded-xl;
+  }
+
+  .surface-elevated {
+    background: hsl(var(--card-elevated));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 24px -4px hsl(228 30% 4% / 0.35);
+    @apply rounded-xl;
+  }
+
+  /* ─── KPI Cards ─── */
+  .kpi-card {
+    @apply surface px-4 py-4 relative overflow-hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px -4px hsl(228 30% 4% / 0.3);
+  }
+
+  .kpi-card-highlight {
+    @apply rounded-xl px-4 py-4 relative overflow-hidden;
+    background: linear-gradient(135deg, hsl(0 68% 48%), hsl(0 55% 38%));
+    border: 1px solid hsl(0 50% 40% / 0.3);
+    box-shadow: 0 4px 24px -4px hsl(0 72% 51% / 0.25);
+  }
+
+  .kpi-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.1em] mb-1.5;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .kpi-card-highlight .kpi-label {
+    color: hsl(0 0% 100% / 0.6);
+  }
+
+  .kpi-value {
+    @apply text-lg font-extrabold tracking-tight;
+    color: hsl(var(--foreground));
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .kpi-card-highlight .kpi-value {
+    color: hsl(0 0% 100%);
+  }
+
+  /* ─── Funnel ─── */
+  .funnel-box {
+    @apply rounded-xl px-5 py-4 text-center relative;
+    background: linear-gradient(135deg, hsl(0 60% 42%), hsl(0 48% 32%));
+    border: 1px solid hsl(0 40% 35% / 0.4);
+    box-shadow: 0 2px 12px -2px hsl(0 60% 30% / 0.2);
+  }
+
+  .funnel-label {
+    @apply text-[10px] font-semibold uppercase tracking-wider;
+    color: hsl(0 0% 100% / 0.5);
+  }
+
+  .funnel-value {
+    @apply text-xl font-extrabold tracking-tight mt-0.5;
+    color: hsl(0 0% 100%);
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .funnel-change {
+    @apply text-[10px] font-medium;
+    color: hsl(var(--primary));
+  }
+
+  .side-metric {
+    @apply surface px-3 py-3 text-center;
+    transition: transform 0.15s ease;
+  }
+
+  .side-metric:hover {
+    transform: translateY(-1px);
+  }
+
+  .side-metric-label {
+    @apply text-[9px] font-semibold uppercase tracking-[0.12em];
+    color: hsl(var(--muted-foreground));
+  }
+
+  .side-metric-value {
+    @apply text-sm font-bold mt-1 tracking-tight;
+    color: hsl(var(--foreground));
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .funnel-layout {
+    @apply flex items-start gap-5;
+  }
+
+  .funnel-side {
+    @apply w-36 flex-shrink-0;
+  }
+
+  .funnel-side-grid {
+    @apply flex flex-col gap-2;
+  }
+
+  /* ─── Inputs ─── */
+  .date-input {
+    @apply px-3 py-2 rounded-lg border text-xs font-medium;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .light .date-input {
+    color-scheme: light;
+  }
+
+  .date-input:focus {
+    border-color: hsl(0 72% 51% / 0.5);
+    box-shadow: 0 0 0 3px hsl(0 72% 51% / 0.1);
+    outline: none;
+  }
+
+  /* ─── Header ─── */
+  .dashboard-header {
+    @apply flex items-center justify-between px-8 py-5;
+    background: hsl(var(--background));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  /* ─── Mobile ─── */
+  .mobile-view .dashboard-header {
+    @apply px-4;
+  }
+
+  .mobile-view .kpi-card,
+  .mobile-view .kpi-card-highlight,
+  .mobile-view .surface {
+    @apply px-3 py-3;
+  }
+
+  .mobile-view .kpi-value {
+    @apply text-sm;
+  }
+
+  .mobile-view .funnel-box {
+    @apply px-2 py-2;
+  }
+
+  .mobile-view .funnel-value {
+    @apply text-sm;
+  }
+
+  .mobile-view .funnel-label {
+    @apply text-[8px];
+  }
+
+  .mobile-view .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .mobile-view .funnel-desktop {
+    display: none !important;
+  }
+
+  .funnel-mobile {
+    display: none;
+  }
+
+  .mobile-view .funnel-mobile {
+    display: block;
+  }
+
+  .mobile-view .flex-wrap {
+    flex-direction: column;
+  }
+
+  .mobile-view .date-input {
+    width: 100%;
+  }
+
+  .mobile-view table {
+    font-size: 9px;
+  }
+
+  .mobile-view table th,
+  .mobile-view table td {
+    padding: 4px 3px;
+    white-space: nowrap;
+  }
+
+  .mobile-view .section-container {
+    overflow-x: auto;
+  }
+
+  /* ─── Sections ─── */
+  .section-container {
+    @apply surface-elevated p-6;
+  }
+
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-[0.12em];
+    color: hsl(var(--muted-foreground));
+    letter-spacing: 0.12em;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.93em;
+  }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
