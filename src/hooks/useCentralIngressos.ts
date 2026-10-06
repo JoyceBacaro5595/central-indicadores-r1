@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // Central de ingressos lê o Supabase r1-indicadores (Guru sincronizada de hora em hora).
 // A função RPC devolve só agregados, sem dados pessoais de comprador.
-const R1_URL = 'https://lgaujmjedphzynhbokob.supabase.co';
-const R1_PUBLISHABLE_KEY = 'sb_publishable_IkNQonFM7rYG5rH4PRI1aA_3fhFurRp';
+import { R1_URL, r1Headers } from '@/integrations/r1/client';
 
 export interface CentralEvento {
   evento: string;
@@ -64,10 +63,7 @@ export interface CentralIngressos {
 async function fetchCentral(inicio: string, fim: string): Promise<CentralIngressos> {
   const res = await fetch(`${R1_URL}/rest/v1/rpc/central_ingressos`, {
     method: 'POST',
-    headers: {
-      apikey: R1_PUBLISHABLE_KEY,
-      'Content-Type': 'application/json',
-    },
+    headers: await r1Headers(),
     body: JSON.stringify({ p_inicio: inicio, p_fim: fim }),
   });
   if (!res.ok) throw new Error(`Falha ao carregar central: ${res.status} ${await res.text()}`);

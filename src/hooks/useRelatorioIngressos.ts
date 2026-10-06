@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // Relatório de vendas de ingressos (Supabase r1-indicadores, RPC public.relatorio_ingressos).
 // Todos os status entram; aprovados, reembolsos e não convertidos vêm separados em cada linha.
-const R1_URL = 'https://lgaujmjedphzynhbokob.supabase.co';
-const R1_PUBLISHABLE_KEY = 'sb_publishable_IkNQonFM7rYG5rH4PRI1aA_3fhFurRp';
+import { R1_URL, r1Headers } from '@/integrations/r1/client';
 
 export interface RelatorioLinha {
   chave: string;
@@ -62,7 +61,7 @@ export interface RelatorioIngressos {
 async function fetchRelatorio(inicio: string, fim: string, f: RelatorioFiltros): Promise<RelatorioIngressos> {
   const res = await fetch(`${R1_URL}/rest/v1/rpc/relatorio_ingressos`, {
     method: 'POST',
-    headers: { apikey: R1_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
+    headers: await r1Headers(),
     body: JSON.stringify({
       p_inicio: inicio,
       p_fim: fim,

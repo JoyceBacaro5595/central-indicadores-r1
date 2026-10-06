@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
+import UserMenu from '@/components/UserMenu';
 import {
   useRelatorioIngressos,
   RelatorioFiltros,
@@ -322,6 +323,7 @@ export default function Relatorio() {
           >
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
+          <UserMenu />
         </div>
       </header>
 

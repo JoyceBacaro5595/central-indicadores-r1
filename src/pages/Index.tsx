@@ -14,6 +14,7 @@ import { LoadingBar } from '@/components/LoadingBar';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { Sun, Moon, Smartphone, Monitor, RefreshCw, Ticket } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import UserMenu from '@/components/UserMenu';
 
 
 export default function Index() {
@@ -85,6 +86,7 @@ export default function Index() {
               <btn.icon className="w-4 h-4" />
             </button>
           ))}
+          <UserMenu />
         </div>
       </header>
 
