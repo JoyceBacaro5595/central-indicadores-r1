@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { ArrowLeft, RefreshCw, AlertTriangle, FileText, Target, UserCheck } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle, FileText, Target, UserCheck, ShoppingCart } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import UserMenu from '@/components/UserMenu';
@@ -156,6 +156,11 @@ export default function Central() {
           {pode('presenca') && (
             <Link to="/central/checkins" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
               <UserCheck className="w-3.5 h-3.5" /> Check-ins
+            </Link>
+          )}
+          {pode('recuperacao') && (
+            <Link to="/central/recuperacao" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
+              <ShoppingCart className="w-3.5 h-3.5" /> Recuperação
             </Link>
           )}
           <Link to="/central/relatorio" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
