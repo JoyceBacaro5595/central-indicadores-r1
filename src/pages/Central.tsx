@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { ArrowLeft, RefreshCw, AlertTriangle, FileText, Target } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle, FileText, Target, UserCheck } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import UserMenu from '@/components/UserMenu';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
+import { useAuth } from '@/auth/AuthProvider';
 
 const brl = (v: number | null | undefined) =>
   (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -115,6 +116,7 @@ function EventosTabela({ eventos }: { eventos: CentralEvento[] }) {
 }
 
 export default function Central() {
+  const { pode } = useAuth();
   const [inicio, setInicio] = useState(inicioMesISO());
   const [fim, setFim] = useState(hojeISO());
   const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim);
@@ -151,6 +153,11 @@ export default function Central() {
           <Link to="/central/eventos" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
             <Target className="w-3.5 h-3.5" /> Eventos e metas
           </Link>
+          {pode('presenca') && (
+            <Link to="/central/checkins" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
+              <UserCheck className="w-3.5 h-3.5" /> Check-ins
+            </Link>
+          )}
           <Link to="/central/relatorio" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
             <FileText className="w-3.5 h-3.5" /> Relatório
           </Link>
