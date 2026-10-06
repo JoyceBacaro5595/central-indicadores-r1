@@ -18,6 +18,12 @@ interface Presenca {
   esperados: number; presentes: number; convidados: number; cancelados: number; presentes_cortesia: number; presentes_vip: number;
   taxa_presenca: number | null; atualizado_em: string | null;
 }
+interface Jornada {
+  linha: string | null; cidade: string; mes_evento: string; evento_id: number | null;
+  compradores: number; ingressos: number; participantes_nomeados: number; sem_participante: number;
+  compradores_multiplos: number; ingressos_de_multiplos: number; presentes: number; compradores_presentes: number;
+  media_por_comprador: number | null; atualizado_em: string | null;
+}
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -65,6 +71,7 @@ export default function Eventos() {
   const editor = pode('gerenciador');
   const vePresenca = pode('presenca');
   const presenca = useQuery({ queryKey: ['presenca', de, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: de, p_fim: ate }), enabled: vePresenca, refetchInterval: 5 * 60_000 });
+  const jornada = useQuery({ queryKey: ['jornada', de, ate], queryFn: () => r1Rpc<Jornada[]>('compradores_participantes', { p_inicio: de, p_fim: ate }), enabled: vePresenca, refetchInterval: 5 * 60_000 });
   const presencaDe = (e: Evento) => (presenca.data ?? []).find((p) => p.evento_id === e.id || (p.evento_id == null && p.cidade === e.cidade && p.mes_evento === e.mes_evento));
 
   const salvar = useMutation({
@@ -159,6 +166,35 @@ export default function Eventos() {
           </table>
           <p className="text-[10px] text-muted-foreground mt-3">Os eventos aparecem sozinhos a partir das vendas (cidade e mês do nome do produto). Sem data definida, o ritmo necessário considera o último dia do mês. Ritmo atual = média dos últimos 7 dias.{vePresenca ? ' Presença = e-tickets com check-in na Guru sobre e-tickets emitidos (sem os cancelados); a lista é relida a cada ~20 min.' : ''}</p>
         </section>
+
+        {vePresenca && (
+          <section className="surface p-4 overflow-x-auto">
+            <span className="section-label">Compradores × participantes (e-tickets)</span>
+            <table className="w-full mt-3 text-xs">
+              <thead><tr className="text-muted-foreground text-left">
+                <th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold text-right">Compradores</th><th className="pb-2 font-semibold text-right">Ingressos</th><th className="pb-2 font-semibold text-right">Média</th>
+                <th className="pb-2 font-semibold text-right">Compraram 2+</th><th className="pb-2 font-semibold text-right">Sem participante</th><th className="pb-2 font-semibold text-right">Presentes</th><th className="pb-2 font-semibold text-right">Compradores presentes</th>
+              </tr></thead>
+              <tbody>
+                {jornada.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+                {!jornada.isLoading && (jornada.data ?? []).length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum e-ticket no período.</td></tr>}
+                {(jornada.data ?? []).map((j) => (
+                  <tr key={`${j.cidade}-${j.mes_evento}`} className="border-t border-border">
+                    <td className="py-2"><div className="font-semibold text-foreground">{j.cidade}</div><div className="text-muted-foreground">{mesLabel(j.mes_evento)}</div></td>
+                    <td className="py-2 text-right mono font-bold text-foreground">{num(j.compradores)}</td>
+                    <td className="py-2 text-right mono">{num(j.ingressos)}</td>
+                    <td className="py-2 text-right mono">{j.media_por_comprador ?? '—'}</td>
+                    <td className="py-2 text-right mono">{num(j.compradores_multiplos)}<div className="text-muted-foreground">{num(j.ingressos_de_multiplos)} ingressos</div></td>
+                    <td className="py-2 text-right mono">{num(j.sem_participante)}</td>
+                    <td className="py-2 text-right mono">{num(j.presentes)}{j.ingressos > 0 && <div className="text-muted-foreground">{((100 * j.presentes) / j.ingressos).toFixed(0)}%</div>}</td>
+                    <td className="py-2 text-right mono">{num(j.compradores_presentes)}{j.compradores > 0 && <div className="text-muted-foreground">{((100 * j.compradores_presentes) / j.compradores).toFixed(0)}% dos compradores</div>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-muted-foreground mt-3">Comprador = e-mail que fez a compra; participante = cada e-ticket, com o nome de quem vai ao evento. Um comprador pode ter vários participantes. Cancelados ficam de fora. "Sem participante" são ingressos ainda não nomeados.</p>
+          </section>
+        )}
       </main>
     </div>
   );
