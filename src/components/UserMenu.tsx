@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Users, KeyRound, Settings } from 'lucide-react';
+import { ChevronDown, LogOut, Users, KeyRound, Settings, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 
 const ROTULO: Record<string, string> = {
@@ -41,6 +41,11 @@ export default function UserMenu() {
           {pode('gerenciador') && (
             <Link to="/central/gerenciador" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
               <Settings className="w-3.5 h-3.5" /> Gerenciador
+            </Link>
+          )}
+          {pode('gerenciador') && (
+            <Link to="/central/regras" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Regras de segmentação
             </Link>
           )}
           {pode('usuarios') && (

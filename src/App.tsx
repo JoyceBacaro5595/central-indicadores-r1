@@ -12,6 +12,7 @@ import RedefinirSenha from "./pages/RedefinirSenha.tsx";
 import Conta from "./pages/Conta.tsx";
 import Usuarios from "./pages/Usuarios.tsx";
 import Gerenciador from "./pages/Gerenciador.tsx";
+import Regras from "./pages/Regras.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 
@@ -35,6 +36,7 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="gerenciador" />}>
             <Route path="/central/gerenciador" element={<Gerenciador />} />
+            <Route path="/central/regras" element={<Regras />} />
           </Route>
           <Route element={<RequireAuth recurso="usuarios" />}>
             <Route path="/central/usuarios" element={<Usuarios />} />
