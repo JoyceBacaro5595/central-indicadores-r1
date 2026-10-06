@@ -13,6 +13,11 @@ interface Evento {
   primeira_venda: string | null; ultima_venda: string | null; dias_restantes: number; ritmo_atual: number; ritmo_necessario: number | null;
   pct_meta: number | null; pct_capacidade: number | null; situacao: string;
 }
+interface Presenca {
+  linha: string | null; cidade: string; mes_evento: string; data_evento: string | null; evento_id: number | null;
+  esperados: number; presentes: number; convidados: number; cancelados: number; presentes_cortesia: number; presentes_vip: number;
+  taxa_presenca: number | null; atualizado_em: string | null;
+}
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -29,7 +34,7 @@ function Edicao({ e, aoSalvar, salvando }: { e: Evento; aoSalvar: (v: Partial<Ev
   const cls = 'bg-secondary rounded px-2 py-1 text-foreground text-xs';
   return (
     <tr className="border-t border-border/50 bg-secondary/30">
-      <td colSpan={9} className="py-2 px-2">
+      <td colSpan={10} className="py-2 px-2">
         <form className="flex flex-wrap items-end gap-2" onSubmit={(ev: FormEvent) => { ev.preventDefault(); aoSalvar({ id: e.id, data_evento: v.data_evento || null, local: v.local || null, capacidade: v.capacidade === '' ? null : Number(v.capacidade), meta_ingressos: v.meta_ingressos === '' ? null : Number(v.meta_ingressos), meta_faturamento: v.meta_faturamento === '' ? null : Number(v.meta_faturamento), observacao: v.observacao || null }); }}>
           <label className="text-[10px] text-muted-foreground">Data do evento<br /><input type="date" value={v.data_evento} onChange={(x) => setV({ ...v, data_evento: x.target.value })} className={`${cls} mono`} /></label>
           <label className="text-[10px] text-muted-foreground">Local<br /><input value={v.local} onChange={(x) => setV({ ...v, local: x.target.value })} className={`${cls} w-40`} /></label>
@@ -58,6 +63,9 @@ export default function Eventos() {
   const [nData, setNData] = useState('');
   const [nMeta, setNMeta] = useState('');
   const editor = pode('gerenciador');
+  const vePresenca = pode('presenca');
+  const presenca = useQuery({ queryKey: ['presenca', de, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: de, p_fim: ate }), enabled: vePresenca, refetchInterval: 5 * 60_000 });
+  const presencaDe = (e: Evento) => (presenca.data ?? []).find((p) => p.evento_id === e.id || (p.evento_id == null && p.cidade === e.cidade && p.mes_evento === e.mes_evento));
 
   const salvar = useMutation({
     mutationFn: (v: Partial<Evento> & { id: number }) => r1Rpc('evento_salvar', { p_id: v.id, p_data_evento: v.data_evento ?? null, p_local: v.local ?? null, p_capacidade: v.capacidade ?? null, p_meta_ingressos: v.meta_ingressos ?? null, p_meta_faturamento: v.meta_faturamento ?? null, p_observacao: v.observacao ?? null, p_ativo: true }),
@@ -72,6 +80,8 @@ export default function Eventos() {
 
   const lista = eventos.data ?? [];
   const tot = lista.reduce((a, e) => ({ realizado: a.realizado + e.realizado, meta: a.meta + (e.meta_ingressos ?? 0), fat: a.fat + e.faturamento }), { realizado: 0, meta: 0, fat: 0 });
+  const totP = (presenca.data ?? []).reduce((a, p) => ({ esperados: a.esperados + p.esperados, presentes: a.presentes + p.presentes }), { esperados: 0, presentes: 0 });
+  const colunas = vePresenca ? 10 : 9;
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,6 +111,7 @@ export default function Eventos() {
           <div className="kpi-card"><div className="kpi-label">Ingressos realizados</div><div className="kpi-value mono">{num(tot.realizado)}</div></div>
           <div className="kpi-card"><div className="kpi-label">Soma das metas</div><div className="kpi-value mono">{tot.meta ? num(tot.meta) : '—'}</div><div className="text-[10px] text-muted-foreground mt-1">{tot.meta ? `${((100 * tot.realizado) / tot.meta).toFixed(0)}% atingido` : 'defina as metas abaixo'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Faturamento bruto</div><div className="kpi-value mono">{brl(tot.fat)}</div></div>
+          {vePresenca && <div className="kpi-card"><div className="kpi-label">Presentes (check-in)</div><div className="kpi-value mono">{presenca.isLoading ? '…' : num(totP.presentes)}</div><div className="text-[10px] text-muted-foreground mt-1">{totP.esperados ? `${((100 * totP.presentes) / totP.esperados).toFixed(0)}% de ${num(totP.esperados)} e-tickets` : 'e-tickets da Guru'}</div></div>}
         </div>
 
         <section className="surface p-4 overflow-x-auto">
@@ -120,11 +131,11 @@ export default function Eventos() {
           <table className="w-full mt-3 text-xs">
             <thead><tr className="text-muted-foreground text-left">
               <th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Data</th><th className="pb-2 font-semibold text-right">Capac.</th><th className="pb-2 font-semibold text-right">Meta</th>
-              <th className="pb-2 font-semibold text-right">Realizado</th><th className="pb-2 font-semibold text-right">Últ. 7d</th><th className="pb-2 font-semibold text-right">Ritmo atual → necessário</th><th className="pb-2 font-semibold text-right">Faturamento</th><th className="pb-2 font-semibold">Situação</th>
+              <th className="pb-2 font-semibold text-right">Realizado</th><th className="pb-2 font-semibold text-right">Últ. 7d</th><th className="pb-2 font-semibold text-right">Ritmo atual → necessário</th><th className="pb-2 font-semibold text-right">Faturamento</th>{vePresenca && <th className="pb-2 font-semibold text-right">Presença</th>}<th className="pb-2 font-semibold">Situação</th>
             </tr></thead>
             <tbody>
-              {eventos.isLoading && <tr><td colSpan={9} className="py-3 text-muted-foreground">Carregando…</td></tr>}
-              {!eventos.isLoading && lista.length === 0 && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum evento no período.</td></tr>}
+              {eventos.isLoading && <tr><td colSpan={colunas} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+              {!eventos.isLoading && lista.length === 0 && <tr><td colSpan={colunas} className="py-3 text-muted-foreground">Nenhum evento no período.</td></tr>}
               {lista.map((e) => (
                 <>
                   <tr key={e.id} className={`border-t border-border ${editor ? 'cursor-pointer hover:bg-secondary/40' : ''}`} onClick={() => editor && setEditando(editando === e.id ? null : e.id)} title={editor ? 'Clique para editar data, capacidade e metas' : ''}>
@@ -136,6 +147,9 @@ export default function Eventos() {
                     <td className="py-2 text-right mono">{num(e.ult_7d)}</td>
                     <td className="py-2 text-right mono">{e.ritmo_atual}/dia{e.ritmo_necessario != null && <span className={e.ritmo_atual >= e.ritmo_necessario ? ' text-emerald-400' : ' text-amber-400'}> → {e.ritmo_necessario}/dia</span>}</td>
                     <td className="py-2 text-right mono">{brl(e.faturamento)}{e.meta_faturamento ? <div className="text-muted-foreground">{((100 * e.faturamento) / e.meta_faturamento).toFixed(0)}% de {brl(e.meta_faturamento)}</div> : null}</td>
+                    {vePresenca && (() => { const p = presencaDe(e); return (
+                      <td className="py-2 text-right mono">{p && p.esperados > 0 ? <>{num(p.presentes)}<span className="text-muted-foreground"> / {num(p.esperados)}</span>{p.taxa_presenca != null && <div className="text-muted-foreground">{p.taxa_presenca}%{p.presentes_cortesia ? ` · ${num(p.presentes_cortesia)} cort.` : ''}</div>}</> : <span className="text-muted-foreground">—</span>}</td>
+                    ); })()}
                     <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${COR[e.situacao] ?? 'bg-secondary'}`}>{e.situacao}</span></td>
                   </tr>
                   {editando === e.id && <Edicao key={`ed-${e.id}`} e={e} aoSalvar={(v) => salvar.mutate(v)} salvando={salvar.isPending} />}
@@ -143,7 +157,7 @@ export default function Eventos() {
               ))}
             </tbody>
           </table>
-          <p className="text-[10px] text-muted-foreground mt-3">Os eventos aparecem sozinhos a partir das vendas (cidade e mês do nome do produto). Sem data definida, o ritmo necessário considera o último dia do mês. Ritmo atual = média dos últimos 7 dias.</p>
+          <p className="text-[10px] text-muted-foreground mt-3">Os eventos aparecem sozinhos a partir das vendas (cidade e mês do nome do produto). Sem data definida, o ritmo necessário considera o último dia do mês. Ritmo atual = média dos últimos 7 dias.{vePresenca ? ' Presença = e-tickets com check-in na Guru sobre e-tickets emitidos (sem os cancelados); a lista é relida a cada ~20 min.' : ''}</p>
         </section>
       </main>
     </div>
