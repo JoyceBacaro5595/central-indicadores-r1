@@ -5,6 +5,7 @@ import { ArrowLeft, RefreshCw, AlertTriangle, FileText } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import UserMenu from '@/components/UserMenu';
+import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 const brl = (v: number | null | undefined) =>
   (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -146,6 +147,7 @@ export default function Central() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <AtualizarPeriodo aoConcluir={() => refetch()} />
           <Link to="/central/relatorio" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
             <FileText className="w-3.5 h-3.5" /> Relatório
           </Link>

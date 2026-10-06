@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Play, Pause, Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import UserMenu from '@/components/UserMenu';
+import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 interface Parametro { chave: string; valor: number; rotulo: string; descricao: string | null; grupo: string; atualizado_em: string }
 interface Agendamento {
@@ -92,6 +93,7 @@ export default function Gerenciador() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <AtualizarPeriodo aoConcluir={() => estado.refetch()} />
           <button onClick={() => estado.refetch()} disabled={estado.isFetching} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Atualizar">
             <RefreshCw className={`w-4 h-4 ${estado.isFetching ? 'animate-spin' : ''}`} />
           </button>
