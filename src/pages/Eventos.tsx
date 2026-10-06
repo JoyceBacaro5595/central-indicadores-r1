@@ -18,6 +18,10 @@ interface Presenca {
   esperados: number; presentes: number; convidados: number; cancelados: number; presentes_cortesia: number; presentes_vip: number;
   taxa_presenca: number | null; atualizado_em: string | null;
 }
+interface MetaEvento {
+  cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number; compras_meta: number;
+  faturamento: number; ingressos_pagos: number; roas: number | null; cpa: number | null;
+}
 interface Jornada {
   linha: string | null; cidade: string; mes_evento: string; evento_id: number | null;
   compradores: number; ingressos: number; participantes_nomeados: number; sem_participante: number;
@@ -40,7 +44,7 @@ function Edicao({ e, aoSalvar, salvando }: { e: Evento; aoSalvar: (v: Partial<Ev
   const cls = 'bg-secondary rounded px-2 py-1 text-foreground text-xs';
   return (
     <tr className="border-t border-border/50 bg-secondary/30">
-      <td colSpan={10} className="py-2 px-2">
+      <td colSpan={11} className="py-2 px-2">
         <form className="flex flex-wrap items-end gap-2" onSubmit={(ev: FormEvent) => { ev.preventDefault(); aoSalvar({ id: e.id, data_evento: v.data_evento || null, local: v.local || null, capacidade: v.capacidade === '' ? null : Number(v.capacidade), meta_ingressos: v.meta_ingressos === '' ? null : Number(v.meta_ingressos), meta_faturamento: v.meta_faturamento === '' ? null : Number(v.meta_faturamento), observacao: v.observacao || null }); }}>
           <label className="text-[10px] text-muted-foreground">Data do evento<br /><input type="date" value={v.data_evento} onChange={(x) => setV({ ...v, data_evento: x.target.value })} className={`${cls} mono`} /></label>
           <label className="text-[10px] text-muted-foreground">Local<br /><input value={v.local} onChange={(x) => setV({ ...v, local: x.target.value })} className={`${cls} w-40`} /></label>
@@ -72,6 +76,8 @@ export default function Eventos() {
   const vePresenca = pode('presenca');
   const presenca = useQuery({ queryKey: ['presenca', de, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: de, p_fim: ate }), enabled: vePresenca, refetchInterval: 5 * 60_000 });
   const jornada = useQuery({ queryKey: ['jornada', de, ate], queryFn: () => r1Rpc<Jornada[]>('compradores_participantes', { p_inicio: de, p_fim: ate }), enabled: vePresenca, refetchInterval: 5 * 60_000 });
+  const meta = useQuery({ queryKey: ['meta-eventos', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const metaDe = (e: Evento) => (meta.data ?? []).find((m) => m.cidade === e.cidade && m.mes_evento === e.mes_evento);
   const presencaDe = (e: Evento) => (presenca.data ?? []).find((p) => p.evento_id === e.id || (p.evento_id == null && p.cidade === e.cidade && p.mes_evento === e.mes_evento));
 
   const salvar = useMutation({
@@ -88,7 +94,8 @@ export default function Eventos() {
   const lista = eventos.data ?? [];
   const tot = lista.reduce((a, e) => ({ realizado: a.realizado + e.realizado, meta: a.meta + (e.meta_ingressos ?? 0), fat: a.fat + e.faturamento }), { realizado: 0, meta: 0, fat: 0 });
   const totP = (presenca.data ?? []).reduce((a, p) => ({ esperados: a.esperados + p.esperados, presentes: a.presentes + p.presentes }), { esperados: 0, presentes: 0 });
-  const colunas = vePresenca ? 10 : 9;
+  const colunas = vePresenca ? 11 : 10;
+  const totM = (meta.data ?? []).filter((m) => lista.some((e) => e.cidade === m.cidade && e.mes_evento === m.mes_evento)).reduce((a, m) => ({ inv: a.inv + Number(m.investimento), fat: a.fat + Number(m.faturamento) }), { inv: 0, fat: 0 });
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,11 +120,12 @@ export default function Eventos() {
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="kpi-card"><div className="kpi-label">Eventos no período</div><div className="kpi-value mono">{num(lista.length)}</div></div>
           <div className="kpi-card"><div className="kpi-label">Ingressos realizados</div><div className="kpi-value mono">{num(tot.realizado)}</div></div>
           <div className="kpi-card"><div className="kpi-label">Soma das metas</div><div className="kpi-value mono">{tot.meta ? num(tot.meta) : '—'}</div><div className="text-[10px] text-muted-foreground mt-1">{tot.meta ? `${((100 * tot.realizado) / tot.meta).toFixed(0)}% atingido` : 'defina as metas abaixo'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Faturamento bruto</div><div className="kpi-value mono">{brl(tot.fat)}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Meta Ads</div><div className="kpi-value mono">{meta.isLoading ? '…' : brl(totM.inv)}</div><div className="text-[10px] text-muted-foreground mt-1">{totM.inv > 0 ? `ROAS ${(totM.fat / totM.inv).toFixed(2)}x` : 'sem campanhas ligadas'}</div></div>
           {vePresenca && <div className="kpi-card"><div className="kpi-label">Presentes (check-in)</div><div className="kpi-value mono">{presenca.isLoading ? '…' : num(totP.presentes)}</div><div className="text-[10px] text-muted-foreground mt-1">{totP.esperados ? `${((100 * totP.presentes) / totP.esperados).toFixed(0)}% de ${num(totP.esperados)} e-tickets` : 'e-tickets da Guru'}</div></div>}
         </div>
 
@@ -138,7 +146,7 @@ export default function Eventos() {
           <table className="w-full mt-3 text-xs">
             <thead><tr className="text-muted-foreground text-left">
               <th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Data</th><th className="pb-2 font-semibold text-right">Capac.</th><th className="pb-2 font-semibold text-right">Meta</th>
-              <th className="pb-2 font-semibold text-right">Realizado</th><th className="pb-2 font-semibold text-right">Últ. 7d</th><th className="pb-2 font-semibold text-right">Ritmo atual → necessário</th><th className="pb-2 font-semibold text-right">Faturamento</th>{vePresenca && <th className="pb-2 font-semibold text-right">Presença</th>}<th className="pb-2 font-semibold">Situação</th>
+              <th className="pb-2 font-semibold text-right">Realizado</th><th className="pb-2 font-semibold text-right">Últ. 7d</th><th className="pb-2 font-semibold text-right">Ritmo atual → necessário</th><th className="pb-2 font-semibold text-right">Faturamento</th><th className="pb-2 font-semibold text-right">Meta Ads · ROAS</th>{vePresenca && <th className="pb-2 font-semibold text-right">Presença</th>}<th className="pb-2 font-semibold">Situação</th>
             </tr></thead>
             <tbody>
               {eventos.isLoading && <tr><td colSpan={colunas} className="py-3 text-muted-foreground">Carregando…</td></tr>}
@@ -154,6 +162,9 @@ export default function Eventos() {
                     <td className="py-2 text-right mono">{num(e.ult_7d)}</td>
                     <td className="py-2 text-right mono">{e.ritmo_atual}/dia{e.ritmo_necessario != null && <span className={e.ritmo_atual >= e.ritmo_necessario ? ' text-emerald-400' : ' text-amber-400'}> → {e.ritmo_necessario}/dia</span>}</td>
                     <td className="py-2 text-right mono">{brl(e.faturamento)}{e.meta_faturamento ? <div className="text-muted-foreground">{((100 * e.faturamento) / e.meta_faturamento).toFixed(0)}% de {brl(e.meta_faturamento)}</div> : null}</td>
+                    {(() => { const m = metaDe(e); return (
+                      <td className="py-2 text-right mono">{m ? <>{brl(m.investimento)}<div className="text-muted-foreground">{m.roas != null ? `ROAS ${m.roas}x` : '—'}{m.cpa != null ? ` · CPA ${brl(m.cpa)}` : ''}</div></> : <span className="text-muted-foreground">—</span>}</td>
+                    ); })()}
                     {vePresenca && (() => { const p = presencaDe(e); return (
                       <td className="py-2 text-right mono">{p && p.esperados > 0 ? <><Link to={`/central/checkins?cidade=${encodeURIComponent(e.cidade)}&mes=${e.mes_evento}`} onClick={(ev) => ev.stopPropagation()} className="text-primary hover:underline">{num(p.presentes)}</Link><span className="text-muted-foreground"> / {num(p.esperados)}</span>{p.taxa_presenca != null && <div className="text-muted-foreground">{p.taxa_presenca}%{p.presentes_cortesia ? ` · ${num(p.presentes_cortesia)} cort.` : ''}</div>}</> : <span className="text-muted-foreground">—</span>}</td>
                     ); })()}
@@ -164,7 +175,7 @@ export default function Eventos() {
               ))}
             </tbody>
           </table>
-          <p className="text-[10px] text-muted-foreground mt-3">Os eventos aparecem sozinhos a partir das vendas (cidade e mês do nome do produto). Sem data definida, o ritmo necessário considera o último dia do mês. Ritmo atual = média dos últimos 7 dias.{vePresenca ? ' Presença = e-tickets com check-in na Guru sobre e-tickets emitidos (sem os cancelados); a lista é relida a cada ~20 min.' : ''}</p>
+          <p className="text-[10px] text-muted-foreground mt-3">Os eventos aparecem sozinhos a partir das vendas (cidade e mês do nome do produto). Sem data definida, o ritmo necessário considera o último dia do mês. Ritmo atual = média dos últimos 7 dias. Meta Ads = campanhas da conta Máquina de Vendas ligadas ao evento pela cidade e data no nome da campanha; ROAS = faturamento bruto ÷ investimento; CPA = investimento ÷ ingressos pagos.{vePresenca ? ' Presença = e-tickets com check-in na Guru sobre e-tickets emitidos (sem os cancelados); a lista é relida a cada ~20 min.' : ''}</p>
         </section>
 
         {vePresenca && (
