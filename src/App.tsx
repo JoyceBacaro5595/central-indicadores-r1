@@ -13,6 +13,7 @@ import Conta from "./pages/Conta.tsx";
 import Usuarios from "./pages/Usuarios.tsx";
 import Gerenciador from "./pages/Gerenciador.tsx";
 import Regras from "./pages/Regras.tsx";
+import Eventos from "./pages/Eventos.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/central" element={<Central />} />
             <Route path="/central/relatorio" element={<Relatorio />} />
             <Route path="/central/conta" element={<Conta />} />
+            <Route path="/central/eventos" element={<Eventos />} />
           </Route>
           <Route element={<RequireAuth recurso="gerenciador" />}>
             <Route path="/central/gerenciador" element={<Gerenciador />} />

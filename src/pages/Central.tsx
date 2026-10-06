@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { ArrowLeft, RefreshCw, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle, FileText, Target } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import UserMenu from '@/components/UserMenu';
@@ -148,6 +148,9 @@ export default function Central() {
         </div>
         <div className="flex items-center gap-2">
           <AtualizarPeriodo aoConcluir={() => refetch()} />
+          <Link to="/central/eventos" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
+            <Target className="w-3.5 h-3.5" /> Eventos e metas
+          </Link>
           <Link to="/central/relatorio" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20">
             <FileText className="w-3.5 h-3.5" /> Relatório
           </Link>
