@@ -119,7 +119,10 @@ Deno.serve(async req=>{
     await sql`update rgv.import_batch set status='success',loaded_rows=${rows},finished_at=now() where id=${batch}::uuid`;
     return json({status:caughtUp?"success":"partial",rows,bootstrap_done:!!cp.bootstrap_done,incremental_caught_up:deltaCaughtUp});
   }catch(e){const limited=e instanceof Budget;const safe=limited?"execution_budget":/^[a-zA-Z0-9_]+$/.test((e as Error).message)?(e as Error).message:"worker_failure";
-    if(run)await sql`update rgv.sync_run set status=${limited?"partial":"error"},finished_at=now(),rows_processed=${rows},error_type=${safe},error_detail='Checkpoint retained; retry on next scheduled execution' where id=${run}::uuid`.catch(()=>{});
+    const category=String((e as any).provider_category||"");
+    const reason=(e as any).provider_message==="history_batch_limit_50"?"HubSpot permite no máximo 50 negócios por lote com histórico. Ação: reduzir o lote para 50.":limited?"Limite de tempo da execução atingido. Ação: continuar do ponto salvo; não é falha dos dados.":safe==="hubspot_http_429"?"Limite de requisições do HubSpot. Ação: aguardar e reduzir a frequência.":safe==="hubspot_http_401"||safe==="hubspot_http_403"?"Acesso ao HubSpot recusado. Ação: validar token e permissões no servidor.":safe==="hubspot_http_400"?"Requisição rejeitada pelo HubSpot. Ação: verificar limites, filtros e tamanho do lote.":"Falha na etapa indicada. Ação: verificar o código técnico antes de repetir a carga.";
+    const detail="Etapa: "+stage+". "+reason+" Categoria: "+(category||"não informada")+". Ponto de retomada preservado.";
+    if(run)await sql`update rgv.sync_run set status=${limited?"partial":"error"},finished_at=now(),rows_processed=${rows},error_type=${safe},error_detail=${detail} where id=${run}::uuid`.catch(()=>{});
     if(batch)await sql`update rgv.import_batch set status='partial',loaded_rows=${rows},finished_at=now() where id=${batch}::uuid`.catch(()=>{});
     return json({status:limited?"partial":"error",error:safe,stage,provider_category:(e as any).provider_category,provider_message:(e as any).provider_message,sql_code:/^[A-Z0-9]{5}$/.test(String((e as any).code||""))?(e as any).code:undefined,rows},limited?200:500);
   }finally{
