@@ -26,6 +26,8 @@ Script de normalização do CSV também preserva snapshots já verificados da AP
 
 Edge Functions `rgv-hubspot-sync` e `rgv-sync-check` exigem o header interno x-rgv-sync-key.
 Chave aleatória armazenada em Vault como rgv_sync_key; nunca inserida no código ou entregue ao navegador.
+O Cron usa rgv.dispatch_hubspot com HTTP direto, privado, sem guardar credenciais na fila pg_net. A chave de diagnóstico foi rotacionada após a verificação.
+As tabelas internas pg_net são gerenciadas por supabase_admin; a tentativa de revogar suas permissões via postgres não alterou os grants. Não assumir que tabelas de extensões tenham os mesmos controles das tabelas RGV. A rotina nova não usa essa fila.
 verify_jwt=false é intencional porque a autenticação interna é feita por chave, verificável antes de consultas de negócio.
 Tokens dos provedores continuam nos Secrets das Edge Functions, sem migração nem exposição.
 Vault não pode ser lido diretamente por anon ou authenticated. O painel usa a sessão da plataforma; nenhum segundo login no gerenciador.
