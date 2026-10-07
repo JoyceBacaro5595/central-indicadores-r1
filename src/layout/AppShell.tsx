@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Globe, Image, Users, Settings, SlidersHorizontal, Menu, X,
+  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 
@@ -22,8 +22,7 @@ const SECOES: Secao[] = [
   {
     titulo: 'Perpétuo RGV',
     itens: [
-      { to: '/perpetuo/criativos', rotulo: 'Por criativo', icone: Image },
-      { to: '/perpetuo/lps', rotulo: 'Por LP', icone: Globe },
+      { to: '/perpetuo/trafego', rotulo: 'Fluxo de Tráfego', icone: Waypoints },
     ],
   },
   {
