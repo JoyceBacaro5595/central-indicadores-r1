@@ -1,3 +1,19 @@
+## Importação histórica — 07/10/2026
+
+Produção `r1-indicadores`: importação concluída com 28.320 IDs únicos (28.080 Vendas Principal RGV + 240 Pipeline de Vendas Boleto), 46 campos preservados em `rgv.raw_record` e 28.320 negócios normalizados em `rgv.deal`. Validação de conteúdo de todas as células bateu com o CSV original. Arquivo SHA-256: `a14a6aa33ca905dd9baac73ebbd32f68269b97194e80d58fe6429394485cb6ee`.
+
+Datas de criação, alteração, venda informada e entrada na etapa atual foram preservadas. O CSV não informa fuso: normalização assume America/Sao_Paulo e marca `source_timezone_verified=false`; o texto original permanece intacto. A data da venda pode ter precisão apenas de dia. Data de fechamento não é usada como prova de venda.
+
+Nenhum evento anterior foi inventado: `history_complete=false`. Segmentação permanece pendente e MQL não foi inferido. IDs técnicos de pipeline/etapa precisam vir da API. Bootstrap do HubSpot deve recuperar histórico de todos os IDs importados, não apenas negócios criados depois do upload; depois sincronizar negócios novos e alterados incrementalmente.
+
+Frontend publicado usando `perpetuo_funil_v2`, com mapeamento de leads CRM e métricas por LP. RPC antiga removida após publicação. Oito views públicas `bf_*` removidas, preservando tabelas de origem Black10x. Acesso aos dados pelo painel exige a sessão da plataforma e permissão; o gerenciador não pede outro login.
+
+Scripts reutilizáveis: `scripts/rgv_csv_chunk.py` gera SQL de carga idempotente sem expor dados no git; `scripts/rgv_normalize_csv.sql` trata lotes CSV concluídos e protege snapshots mais novos. Dados de funil, atribuição, segmentação validada e coletores automáticos ainda dependem da próxima etapa; importação não preenche métricas incompletas com zero.
+
+As migrations deste diretório têm o destino R1, não o projeto Lovable. As alterações foram aplicadas via conector: conferir versões em `supabase_migrations.schema_migrations` antes de qualquer db push, sem reaplicar DDL já executado.
+
+---
+
 # Perpétuo RGV — contrato de backend v2
 
 Destino: Supabase **r1-indicadores**, ref `lgaujmjedphzynhbokob`.
@@ -6,11 +22,11 @@ Não executar esta migração no banco Lovable indicado pelo `supabase/config.to
 ## Estado entregue
 
 Estrutura `rgv` e RPCs v2 criadas e verificadas no r1-indicadores.
-As tabelas novas começam vazias; os dados existentes não foram copiados, substituídos ou certificados.
+A carga histórica já preenche raw_record e deal. As tabelas de eventos, atribuição e marts aguardam dados de API e regras verificadas.
 A migração foi criada com o CLI e aplicada diretamente por SQL; antes de um futuro `db push`,
 reconciliar o histórico de migrações com o ambiente. Não reaplicar este arquivo no banco já preparado.
-A função `perpetuo_funil` do frontend do Claude permanece intacta.
-O worker de ETL e os coletores de APIs ainda precisam ser implementados; nenhum Cron novo foi ativado.
+A função antiga `perpetuo_funil` foi removida e o frontend usa `perpetuo_funil_v2`.
+A normalização do CSV foi executada; os coletores de APIs e o ETL de jornada/atribuição ainda precisam ser implementados. Nenhum Cron novo foi ativado.
 
 ## Fluxo previsto
 
@@ -57,10 +73,10 @@ Campos de métricas em todos os grãos:
 `null` significa não disponível. Zero só representa uma coleta concluída sem atividade.
 `atualizado_em` é a atualização real do mart; fica nulo até a primeira carga.
 
-### Adaptação da branch do Claude
+### Contrato de integração do frontend
 
-- Alterar explicitamente a consulta de `perpetuo_funil` para `perpetuo_funil_v2` quando integrado.
-- O cartão “CPL (MQL)” deve consumir `cpmql`. `cpl` é custo por negócio/lead CRM.
+- Consulta já alterada de `perpetuo_funil` para `perpetuo_funil_v2` em produção.
+- O cartão CPMQL já consome `cpmql`. `cpl` é custo por negócio/lead CRM.
 - A tabela por criativo usa `leads_crm` para Leads; manter Leads pixel separados.
 - A tabela por LP usa `visualizacoes_lp` e `conversao_lp`.
 - Não mapear `utm_content` automaticamente como criativo: no CSV ele frequentemente identifica o público/conjunto.
