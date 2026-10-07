@@ -107,7 +107,7 @@ export default function Perpetuo() {
                 <KpiCard label="CPM" value={fmtBrl(r.cpm, 2)} motivo={motivoMeta} />
                 <KpiCard label="CTR" value={fmtPct(r.ctr, 2)} motivo={motivoMeta} />
                 <KpiCard label="CPC" value={fmtBrl(r.cpc, 2)} motivo={motivoMeta} />
-                <KpiCard label="CPL (MQL)" value={fmtBrl(r.cpl, 2)} highlight motivo={motivoMeta ?? motivoFunil} />
+                <KpiCard label="CPMQL" value={fmtBrl(r.cpl, 2)} highlight motivo={motivoMeta ?? motivoFunil} />
               </KpiGrid>
             </Secao>
 

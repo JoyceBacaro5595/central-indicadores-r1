@@ -29,7 +29,7 @@ export interface PerpetuoLp {
 }
 
 export interface PerpetuoFunil {
-  atualizado_em: string;
+  atualizado_em: string | null;
   periodo: { inicio: string; fim: string };
   ciclos: PerpetuoCiclo[];
   fontes: { meta_ate: string | null; funil_ate: string | null; meta_no_periodo: boolean; funil_no_periodo: boolean; criativo: boolean; lp: boolean };
@@ -41,8 +41,23 @@ export interface PerpetuoFunil {
 
 export function usePerpetuo(de?: string, ate?: string) {
   return useQuery({
-    queryKey: ['perpetuo-funil', de, ate],
-    queryFn: () => r1Rpc<PerpetuoFunil>('perpetuo_funil', { p_de: de ?? null, p_ate: ate ?? null }),
+    queryKey: ['perpetuo-funil-v2', de, ate],
+    queryFn: async () => {
+      type MetricasV2 = { leads_crm: number | null; visualizacoes_lp: number | null; conversao_lp: number | null; cpmql: number | null };
+      type RespostaV2 = Omit<PerpetuoFunil, 'resumo' | 'por_criativo' | 'por_lp'> & {
+        resumo: PerpetuoResumo & MetricasV2;
+        por_criativo: (PerpetuoCriativo & MetricasV2)[] | null;
+        por_lp: (PerpetuoLp & MetricasV2)[] | null;
+      };
+      const data = await r1Rpc<RespostaV2>('perpetuo_funil_v2', { p_de: de ?? null, p_ate: ate ?? null });
+      return {
+        ...data,
+        // O cartão existente representa custo por MQL; CPL continua próprio nas tabelas.
+        resumo: { ...data.resumo, cpl: data.resumo.cpmql },
+        por_criativo: data.por_criativo?.map((linha) => ({ ...linha, leads: linha.leads_crm })) ?? null,
+        por_lp: data.por_lp?.map((linha) => ({ ...linha, leads: linha.leads_crm, visualizacoes: linha.visualizacoes_lp, conversao: linha.conversao_lp })) ?? null,
+      };
+    },
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,
