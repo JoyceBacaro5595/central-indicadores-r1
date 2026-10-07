@@ -53,8 +53,25 @@ function Secao({ titulo, children, acao }: { titulo: string; children: React.Rea
   );
 }
 
+interface Observacao { tipo: string; chave: string; observacoes: string }
+function Observacoes({ tipo, chave, texto, aoSalvar }: { tipo: string; chave: string; texto: string; aoSalvar: () => void }) {
+  const [rascunho, setRascunho] = useState<string | null>(null);
+  const salvar = useMutation({
+    mutationFn: () => r1Rpc('gerenciador_observacao_salvar', { p_tipo: tipo, p_chave: chave, p_observacoes: rascunho ?? texto }),
+    onSuccess: () => { setRascunho(null); aoSalvar(); },
+  });
+  return <details className="mt-2 text-xs" title={texto || 'Adicione uma explicação para este ajuste'}>
+    <summary className="cursor-pointer text-muted-foreground">Observações</summary>
+    <textarea aria-label="Observações" maxLength={2000} value={rascunho ?? texto} onChange={e => setRascunho(e.target.value)} className="mt-2 w-full min-w-48 bg-secondary rounded p-2 text-foreground" />
+    <button disabled={salvar.isPending || rascunho === null || rascunho === texto} onClick={() => salvar.mutate()} className="text-primary disabled:opacity-30">{salvar.isPending ? 'Salvando…' : 'Salvar observações'}</button>
+    {salvar.error && <p role="alert" className="text-red-400">{(salvar.error as Error).message}</p>}
+  </details>;
+}
+
 export default function Gerenciador() {
   const qc = useQueryClient();
+  const notas = useQuery({ queryKey: ['gerenciador-observacoes'], queryFn: () => r1Rpc<Observacao[]>('gerenciador_observacoes') });
+  const observacoes = (tipo: string, chave: string) => <Observacoes tipo={tipo} chave={chave} texto={notas.data?.find(n => n.tipo === tipo && n.chave === chave)?.observacoes ?? ''} aoSalvar={() => { qc.invalidateQueries({ queryKey: ['gerenciador-observacoes'] }); qc.invalidateQueries({ queryKey: ['gerenciador'] }); }} />;
   const estado = useQuery({ queryKey: ['gerenciador'], queryFn: () => r1Rpc<Estado>('gerenciador_estado'), refetchInterval: 60_000 });
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -100,6 +117,11 @@ export default function Gerenciador() {
 
         {d && (
           <>
+            {notas.error && <p role="alert" className="text-red-400">Não foi possível carregar Observações: {(notas.error as Error).message}</p>}
+            <Secao titulo="Limites das integrações">
+              <div className="text-sm" title={notas.data?.find(n => n.chave === 'hubspot_historico_lote')?.observacoes}>HubSpot · até 50 negócios por lote com histórico</div>
+              {observacoes('limite', 'hubspot_historico_lote')}
+            </Secao>
             <Secao titulo="Agendamentos (cron)">
               <table className="w-full text-xs">
                 <thead><tr className="text-muted-foreground text-left"><th className="pb-2 font-semibold">Rotina</th><th className="pb-2 font-semibold">Quando (expressão cron, em UTC)</th><th className="pb-2 font-semibold">Última execução</th><th className="pb-2 font-semibold text-right">24h</th><th className="pb-2 font-semibold text-right">Ações</th></tr></thead>
@@ -111,6 +133,7 @@ export default function Gerenciador() {
                           <span className={`text-[10px] px-1.5 rounded ${a.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-secondary text-muted-foreground'}`}>{!a.existe ? 'não existe' : a.active ? 'ativo' : 'pausado'}</span>
                         </div>
                         <div className="text-muted-foreground">{a.descricao}</div>
+                        {observacoes('agendamento', a.jobname)}
                       </td>
                       <td className="py-2 pr-3">
                         <div className="flex items-center gap-1.5">
@@ -152,6 +175,7 @@ export default function Gerenciador() {
                         <div className="flex-1">
                           <div className="font-semibold text-foreground">{p.rotulo}</div>
                           <div className="text-muted-foreground">{p.descricao}</div>
+                          {observacoes('parametro', p.chave)}
                         </div>
                         <input type="number" value={edicaoParam[p.chave] ?? String(p.valor)} onChange={(e) => setEdicaoParam({ ...edicaoParam, [p.chave]: e.target.value })}
                           className="mono w-20 bg-secondary rounded px-2 py-1 text-right text-foreground" />
