@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
-import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
+import { useCentralIngressos, CentralEvento, CentralPorRota, CentralRota } from '@/hooks/useCentralIngressos';
 import MaquinaOnline from './MaquinaOnline';
 import { Abas, PageBody, PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
@@ -115,6 +115,73 @@ function EventosTabela({ eventos }: { eventos: CentralEvento[] }) {
   );
 }
 
+function FiltroRota({ rotas, valor, onChange }: { rotas: CentralRota[]; valor: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <label className="flex items-center gap-2 surface px-3 py-1.5 rounded-lg">
+      <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Rota</span>
+      <select
+        value={valor ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="bg-transparent text-xs font-medium text-foreground outline-none border-none min-w-[160px]"
+      >
+        <option value="">Geral · todas as rotas</option>
+        {rotas.map((r) => (
+          <option key={r.cidade} value={r.cidade}>{r.cidade}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function RotasTabela({ linhas, total, onEscolher }: { linhas: CentralPorRota[]; total: number; onEscolher: (cidade: string) => void }) {
+  return (
+    <div className="surface p-4 overflow-x-auto">
+      <div className="flex items-center justify-between">
+        <span className="section-label">Desempenho por rota no período</span>
+        <span className="text-[10px] text-muted-foreground">Clique na rota para filtrar</span>
+      </div>
+      <table className="w-full mt-3 text-xs min-w-[760px]">
+        <thead>
+          <tr className="text-muted-foreground text-right">
+            <th className="text-left pb-2">Rota (cidade)</th>
+            <th className="pb-2">Eventos</th>
+            <th className="pb-2">Pagos</th>
+            <th className="pb-2">% do total</th>
+            <th className="pb-2">VIP</th>
+            <th className="pb-2">Cortesias</th>
+            <th className="pb-2">Últ. 7 dias</th>
+            <th className="pb-2">Compradores</th>
+            <th className="pb-2">Faturamento</th>
+            <th className="pb-2">Ticket/ingr.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.length === 0 && (
+            <tr><td colSpan={10} className="py-2 text-muted-foreground">Sem vendas no período</td></tr>
+          )}
+          {linhas.map((l) => (
+            <tr key={l.cidade} className="border-t border-border text-right mono">
+              <td className="text-left py-1.5 font-sans font-semibold">
+                <button onClick={() => onEscolher(l.cidade)} className="hover:text-primary text-left">{l.cidade}</button>
+              </td>
+              <td>{num(l.eventos)}</td>
+              <td>{num(l.ingressos_pagos)}</td>
+              <td>{pct(l.ingressos_pagos, total)}</td>
+              <td>{num(l.vip)}</td>
+              <td>{num(l.cortesias)}</td>
+              <td>{num(l.ult_7d)}</td>
+              <td>{num(l.compradores)}</td>
+              <td>{brl(l.faturamento)}</td>
+              <td>{brl(l.ingressos_pagos ? l.faturamento / l.ingressos_pagos : 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 type AbaMV = 'presencial' | 'online';
 
 export default function Central() {
@@ -122,7 +189,11 @@ export default function Central() {
   const nav = useNavigate();
   const [inicio, setInicio] = useState(inicioMesISO());
   const [fim, setFim] = useState(hojeISO());
-  const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim);
+  const [rota, setRota] = useState<string | null>(null);
+  const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim, rota);
+  // A lista de rotas não muda com o filtro; guarda a última conhecida para o select não piscar.
+  const [rotas, setRotas] = useState<CentralRota[]>([]);
+  useEffect(() => { if (data?.rotas) setRotas(data.rotas); }, [data]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', localStorage.getItem('theme') === 'light');
@@ -140,8 +211,8 @@ export default function Central() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo="Máquina de Vendas · Visão geral"
-        subtitulo={aba === 'online' ? 'Máquina de Vendas Online · Meta Ads e HubSpot' : <>Máquina de Vendas presencial · Guru {atualizado && `· atualizado ${atualizado}`}</>}
+        titulo="Visão geral · Vendas de ingressos"
+        subtitulo={aba === 'online' ? 'Máquina de Vendas Online · Meta Ads e HubSpot' : <>Máquina de Vendas presencial · {rota ? `Rota ${rota}` : 'Geral, todas as rotas'} · Guru {atualizado && `· atualizado ${atualizado}`}</>}
         acoes={aba === 'presencial' ? <AtualizarPeriodo aoConcluir={() => refetch()} /> : undefined}
         onAtualizar={aba === 'presencial' ? () => refetch() : undefined}
         atualizando={isFetching}
@@ -152,7 +223,15 @@ export default function Central() {
 
         {aba === 'online' && <MaquinaOnline />}
 
-        {aba === 'presencial' && <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />}
+        {aba === 'presencial' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />
+            <FiltroRota rotas={rotas} valor={rota} onChange={setRota} />
+            {rota && (
+              <button onClick={() => setRota(null)} className="text-[11px] text-primary font-semibold">Ver geral</button>
+            )}
+          </div>
+        )}
 
         {aba === 'presencial' && error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {aba === 'presencial' && !data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}
@@ -211,6 +290,8 @@ export default function Central() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {!rota && <RotasTabela linhas={data.por_rota} total={r.ingressos_pagos} onEscolher={setRota} />}
 
             <EventosTabela eventos={data.eventos} />
 
