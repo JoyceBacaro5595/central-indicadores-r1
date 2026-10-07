@@ -33,4 +33,4 @@ on conflict(deal_id) do update set
  monthly_revenue_raw=excluded.monthly_revenue_raw,employee_count_raw=excluded.employee_count_raw,
  source_modified_at=excluded.source_modified_at,source_timezone=excluded.source_timezone,
  source_timezone_verified=excluded.source_timezone_verified,processed_at=now()
-where rgv.deal.source_modified_at is null or excluded.source_modified_at>=rgv.deal.source_modified_at;
+where rgv.deal.source_modified_at is null or (not rgv.deal.source_timezone_verified and excluded.source_modified_at>=rgv.deal.source_modified_at);
