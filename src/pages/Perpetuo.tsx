@@ -105,9 +105,11 @@ const ABAS: { valor: Aba; rotulo: string; eyebrow: string; titulo: string; desta
 type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string };
 function itensDaAba(aba: Aba, d: PerpetuoFunil | undefined): Item[] | null | undefined {
   if (!d) return undefined;
-  if (aba === 'campanhas') return d.por_campanha === undefined ? null : d.por_campanha?.map((c) => ({ ...c, nome: c.campanha })) ?? null;
-  if (aba === 'criativos') return d.por_criativo?.map((c) => ({ ...c, nome: c.criativo })) ?? null;
-  return d.por_lp?.map((l) => ({ ...l, nome: l.pagina })) ?? null;
+  // A RPC pode devolver rótulo nulo (front_daily.label é opcional): mostramos o id como nome.
+  const rotulo = (v: string | null | undefined, id: string) => (v && v.trim() ? v : `Sem rótulo · ${id}`);
+  if (aba === 'campanhas') return d.por_campanha === undefined ? null : d.por_campanha?.map((c) => ({ ...c, nome: rotulo(c.campanha, c.id) })) ?? null;
+  if (aba === 'criativos') return d.por_criativo?.map((c) => ({ ...c, nome: rotulo(c.criativo, c.id) })) ?? null;
+  return d.por_lp?.map((l) => ({ ...l, nome: rotulo(l.pagina, l.id) })) ?? null;
 }
 const MOTIVO_ND: Record<Aba, string> = {
   campanhas: 'A quebra por campanha ainda não é entregue pela RPC perpetuo_funil_v2 (só total, criativo e LP). Os totais acima já são os da conta.',
@@ -210,7 +212,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} />}
 
-        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} ref={r ?? null} />}
+        {data && <Lista key={aba} aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} ref={r ?? null} />}
 
         <ComoLer />
       </PageBody>
@@ -424,7 +426,7 @@ function LinhaItem({ it, pos, visao, metas }: { it: Item; pos: number; visao: Vi
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
         <span className="text-sm font-bold text-foreground truncate" title={it.nome}>{it.nome}</span>
-        {it.cobertura && (it.cobertura.media_complete === false || it.cobertura.crm_complete === false) && <span className="tag ml-auto shrink-0">dados parciais</span>}
+        {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag ml-auto shrink-0" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
       </div>
       <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 mt-2 pl-8">
         <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
@@ -526,7 +528,7 @@ const COMO_LER: [string, string][] = [
   ['Lead no perfil (MQL)', 'Leads que entraram no perfil qualificado segundo as regras de segmentação ativas (faixa de faturamento). MQL pendente de segmentação fica fora até ser classificado.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
-  ['Maturação', 'Reunião e venda contam no dia de entrada do lead. Leads recentes ainda podem avançar, então o fim do funil dos últimos 30 a 60 dias tende a subir.'],
+  ['Datas', 'Leads contam pela data de criação, cada etapa pela data de entrada nela e vendas pela data real da venda. Por isso o funil de um período é operacional (o que aconteceu nele), não a safra dos leads daquele período; taxas de períodos curtos misturam leads de datas diferentes.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as campanhas, resolvidos por ID do anúncio no Meta (não por utm_content, que costuma identificar o público).'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período. Zero só aparece quando a coleta terminou sem atividade.'],

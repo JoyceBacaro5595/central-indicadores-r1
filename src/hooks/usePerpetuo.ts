@@ -21,9 +21,10 @@ export interface PerpetuoMetricas {
   // Conversões (%)
   conversao_lp: number | null; taxa_mql: number | null; taxa_contato: number | null; taxa_sql: number | null;
   taxa_agendamento: number | null; taxa_comparecimento: number | null; taxa_fechamento: number | null;
+  /** Chaves como a RPC devolve (rgv.aggregate_front). */
   cobertura?: {
     dias_esperados?: number; dias_carregados?: number;
-    media_complete?: boolean; crm_complete?: boolean; history_complete?: boolean; attribution_complete?: boolean;
+    midia_completa?: boolean; crm_completo?: boolean; historico_completo?: boolean; custos_validos?: boolean;
   } | null;
 }
 
@@ -33,9 +34,9 @@ export interface PerpetuoDescritivo {
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
 }
-export interface PerpetuoCriativo extends PerpetuoMetricas, PerpetuoDescritivo { id: string; criativo: string }
-export interface PerpetuoLp extends PerpetuoMetricas, PerpetuoDescritivo { id: string; pagina: string }
-export interface PerpetuoCampanha extends PerpetuoMetricas, PerpetuoDescritivo { id: string; campanha: string }
+export interface PerpetuoCriativo extends PerpetuoMetricas, PerpetuoDescritivo { id: string; criativo: string | null }
+export interface PerpetuoLp extends PerpetuoMetricas, PerpetuoDescritivo { id: string; pagina: string | null }
+export interface PerpetuoCampanha extends PerpetuoMetricas, PerpetuoDescritivo { id: string; campanha: string | null }
 
 /** Metas do plano do ciclo (em %). A RPC ainda não devolve; quando devolver, a tela usa. */
 export interface PerpetuoMetas {
