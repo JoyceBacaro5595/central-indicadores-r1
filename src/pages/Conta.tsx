@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { r1 } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 
 export default function Conta() {
   const { session, perfil } = useAuth();
@@ -26,18 +26,7 @@ export default function Conta() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar">
-            <ArrowLeft className="w-4 h-4 text-primary" />
-          </Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Minha conta</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">{session?.user.email} · perfil {perfil?.papel}</p>
-          </div>
-        </div>
-        <UserMenu />
-      </header>
+      <PageHeader titulo="Minha conta" subtitulo={<>{session?.user.email} · perfil {perfil?.papel}</>} />
       <main className="py-6 mx-auto max-w-md px-4">
         <form onSubmit={salvar} className="surface p-6 space-y-4">
           <h2 className="text-sm font-bold text-foreground">Trocar senha</h2>

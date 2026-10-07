@@ -13,10 +13,9 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { LoadingBar } from '@/components/LoadingBar';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { Sun, Moon, Smartphone, Monitor, RefreshCw } from 'lucide-react';
-import UserMenu from '@/components/UserMenu';
 
 
-export default function Index() {
+export default function MaquinaOnline() {
   const [lightMode, setLightMode] = useState(() => localStorage.getItem('theme') === 'light');
   const [mobileView, setMobileView] = useState(() => localStorage.getItem('mobileView') === 'true');
   const [startDate, setStartDate] = useState('2026-09-14');
@@ -36,17 +35,11 @@ export default function Index() {
   }, [mobileView]);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="text-primary text-sm font-black">+</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Máquina de Vendas Online</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Evento 21/09 · Metas de Performance</p>
-          </div>
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-extrabold text-foreground tracking-wide">Máquina de Vendas Online</h2>
+          <p className="text-[10px] text-muted-foreground font-medium">Evento 21/09 · Metas de Performance · Meta Ads e HubSpot</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -78,16 +71,12 @@ export default function Index() {
               <btn.icon className="w-4 h-4" />
             </button>
           ))}
-          <UserMenu />
         </div>
-      </header>
+      </div>
+
 
       {/* Content */}
-      <main
-        className={`py-6 space-y-6 mx-auto transition-all duration-300 ${
-          mobileView ? 'max-w-[420px] px-4' : 'max-w-[1520px] px-8'
-        }`}
-      >
+      <div className={`mt-6 space-y-6 mx-auto transition-all duration-300 ${mobileView ? 'max-w-[420px]' : ''}`}>
         <DateRangePicker
           startDate={startDate}
           endDate={endDate}
@@ -167,8 +156,7 @@ export default function Index() {
             </p>
           </div>
         )}
-      </main>
-
+      </div>
     </div>
   );
 }

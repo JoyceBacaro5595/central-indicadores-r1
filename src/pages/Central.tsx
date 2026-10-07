@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { ArrowLeft, RefreshCw, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
-import UserMenu from '@/components/UserMenu';
+import MaquinaOnline from './MaquinaOnline';
+import { Abas, PageBody, PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 const brl = (v: number | null | undefined) =>
@@ -114,7 +115,11 @@ function EventosTabela({ eventos }: { eventos: CentralEvento[] }) {
   );
 }
 
+type AbaMV = 'presencial' | 'online';
+
 export default function Central() {
+  const { aba = 'presencial' } = useParams<{ aba: AbaMV }>();
+  const nav = useNavigate();
   const [inicio, setInicio] = useState(inicioMesISO());
   const [fim, setFim] = useState(hojeISO());
   const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim);
@@ -134,39 +139,25 @@ export default function Central() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar">
-            <ArrowLeft className="w-4 h-4 text-primary" />
-          </Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Central de Vendas · Ingressos</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">
-              Máquina de Vendas presencial · Guru {atualizado && `· atualizado ${atualizado}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <AtualizarPeriodo aoConcluir={() => refetch()} />
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50"
-            title="Atualizar"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+      <PageHeader
+        titulo="Máquina de Vendas · Visão geral"
+        subtitulo={aba === 'online' ? 'Máquina de Vendas Online · Meta Ads e HubSpot' : <>Máquina de Vendas presencial · Guru {atualizado && `· atualizado ${atualizado}`}</>}
+        acoes={aba === 'presencial' ? <AtualizarPeriodo aoConcluir={() => refetch()} /> : undefined}
+        onAtualizar={aba === 'presencial' ? () => refetch() : undefined}
+        atualizando={isFetching}
+      />
 
-      <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
-        <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />
+      <PageBody>
+        <Abas<AbaMV> valor={aba as AbaMV} onChange={(v) => nav(v === 'presencial' ? '/central' : '/central/online')} itens={[{ valor: 'presencial', rotulo: 'Presencial · Ingressos' }, { valor: 'online', rotulo: 'Online' }]} />
 
-        {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
-        {!data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}
+        {aba === 'online' && <MaquinaOnline />}
 
-        {data && r && ritmo && (
+        {aba === 'presencial' && <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />}
+
+        {aba === 'presencial' && error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
+        {aba === 'presencial' && !data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}
+
+        {aba === 'presencial' && data && r && ritmo && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               <Kpi label="Vendidos hoje" value={num(ritmo.hoje)} sub={`ontem ${num(ritmo.ontem)} · ${brl(ritmo.fat_hoje)} hoje`} highlight />
@@ -253,7 +244,7 @@ export default function Central() {
             />
           </>
         )}
-      </main>
+      </PageBody>
     </div>
   );
 }

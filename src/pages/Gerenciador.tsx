@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Play, Pause, Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 interface Parametro { chave: string; valor: number; rotulo: string; descricao: string | null; grupo: string; atualizado_em: string }
@@ -84,22 +84,13 @@ export default function Gerenciador() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar"><ArrowLeft className="w-4 h-4 text-primary" /></Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Gerenciador</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Integrações, horários, prazos e logs {d && `· banco ${num(d.banco_mb)} MB · última captura ${fmt(d.ultima_captura)}`}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <AtualizarPeriodo aoConcluir={() => estado.refetch()} />
-          <button onClick={() => estado.refetch()} disabled={estado.isFetching} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Atualizar">
-            <RefreshCw className={`w-4 h-4 ${estado.isFetching ? 'animate-spin' : ''}`} />
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+      <PageHeader
+        titulo="Gerenciador"
+        subtitulo={<>Integrações, horários, prazos e logs {d && `· banco ${num(d.banco_mb)} MB · última captura ${fmt(d.ultima_captura)}`}</>}
+        acoes={<AtualizarPeriodo aoConcluir={() => estado.refetch()} />}
+        onAtualizar={() => estado.refetch()}
+        atualizando={estado.isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         {estado.error && <div className="surface p-4 text-sm text-red-400">{(estado.error as Error).message}</div>}

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download, Check, X, Phone, Undo2 } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 
 interface Resumo {
   na_fila: number; valor_na_fila: number; contatados: number; recuperados: number; descartados: number; ja_compraram_depois: number; horas_parametro: number;
@@ -75,19 +75,12 @@ export default function Recuperacao() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar"><ArrowLeft className="w-4 h-4 text-primary" /></Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Recuperação de carrinho</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Pedidos expirados ou aguardando pagamento há mais de {r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { resumo.refetch(); fila.refetch(); }} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="Atualizar"><RefreshCw className={`w-4 h-4 ${fila.isFetching ? 'animate-spin' : ''}`} /></button>
-          <UserMenu />
-        </div>
-      </header>
+      <PageHeader
+        titulo="Recuperação de carrinho"
+        subtitulo={`Pedidos expirados ou aguardando pagamento há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
+        onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
+        atualizando={fila.isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}

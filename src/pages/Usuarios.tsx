@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, UserPlus } from 'lucide-react';
 import { r1Function, r1Rpc } from '@/integrations/r1/client';
 import { useAuth, type Papel } from '@/auth/AuthProvider';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 
 interface Usuario {
   user_id: string; email: string; nome: string | null; papel: Papel; ativo: boolean;
@@ -63,24 +63,12 @@ export default function Usuarios() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar">
-            <ArrowLeft className="w-4 h-4 text-primary" />
-          </Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Usuários e permissões</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Quem acessa a central e o que cada perfil pode ver</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => usuarios.refetch()} disabled={usuarios.isFetching}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Atualizar">
-            <RefreshCw className={`w-4 h-4 ${usuarios.isFetching ? 'animate-spin' : ''}`} />
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+      <PageHeader
+        titulo="Usuários e permissões"
+        subtitulo="Quem acessa a central e o que cada perfil pode ver"
+        onAtualizar={() => usuarios.refetch()}
+        atualizando={usuarios.isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1200px] px-4 md:px-8">
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
