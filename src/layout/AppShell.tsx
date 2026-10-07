@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Globe, Users, Settings, SlidersHorizontal, Menu, X,
+  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Globe, Image, Users, Settings, SlidersHorizontal, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 
-type Item = { to: string; rotulo: string; icone: typeof LayoutDashboard; recurso?: string; fim?: boolean };
+type Item = { to: string; rotulo: string; icone: typeof LayoutDashboard; recurso?: string; fim?: boolean; extra?: string[] };
 type Secao = { titulo: string; recurso?: string; itens: Item[] };
 
 const SECOES: Secao[] = [
   {
     titulo: 'Máquina de Vendas',
     itens: [
-      { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true },
+      { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true, extra: ['/central/online'] },
       { to: '/central/eventos', rotulo: 'Eventos e metas', icone: CalendarRange },
       { to: '/central/relatorio', rotulo: 'Relatório', icone: FileText },
       { to: '/central/checkins', rotulo: 'Check-ins', icone: UserCheck, recurso: 'presenca' },
@@ -20,8 +20,11 @@ const SECOES: Secao[] = [
     ],
   },
   {
-    titulo: 'Perpétuo',
-    itens: [{ to: '/', rotulo: 'Máquina de Vendas Online', icone: Globe, fim: true }],
+    titulo: 'Perpétuo RGV',
+    itens: [
+      { to: '/perpetuo/criativos', rotulo: 'Por criativo', icone: Image },
+      { to: '/perpetuo/lps', rotulo: 'Por LP', icone: Globe },
+    ],
   },
   {
     titulo: 'Usuários e Permissões',
@@ -88,7 +91,7 @@ export default function AppShell() {
                       end={i.fim}
                       className={({ isActive }) =>
                         `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                          isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                          isActive || i.extra?.includes(loc.pathname) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                         }`
                       }
                     >

@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Central from "./pages/Central.tsx";
 import Relatorio from "./pages/Relatorio.tsx";
@@ -16,6 +15,7 @@ import Regras from "./pages/Regras.tsx";
 import Eventos from "./pages/Eventos.tsx";
 import Checkins from "./pages/Checkins.tsx";
 import Recuperacao from "./pages/Recuperacao.tsx";
+import Perpetuo from "./pages/Perpetuo.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 import AppShell from "./layout/AppShell.tsx";
@@ -34,8 +34,11 @@ const App = () => (
           <Route path="/redefinir-senha" element={<RedefinirSenha />} />
           <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Navigate to="/central" replace />} />
             <Route path="/central" element={<Central />} />
+            <Route path="/central/online" element={<Central />} />
+            <Route path="/perpetuo" element={<Navigate to="/perpetuo/criativos" replace />} />
+            <Route path="/perpetuo/:aba" element={<Perpetuo />} />
             <Route path="/central/relatorio" element={<Relatorio />} />
             <Route path="/central/conta" element={<Conta />} />
             <Route path="/central/eventos" element={<Eventos />} />

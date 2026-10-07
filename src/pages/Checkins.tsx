@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 
 interface Presenca {
   linha: string | null; cidade: string; mes_evento: string; data_evento: string | null; evento_id: number | null;
@@ -69,22 +69,17 @@ export default function Checkins() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central/eventos" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar"><ArrowLeft className="w-4 h-4 text-primary" /></Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Check-ins</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Esperados, presentes, quem ainda não chegou e cancelados · e-tickets da Guru{r?.atualizado_em ? ` · lido ${horaBR(r.atualizado_em)}` : ''}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        titulo="Check-ins"
+        subtitulo={`Esperados, presentes, quem ainda não chegou e cancelados · e-tickets da Guru${r?.atualizado_em ? ` · lido ${horaBR(r.atualizado_em)}` : ''}`}
+        acoes={<>
           <input type="month" value={de.slice(0, 7)} onChange={(e) => setDe(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
           <span className="text-xs text-muted-foreground">a</span>
           <input type="month" value={ate.slice(0, 7)} onChange={(e) => setAte(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
-          <button onClick={() => { eventos.refetch(); resumo.refetch(); lista.refetch(); }} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="Atualizar"><RefreshCw className={`w-4 h-4 ${eventos.isFetching || lista.isFetching ? 'animate-spin' : ''}`} /></button>
-          <UserMenu />
-        </div>
-      </header>
+        </>}
+        onAtualizar={() => { eventos.refetch(); resumo.refetch(); lista.refetch(); }}
+        atualizando={eventos.isFetching || lista.isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}

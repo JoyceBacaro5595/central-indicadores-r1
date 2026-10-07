@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 import {
   useRelatorioIngressos,
   RelatorioFiltros,
@@ -295,37 +295,17 @@ export default function Relatorio() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header print:hidden">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar">
-            <ArrowLeft className="w-4 h-4 text-primary" />
-          </Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Relatório de vendas · Ingressos</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">
-              Gerado automaticamente da Guru {atualizado && `· dados de ${atualizado}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
-            title="Imprimir / salvar PDF"
-          >
+      <PageHeader
+        titulo="Relatório de vendas · Ingressos"
+        subtitulo={<>Gerado automaticamente da Guru {atualizado && `· dados de ${atualizado}`}</>}
+        acoes={
+          <button onClick={() => window.print()} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary" title="Imprimir / salvar PDF">
             <Printer className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50"
-            title="Atualizar"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+        }
+        onAtualizar={() => refetch()}
+        atualizando={isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         <div className="surface p-4 flex flex-wrap items-end gap-3 print:hidden">

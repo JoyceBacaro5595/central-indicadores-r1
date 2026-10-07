@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import UserMenu from '@/components/UserMenu';
+import { PageHeader } from '@/components/shared';
 
 interface Evento {
   id: number; linha: string; cidade: string; mes_evento: string; data_evento: string | null; local: string | null;
@@ -108,22 +108,17 @@ export default function Eventos() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <Link to="/central" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" title="Voltar"><ArrowLeft className="w-4 h-4 text-primary" /></Link>
-          <div>
-            <h1 className="text-sm font-extrabold text-foreground tracking-wide">Eventos e metas por cidade</h1>
-            <p className="text-[10px] text-muted-foreground font-medium">Calendário, capacidade, meta, realizado e ritmo necessário · Máquina de Vendas presencial</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        titulo="Eventos e metas por cidade"
+        subtitulo="Calendário, capacidade, meta, realizado e ritmo necessário · Máquina de Vendas presencial"
+        acoes={<>
           <input type="month" value={de.slice(0, 7)} onChange={(e) => setDe(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
           <span className="text-xs text-muted-foreground">a</span>
           <input type="month" value={ate.slice(0, 7)} onChange={(e) => setAte(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
-          <button onClick={() => eventos.refetch()} disabled={eventos.isFetching} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50" title="Atualizar"><RefreshCw className={`w-4 h-4 ${eventos.isFetching ? 'animate-spin' : ''}`} /></button>
-          <UserMenu />
-        </div>
-      </header>
+        </>}
+        onAtualizar={() => eventos.refetch()}
+        atualizando={eventos.isFetching}
+      />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
