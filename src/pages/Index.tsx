@@ -12,8 +12,7 @@ import { useHubspotData } from '@/hooks/useHubspotData';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { LoadingBar } from '@/components/LoadingBar';
 import { DateRangePicker } from '@/components/DateRangePicker';
-import { Sun, Moon, Smartphone, Monitor, RefreshCw, Ticket } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Sun, Moon, Smartphone, Monitor, RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
 
 
@@ -50,13 +49,6 @@ export default function Index() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to="/central"
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-150"
-            title="Central de vendas de ingressos"
-          >
-            <Ticket className="w-4 h-4" /> Ingressos
-          </Link>
           <button
             onClick={() => { refetchAds(); refetchHubspot(); }}
             disabled={fetching}

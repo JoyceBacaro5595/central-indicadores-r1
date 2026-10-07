@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Users, KeyRound, Settings, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, LogOut, KeyRound } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 
 const ROTULO: Record<string, string> = {
@@ -8,7 +8,7 @@ const ROTULO: Record<string, string> = {
 };
 
 export default function UserMenu() {
-  const { session, perfil, pode, sair } = useAuth();
+  const { session, perfil, sair } = useAuth();
   const nav = useNavigate();
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -38,21 +38,6 @@ export default function UserMenu() {
             <p className="text-muted-foreground">{perfil ? ROTULO[perfil.papel] ?? perfil.papel : 'Sem perfil'}</p>
           </div>
           <div className="h-px bg-border my-1" />
-          {pode('gerenciador') && (
-            <Link to="/central/gerenciador" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
-              <Settings className="w-3.5 h-3.5" /> Gerenciador
-            </Link>
-          )}
-          {pode('gerenciador') && (
-            <Link to="/central/regras" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
-              <SlidersHorizontal className="w-3.5 h-3.5" /> Regras de segmentação
-            </Link>
-          )}
-          {pode('usuarios') && (
-            <Link to="/central/usuarios" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
-              <Users className="w-3.5 h-3.5" /> Usuários e permissões
-            </Link>
-          )}
           <Link to="/central/conta" onClick={() => setAberto(false)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary text-foreground">
             <KeyRound className="w-3.5 h-3.5" /> Trocar minha senha
           </Link>

@@ -240,6 +240,10 @@
     border-bottom: 1px solid hsl(var(--border));
   }
 
+  @media (max-width: 767px) {
+    .dashboard-header { padding-left: 3.75rem; }
+  }
+
   /* ─── Mobile ─── */
   .mobile-view .dashboard-header {
     @apply px-4;

@@ -18,6 +18,7 @@ import Checkins from "./pages/Checkins.tsx";
 import Recuperacao from "./pages/Recuperacao.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
+import AppShell from "./layout/AppShell.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,12 +33,12 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/redefinir-senha" element={<RedefinirSenha />} />
           <Route element={<RequireAuth />}>
+          <Route element={<AppShell />}>
             <Route path="/" element={<Index />} />
             <Route path="/central" element={<Central />} />
             <Route path="/central/relatorio" element={<Relatorio />} />
             <Route path="/central/conta" element={<Conta />} />
             <Route path="/central/eventos" element={<Eventos />} />
-          </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />
           </Route>
@@ -50,6 +51,8 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="usuarios" />}>
             <Route path="/central/usuarios" element={<Usuarios />} />
+          </Route>
+          </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
