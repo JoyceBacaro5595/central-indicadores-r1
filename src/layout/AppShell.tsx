@@ -22,7 +22,7 @@ const SECOES: Secao[] = [
   {
     titulo: 'Perpétuo RGV',
     itens: [
-      { to: '/perpetuo/trafego', rotulo: 'Fluxo de Tráfego', icone: Waypoints },
+      { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing', icone: Waypoints },
     ],
   },
   {
