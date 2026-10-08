@@ -19,7 +19,7 @@ try{
  const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,campaign{id,effective_status},creative{id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
  const r=await fetch(url,{headers:{Authorization:"Bearer "+Deno.env.get("META_TOKEN_API")},signal:AbortSignal.timeout(25000)});
  const data=await r.json();if(!r.ok||data.error)return json({error:"meta_metadata_error",code:data.error?.code||r.status},502);
- let saved=0,unavailable=0,ambiguous=0;
+ let saved=0,unavailable=0,ambiguous=0;const changedAds:string[]=[];
  await sql.begin(async tx=>{
  for(const id of ids){
   const a=data[id.ad_id];if(!a||a.error){unavailable++;continue}
@@ -34,10 +34,15 @@ try{
   const payload={...a,_derived:{destination_candidates:urls,form_ids:forms,destination_ambiguous:urls.length>1}};
   await tx`insert into rgv.meta_ad_record(account_id,ad_id,payload) values('696363384474339',${id.ad_id},${tx.json(payload)}) on conflict(account_id,ad_id) do update set payload=excluded.payload,collected_at=now()`;
   await tx`update rgv.ad set creative_id=${c.id||null},creative_name=${c.name||null},preview_url=${safe(c.thumbnail_url)||safe(c.image_url)},destination_url=${dest},lp_id=${forms.length===1?"meta-form:"+forms[0]:dest?"lp:"+dest:null},lp_verified=${forms.length===1||!!dest},campaign_status=${a.campaign?.effective_status||null},ad_status=${a.effective_status||null},destination_type=${type},updated_at=now() where account_id='696363384474339' and ad_id=${id.ad_id}`;
-  saved++;
+  saved++;changedAds.push(id.ad_id);
  }
  });
- return json({status:"partial",rows:saved,unavailable,ambiguous});
+ let attributed=0;
+ if(changedAds.length){
+ const deals=await sql`select distinct d.deal_id from rgv.deal d join rgv.ad a on a.account_id='696363384474339' and a.ad_id=any(${changedAds}::text[]) and d.utm_content=a.ad_name and (d.utm_campaign=a.campaign_name or d.utm_campaign=a.campaign_id)`;
+ if(deals.length){const [x]=await sql`select rgv.refresh_exact_ad_attribution_v1(${deals.map(d=>d.deal_id)}::text[]) result`;attributed=Number(x.result?.rows||0)}
+ }
+ return json({status:"partial",rows:saved,unavailable,ambiguous,attribution_rows:attributed});
 }catch(e){return json({error:"metadata_worker_failure",sql_code:/^[A-Z0-9]{5}$/.test(String(e.code||""))?e.code:undefined},500)}
 finally{await sql.end({timeout:3})}
 });
