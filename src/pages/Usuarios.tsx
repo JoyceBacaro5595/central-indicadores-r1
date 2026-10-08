@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, UserPlus } from 'lucide-react';
+import { Pencil, Trash2, UserPlus } from 'lucide-react';
 import { r1Function, r1Rpc } from '@/integrations/r1/client';
 import { useAuth, type Papel } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
@@ -27,12 +27,17 @@ const RECURSOS: Record<string, string> = {
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 
 export default function Usuarios() {
-  const { perfil } = useAuth();
+  const { perfil, recarregarPerfil } = useAuth();
   const qc = useQueryClient();
   const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar') });
   const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: () => r1Rpc<Record<string, Papel[]>>('permissoes_listar') });
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // linha em edição (nome, e-mail, perfil, ativo) — só grava ao clicar em Salvar
+  const [editando, setEditando] = useState<string | null>(null);
+  const [rascunho, setRascunho] = useState<{ nome: string; email: string; papel: Papel; ativo: boolean } | null>(null);
+  // matriz de permissões em edição — só grava ao clicar em Salvar
+  const [matriz, setMatriz] = useState<Record<string, Papel[]> | null>(null);
 
   const atualizar = useMutation({
     mutationFn: (v: { user_id: string; nome?: string; papel?: Papel; ativo?: boolean }) =>
@@ -46,6 +51,56 @@ export default function Usuarios() {
     onSuccess: (r) => { setErro(null); setAviso(r.mensagem ?? 'Feito.'); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
     onError: (e: Error) => { setAviso(null); setErro(e.message); },
   });
+
+  // Salvar a linha: nome/perfil/ativo pela RPC; e-mail pela Edge Function (API admin do Auth).
+  const salvarLinha = useMutation({
+    mutationFn: async (v: { u: Usuario; r: NonNullable<typeof rascunho> }) => {
+      const mudouPerfil = v.r.nome !== (v.u.nome ?? '') || v.r.papel !== v.u.papel || v.r.ativo !== v.u.ativo;
+      if (mudouPerfil) {
+        await r1Rpc('usuario_atualizar', { p_user_id: v.u.user_id, p_nome: v.r.nome !== (v.u.nome ?? '') ? v.r.nome : null,
+          p_papel: v.r.papel !== v.u.papel ? v.r.papel : null, p_ativo: v.r.ativo !== v.u.ativo ? v.r.ativo : null, p_escopos: null });
+      }
+      const email = v.r.email.trim().toLowerCase();
+      if (email !== v.u.email) await r1Function<{ ok: boolean }>('usuarios', { op: 'editar_email', user_id: v.u.user_id, email });
+      return mudouPerfil || email !== v.u.email;
+    },
+    onSuccess: (mudou) => { setErro(null); setAviso(mudou ? 'Usuário salvo.' : 'Nada para salvar.'); setEditando(null); setRascunho(null); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+  });
+
+  const excluir = useMutation({
+    mutationFn: (u: Usuario) => r1Function<{ ok: boolean; mensagem?: string }>('usuarios', { op: 'excluir', user_id: u.user_id }),
+    onSuccess: (r) => { setErro(null); setAviso(r.mensagem ?? 'Usuário excluído.'); setEditando(null); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+  });
+
+  const salvarMatriz = useMutation({
+    mutationFn: (m: Record<string, Papel[]>) => r1Rpc<Record<string, Papel[]>>('permissoes_salvar', { p_matriz: m }),
+    onSuccess: async () => { setErro(null); setAviso('Matriz de permissões salva.'); setMatriz(null); qc.invalidateQueries({ queryKey: ['permissoes'] }); await recarregarPerfil(); },
+    onError: (e: Error) => { setAviso(null); setErro(/permissoes_salvar/.test(e.message) ? 'A gravação da matriz ainda não está liberada no backend (função permissoes_salvar pendente). Nada foi alterado.' : e.message); },
+  });
+
+  useEffect(() => { if (!erro && !aviso) return; const t = setTimeout(() => setAviso(null), 6000); return () => clearTimeout(t); }, [erro, aviso]);
+
+  function comecarEdicao(u: Usuario) {
+    setEditando(u.user_id);
+    setRascunho({ nome: u.nome ?? '', email: u.email, papel: u.papel, ativo: u.ativo });
+  }
+
+  function confirmarExclusao(u: Usuario) {
+    const digitado = window.prompt(`Excluir o acesso de ${u.email}? Isso apaga o login e não pode ser desfeito.\nDigite o e-mail para confirmar:`);
+    if (digitado === null) return;
+    if (digitado.trim().toLowerCase() !== u.email) { setErro('E-mail digitado não confere; exclusão cancelada.'); return; }
+    excluir.mutate(u);
+  }
+
+  function alternarPermissao(rec: string, papel: Papel) {
+    setMatriz((m) => {
+      const base = m ?? permissoes.data ?? {};
+      const atual = base[rec] ?? [];
+      return { ...base, [rec]: atual.includes(papel) ? atual.filter((p) => p !== papel) : [...atual, papel] };
+    });
+  }
 
   // novo usuário
   const [novoEmail, setNovoEmail] = useState('');
@@ -125,45 +180,96 @@ export default function Usuarios() {
               </tr>
             </thead>
             <tbody>
-              {(usuarios.data ?? []).map((u) => (
-                <tr key={u.user_id} className={`border-b border-border/60 ${u.ativo ? '' : 'opacity-60'}`}>
-                  <td className="p-3">
-                    <input defaultValue={u.nome ?? ''} placeholder="Nome"
-                      onBlur={(e) => { if (e.target.value !== (u.nome ?? '')) atualizar.mutate({ user_id: u.user_id, nome: e.target.value }); }}
-                      className="bg-transparent text-foreground font-semibold outline-none focus:bg-secondary rounded px-1 w-full" />
-                    <p className="text-muted-foreground px-1">{u.email}{!u.confirmado && ' · convite pendente'}</p>
-                  </td>
-                  <td className="p-3">
-                    <select value={u.papel} disabled={u.user_id === perfil?.user_id}
-                      onChange={(e) => atualizar.mutate({ user_id: u.user_id, papel: e.target.value as Papel })}
-                      className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 disabled:opacity-60">
-                      {PAPEIS.map((p) => <option key={p.valor} value={p.valor}>{p.rotulo}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-3">
-                    <input type="checkbox" checked={u.ativo} disabled={u.user_id === perfil?.user_id}
-                      onChange={(e) => atualizar.mutate({ user_id: u.user_id, ativo: e.target.checked })} />
-                  </td>
-                  <td className="p-3 text-muted-foreground">{fmt(u.ultimo_login)}</td>
-                  <td className="p-3 space-x-3">
-                    <button onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
-                      Enviar redefinição de senha
-                    </button>
-                    {!u.confirmado && (
-                      <button onClick={() => acao.mutate({ op: 'convidar', email: u.email, nome: u.nome, papel: u.papel, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
-                        Reenviar convite
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {(usuarios.data ?? []).map((u) => {
+                const eu = u.user_id === perfil?.user_id;
+                const emEdicao = editando === u.user_id && rascunho;
+                const ocupado = salvarLinha.isPending || excluir.isPending;
+                return (
+                  <tr key={u.user_id} className={`border-b border-border/60 ${u.ativo || emEdicao ? '' : 'opacity-60'}`}>
+                    <td className="p-3">
+                      {emEdicao ? (
+                        <div className="space-y-1">
+                          <input value={rascunho.nome} placeholder="Nome" onChange={(e) => setRascunho({ ...rascunho, nome: e.target.value })}
+                            className="bg-secondary text-foreground font-semibold rounded-md px-2 py-1 w-full" />
+                          <input type="email" value={rascunho.email} onChange={(e) => setRascunho({ ...rascunho, email: e.target.value })}
+                            className="bg-secondary text-foreground rounded-md px-2 py-1 w-full" />
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-foreground font-semibold px-1">{u.nome || <span className="text-muted-foreground font-normal">Sem nome</span>}</p>
+                          <p className="text-muted-foreground px-1">{u.email}{!u.confirmado && ' · convite pendente'}</p>
+                        </>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {emEdicao ? (
+                        <select value={rascunho.papel} disabled={eu} onChange={(e) => setRascunho({ ...rascunho, papel: e.target.value as Papel })}
+                          className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 disabled:opacity-60">
+                          {PAPEIS.map((p) => <option key={p.valor} value={p.valor}>{p.rotulo}</option>)}
+                        </select>
+                      ) : <span className="text-foreground">{PAPEIS.find((p) => p.valor === u.papel)?.rotulo ?? u.papel}</span>}
+                    </td>
+                    <td className="p-3">
+                      {emEdicao ? (
+                        <input type="checkbox" checked={rascunho.ativo} disabled={eu} onChange={(e) => setRascunho({ ...rascunho, ativo: e.target.checked })} />
+                      ) : <span className={u.ativo ? 'text-emerald-400' : 'text-muted-foreground'}>{u.ativo ? 'Sim' : 'Não'}</span>}
+                    </td>
+                    <td className="p-3 text-muted-foreground">{fmt(u.ultimo_login)}</td>
+                    <td className="p-3">
+                      {emEdicao ? (
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" disabled={ocupado} onClick={() => salvarLinha.mutate({ u, r: rascunho })}
+                            className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
+                            {salvarLinha.isPending ? 'Salvando…' : 'Salvar'}
+                          </button>
+                          <button type="button" disabled={ocupado} onClick={() => { setEditando(null); setRascunho(null); }} className="text-muted-foreground font-semibold">Cancelar</button>
+                          {!eu && (
+                            <button type="button" disabled={ocupado} onClick={() => confirmarExclusao(u)} className="text-red-400 font-semibold inline-flex items-center gap-1">
+                              <Trash2 className="w-3.5 h-3.5" /> Excluir
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={() => comecarEdicao(u)} className="text-primary font-semibold inline-flex items-center gap-1">
+                            <Pencil className="w-3.5 h-3.5" /> Editar
+                          </button>
+                          <button type="button" onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
+                            Enviar redefinição de senha
+                          </button>
+                          {!u.confirmado && (
+                            <button type="button" onClick={() => acao.mutate({ op: 'convidar', email: u.email, nome: u.nome, papel: u.papel, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
+                              Reenviar convite
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {usuarios.data?.length === 0 && <tr><td className="p-3 text-muted-foreground" colSpan={5}>Nenhum usuário ainda.</td></tr>}
             </tbody>
           </table>
         </div>
 
         <div className="surface p-4">
-          <h2 className="text-sm font-bold text-foreground mb-3">Matriz de permissões</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <h2 className="text-sm font-bold text-foreground">Matriz de permissões</h2>
+            {matriz ? (
+              <div className="flex gap-3 text-xs">
+                <button type="button" disabled={salvarMatriz.isPending} onClick={() => salvarMatriz.mutate(matriz)}
+                  className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
+                  {salvarMatriz.isPending ? 'Salvando…' : 'Salvar'}
+                </button>
+                <button type="button" disabled={salvarMatriz.isPending} onClick={() => setMatriz(null)} className="text-muted-foreground font-semibold">Cancelar</button>
+              </div>
+            ) : (
+              <button type="button" disabled={!permissoes.data} onClick={() => setMatriz({ ...(permissoes.data ?? {}) })} className="text-primary text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+                <Pencil className="w-3.5 h-3.5" /> Editar matriz
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="text-xs">
               <thead className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -176,15 +282,27 @@ export default function Usuarios() {
                 {Object.entries(RECURSOS).map(([rec, rotulo]) => (
                   <tr key={rec} className="border-b border-border/60">
                     <td className="p-2 text-foreground">{rotulo}</td>
-                    {PAPEIS.map((p) => (
-                      <td key={p.valor} className="p-2 text-center">{permissoes.data?.[rec]?.includes(p.valor) ? '●' : <span className="text-muted-foreground/40">·</span>}</td>
-                    ))}
+                    {PAPEIS.map((p) => {
+                      const ligado = !!(matriz ?? permissoes.data)?.[rec]?.includes(p.valor);
+                      const travado = rec === 'usuarios' && p.valor === 'administrador';
+                      return (
+                        <td key={p.valor} className="p-2 text-center">
+                          {matriz ? (
+                            <input type="checkbox" checked={ligado} disabled={travado} onChange={() => alternarPermissao(rec, p.valor)}
+                              title={travado ? 'O administrador sempre gerencia usuários' : `${rotulo} · ${p.rotulo}`} />
+                          ) : ligado ? '●' : <span className="text-muted-foreground/40">·</span>}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2">A matriz é fixa por enquanto; para mudar, peça ao Claude. Os recursos ainda não construídos (gerenciador, recuperação, presença) já ficam reservados.</p>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            {matriz ? 'Marque o que cada perfil pode ver e clique em Salvar; a mudança vale para todos no próximo carregamento. O administrador sempre mantém "Usuários e permissões".'
+              : 'Clique em "Editar matriz" para mudar o que cada perfil acessa. Toda alteração fica registrada no histórico.'}
+          </p>
         </div>
       </main>
     </div>
