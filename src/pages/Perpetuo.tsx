@@ -95,11 +95,11 @@ const ETAPAS: Etapa[] = [
   { chave: 'mql', rotulo: 'Lead no perfil (MQL)', curto: 'No perfil', sub: 'MQL', valor: (m) => m.mql,
     taxa: { rotulo: 'No perfil', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
   { chave: 'contato', rotulo: 'Contato efetivo', curto: 'Contato', sub: 'conexão', valor: (m) => m.contato_efetivo,
-    taxa: { rotulo: 'Conexão', v: (m) => m.taxa_contato, meta: 'conexao' }, custo: { rotulo: 'Custo por contato', v: (m) => divide(m.investimento, m.contato_efetivo) } },
+    taxa: { rotulo: 'Conexão', v: (m) => m.taxa_contato, meta: 'conexao' }, custo: { rotulo: 'Custo por contato', v: (m) => m.custo_contato ?? divide(m.investimento, m.contato_efetivo) } },
   { chave: 'sql', rotulo: 'SQL', curto: 'SQL', sub: 'qualificação', valor: (m) => m.sql,
-    taxa: { rotulo: 'Qualificação', v: (m) => m.taxa_sql, meta: 'qualificacao' }, custo: { rotulo: 'Custo por SQL', v: (m) => divide(m.investimento, m.sql) } },
+    taxa: { rotulo: 'Qualificação', v: (m) => m.taxa_sql, meta: 'qualificacao' }, custo: { rotulo: 'Custo por SQL', v: (m) => m.custo_sql ?? divide(m.investimento, m.sql) } },
   { chave: 'agendado', rotulo: 'Agendamento marcado', curto: 'Ag. marcado', sub: 'agendamento', valor: (m) => m.reunioes_agendadas,
-    taxa: { rotulo: 'Agendamento', v: (m) => m.taxa_agendamento, meta: 'agendamento' }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => divide(m.investimento, m.reunioes_agendadas) } },
+    taxa: { rotulo: 'Agendamento', v: (m) => m.taxa_agendamento, meta: 'agendamento' }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => m.custo_agendado ?? divide(m.investimento, m.reunioes_agendadas) } },
   { chave: 'realizado', rotulo: 'Agendamento realizado', curto: 'Ag. realizado', sub: 'comparecimento', valor: (m) => m.reunioes_realizadas,
     taxa: { rotulo: 'Comparecimento', v: (m) => m.taxa_comparecimento, meta: 'comparecimento' }, custo: { rotulo: 'Custo por ag. realizado', v: (m) => m.custo_reuniao } },
   { chave: 'venda', rotulo: 'Venda', curto: 'Venda', sub: 'fechamento', valor: (m) => m.vendas,
@@ -278,6 +278,7 @@ function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: A
   const q = d.qualidade; const r = d.resumo;
   const avisos: { k: string; texto: string }[] = [];
   if (q?.atribuicao_completa === false && aba !== 'campanhas') avisos.push({ k: 'atrib', texto: q.motivo ?? MOTIVO_ND[aba] });
+  if (q?.atribuicao_completa && d.atribuicao?.leads_sem_anuncio && aba !== 'campanhas') avisos.push({ k: 'sem-anuncio', texto: `${fmtNum(d.atribuicao.leads_sem_anuncio)} de ${fmtNum(d.atribuicao.leads_com_campanha)} leads do período não trazem o nome do anúncio na UTM: ficam fora da visão por peça e entram na página principal da campanha.` });
   if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
   if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
   if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (último dia fechado). Os dias seguintes entram conforme o lote diário é publicado.` });
@@ -332,8 +333,8 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
                 ) : e.chave === 'mql' ? (
                   <>
                     <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} />
-                    {/* MQL → venda não é calculado localmente: só quando o backend publicar a taxa. */}
-                    <Linha k="MQL → venda" v={null} motivo={mTaxa} />
+                    {/* MQL → venda vem do backend (rgv.funil_calc). */}
+                    <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} />
                   </>
                 ) : (
                   <>
@@ -486,7 +487,7 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
   const tem = partes.some(([, v]) => v != null);
   return (
     <div className="surface px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span><b className="text-foreground">Metas</b> · Plano do ciclo{metas?.ciclo ? ` ${metas.ciclo}` : ''}:</span>
+      <span title={metas?.fonte ?? undefined}><b className="text-foreground">Metas</b> · Plano do ciclo{metas?.ciclo ? ` ${metas.ciclo}` : ''}:</span>
       {tem ? partes.map(([k, v, casas]) => (
         <span key={k}>{k} <b className="text-foreground">{fmtPct(v, casas) ?? <NaoDisponivel />}</b></span>
       )) : <NaoDisponivel motivo="O plano de metas do ciclo ainda não está cadastrado no Supabase; quando a RPC devolver `metas`, a régua e as cores das taxas passam a usar o plano." />}
@@ -617,13 +618,13 @@ const COMO_LER: [string, string][] = [
   ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
   ['Lead no perfil (MQL)', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
-  ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
+  ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo que contém o fim do período (ciclo 45: conexão 33% dos MQLs, qualificação 45%, agendamento 76%, comparecimento 72%, fechamento 32%). Sem plano cadastrado, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
   ['Datas', 'O período segue o filtro escolhido (ciclo ou datas). A consulta vai até o último dia fechado; dias abertos entram quando o lote diário é publicado (06:10 de Brasília, após HubSpot e Meta fecharem o mesmo corte). O critério de datas e comparação das taxas será identificado após validação.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as datas, campanhas e anúncios. A arte é o AD no nome do anúncio ([RGV][VD][FEED][AD11][data] = VD AD11; VD = vídeo, IMG = imagem; marcações como CORTES ou PABLO separam a peça). Anúncios fora desse padrão aparecem com o nome original. O lead do CRM por peça virá pelo nome do anúncio na UTM e ainda não está atribuído.'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
-  ['Custos por etapa', 'Só aparecem quando o backend marca custos_validos no corte; a tela não divide investimento por quantidade por conta própria. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
-  ['Atribuição', 'O funil CRM por peça e por página só é mostrado com atribuição comprovada (ID exato); nomes repetidos ficam ambíguos e o destino do anúncio não comprova a página de conversão no HubSpot.'],
+  ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
+  ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
   ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período; passe o mouse para ver o motivo. Zero só aparece quando a coleta terminou sem atividade.'],
 ];
 function ComoLer() {
