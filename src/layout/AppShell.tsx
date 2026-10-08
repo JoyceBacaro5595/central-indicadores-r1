@@ -45,7 +45,7 @@ export default function AppShell() {
   const { pode } = useAuth();
   const [aberta, setAberta] = useState(false);
   const loc = useLocation();
-  const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>({});
+  const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>(() => Object.fromEntries(SECOES.map(s => [s.titulo, true])));
 
   useEffect(() => { setAberta(false); }, [loc.pathname]);
 
