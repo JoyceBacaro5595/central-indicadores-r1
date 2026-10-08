@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Play, Pause, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
