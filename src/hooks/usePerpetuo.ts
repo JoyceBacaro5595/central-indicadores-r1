@@ -21,17 +21,24 @@ export interface PerpetuoMetricas {
   // Conversões (%)
   conversao_lp: number | null; taxa_mql: number | null; taxa_contato: number | null; taxa_sql: number | null;
   taxa_agendamento: number | null; taxa_comparecimento: number | null; taxa_fechamento: number | null;
-  /** Chaves como a RPC devolve (rgv.aggregate_front). */
+  /** Chaves como a RPC devolve (rgv.aggregate_front). Custos por etapa só valem com `custos_validos === true`. */
   cobertura?: {
     dias_esperados?: number; dias_carregados?: number;
     midia_completa?: boolean; crm_completo?: boolean; historico_completo?: boolean; custos_validos?: boolean;
   } | null;
+  /** Motivo, vindo do backend, de as taxas entre etapas estarem nulas (ex.: coorte não comparável). */
+  taxas_observacao?: string | null;
 }
 
 export interface PerpetuoDia extends PerpetuoMetricas { data: string }
-/** Campos descritivos opcionais; a RPC v2 ainda não os devolve (ficam "Não disponível"). */
+/** Campos descritivos por item. Contrato observado na RPC v2 (08/10/2026): `thumb` (com `imagem_url`,
+ * `preview_url` e `thumbnail_url` como cópias), `destino_url`, `status`/`campanha_status`/`anuncio_status`
+ * com 'no_ar' | 'pausado', `atribuicao_completa` e `motivo_indisponivel`. O que faltar fica "Não disponível". */
 export interface PerpetuoDescritivo {
-  campanha_status?: string | null; anuncio_status?: string | null; destino_url?: string | null;
+  campanha_status?: 'no_ar' | 'pausado' | string | null; anuncio_status?: 'no_ar' | 'pausado' | string | null; destino_url?: string | null;
+  imagem_url?: string | null; preview_url?: string | null; thumbnail_url?: string | null;
+  /** false = funil CRM deste item ainda não tem atribuição comprovada; `motivo_indisponivel` explica. */
+  atribuicao_completa?: boolean | null; motivo_indisponivel?: string | null;
   diario?: PerpetuoDia[] | null;
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
@@ -47,8 +54,15 @@ export interface PerpetuoMetas {
   comparecimento?: number | null; fechamento?: number | null; mql_venda?: number | null;
 }
 
+/** Qualidade geral do lote publicado. */
+export interface PerpetuoQualidade {
+  motivo?: string | null; atribuicao_completa?: boolean | null;
+  periodo_completo_inicio?: string | null; periodo_completo_fim?: string | null;
+}
+
 export interface PerpetuoFunil {
-  versao?: string;
+  versao?: string | number;
+  qualidade?: PerpetuoQualidade | null;
   publicacao?: {
     status?: string | null; corte_publicado?: string | null; publicado_em?: string | null;
     motivo?: string | null; solucao?: string | null;

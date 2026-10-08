@@ -45,6 +45,15 @@ const fmtBrlCurto = (v: number | null | undefined) => {
   return fmtBrl(v);
 };
 const divide = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null || b === 0 ? null : a / b);
+/** Custos por etapa só valem quando o backend marcou `cobertura.custos_validos === true`;
+ *  fora disso nada é dividido localmente nem exibido, mesmo que a RPC traga cpl/cpmql/cac. */
+const custosValidos = (m: PerpetuoMetricas | null | undefined) => m?.cobertura?.custos_validos === true;
+const MOTIVO_CUSTO = 'Custos por etapa indisponíveis: o backend marcou custos_validos = false para este corte (investimento e contagens ainda não são comparáveis).';
+const MOTIVO_TAXA_PADRAO = 'Taxas entre etapas indisponíveis: as populações ainda não são comparáveis.';
+const motivoTaxa = (m: PerpetuoMetricas | null | undefined) => m?.taxas_observacao ?? MOTIVO_TAXA_PADRAO;
+const motivoItem = (it: PerpetuoDescritivo | null | undefined, aba: Aba) => it?.motivo_indisponivel ?? MOTIVO_ND[aba];
+/** Imagem do item: `thumb` com as cópias que a RPC também devolve. */
+const imagemDe = (it: PerpetuoDescritivo) => urlSegura(it.thumb) ?? urlSegura(it.imagem_url) ?? urlSegura(it.preview_url) ?? urlSegura(it.thumbnail_url);
 const pp = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} pp`;
 
 /* ─── metas: situação de uma taxa frente ao plano do ciclo ─── */
@@ -79,6 +88,8 @@ type Etapa = {
   taxa?: { rotulo: string; v: (m: PerpetuoMetricas) => number | null | undefined; meta: keyof PerpetuoMetas };
   custo: { rotulo: string; v: (m: PerpetuoMetricas) => number | null | undefined };
 };
+/** Custo da etapa respeitando o gate do backend. */
+const custoDe = (e: Etapa, m: PerpetuoMetricas) => (custosValidos(m) ? e.custo.v(m) : null);
 const ETAPAS: Etapa[] = [
   { chave: 'leads', rotulo: 'Lead no CRM', curto: 'Leads', sub: 'CRM', valor: (m) => m.leads_crm, custo: { rotulo: 'Custo por lead', v: (m) => m.cpl } },
   { chave: 'mql', rotulo: 'Lead no perfil (MQL)', curto: 'No perfil', sub: 'MQL', valor: (m) => m.mql,
@@ -121,13 +132,16 @@ const MOTIVO_ND: Record<Aba, string> = {
 /* ═══════════════════════════ página ═══════════════════════════ */
 export default function Perpetuo() {
   const { aba: abaParam } = useParams<{ aba: Aba }>();
-  const aba: Aba = abaParam === 'criativos' || abaParam === 'lps' ? abaParam : 'campanhas';
+  // Aba inicial: Peças criativas (decisão da Joyce em 08/10: começar pelos dados por criativo).
+  const aba: Aba = abaParam === 'campanhas' || abaParam === 'lps' ? abaParam : 'criativos';
   const cfg = ABAS.find((a) => a.valor === aba)!;
   const nav = useNavigate();
   const lista = useMemo(presets, []);
-  const [preset, setPreset] = useState<string>(lista[0].chave);
-  const [de, setDe] = useState(lista[0].de);
-  const [ate, setAte] = useState(lista[0].ate);
+  // Período inicial: últimos 30 dias (o histórico anual ainda está incompleto no backend).
+  const inicial = lista.find((p) => p.chave === '30') ?? lista[0];
+  const [preset, setPreset] = useState<string>(inicial.chave);
+  const [de, setDe] = useState(inicial.de);
+  const [ate, setAte] = useState(inicial.ate);
   const { data, error, isFetching, refetch } = usePerpetuo(de, ate);
 
   const aplicarPreset = (chave: string) => {
@@ -204,7 +218,7 @@ export default function Perpetuo() {
           <div className="text-right">
             <div className="eyebrow">Investimento no período</div>
             <div className="display text-4xl md:text-[40px] leading-none mt-1 text-foreground">{r ? fmtBrl(r.investimento, 2) ?? <NaoDisponivel className="text-xl" /> : '…'}</div>
-            <div className="text-sm text-muted-foreground mt-1">CAC {r ? fmtBrl(r.cac) ?? <NaoDisponivel /> : '…'}</div>
+            <div className="text-sm text-muted-foreground mt-1">CAC {r ? (custosValidos(r) ? fmtBrl(r.cac) : null) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} /> : '…'}</div>
           </div>
         </div>
 
@@ -221,12 +235,35 @@ export default function Perpetuo() {
           </div>
         )}
 
+        {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} />}
+
         {r && <FaixaFunil m={r} metas={metas} />}
 
         {data && <Lista key={aba} aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
         <ComoLer />
       </PageBody>
+    </div>
+  );
+}
+
+/** Avisos de limitação vindos do backend: atribuição, taxas, custos e período completo. */
+function Limitacoes({ d, aba, de, ate }: { d: PerpetuoFunil; aba: Aba; de: string; ate: string }) {
+  const q = d.qualidade; const r = d.resumo;
+  const avisos: { k: string; texto: string }[] = [];
+  if (q?.atribuicao_completa === false && aba !== 'campanhas') avisos.push({ k: 'atrib', texto: q.motivo ?? MOTIVO_ND[aba] });
+  if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
+  if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
+  if (q?.periodo_completo_inicio && q?.periodo_completo_fim && (de < q.periodo_completo_inicio || ate > q.periodo_completo_fim)) {
+    avisos.push({ k: 'periodo', texto: `O período escolhido sai do intervalo com dados completos (${dataBR(q.periodo_completo_inicio)} a ${dataBR(q.periodo_completo_fim)}); fora dele os números ficam parciais ou indisponíveis.` });
+  }
+  if (avisos.length === 0) return null;
+  return (
+    <div className="surface p-4 text-sm" role="note">
+      <p className="font-semibold text-foreground">O que ainda não está disponível neste corte</p>
+      <ul className="mt-1 space-y-1 text-muted-foreground list-disc pl-5">
+        {avisos.map((a) => <li key={a.k}>{a.texto}</li>)}
+      </ul>
     </div>
   );
 }
@@ -252,7 +289,8 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
           const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
           const taxa = e.taxa?.v(m);
           const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
-          const custo = e.custo.v(m);
+          const custo = custoDe(e, m);
+          const mTaxa = motivoTaxa(m);
           return (
             <div key={e.chave} className={`p-4 ${i >= 4 ? 'md:border-t md:border-border xl:border-t-0' : ''}`}>
               <div className="text-sm font-bold text-foreground">{e.rotulo}</div>
@@ -261,23 +299,24 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
               <div className="mt-3 space-y-1 text-xs">
                 {e.chave === 'leads' ? (
                   <>
-                    <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} />
-                    <Linha k="CPL no Meta" v={fmtBrl(m.cpl_pixel)} />
+                    <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
+                    <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} />
                   </>
                 ) : e.chave === 'mql' ? (
                   <>
-                    <Linha k="No perfil" v={fmtPct(taxa)} />
-                    <Linha k="MQL → venda" v={fmtPct(divide(m.vendas == null ? null : m.vendas * 100, m.mql), 2)} meta={metaDe(metas, 'mql_venda')} taxa={divide(m.vendas == null ? null : m.vendas * 100, m.mql)} />
+                    <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} />
+                    {/* MQL → venda não é calculado localmente: só quando o backend publicar a taxa. */}
+                    <Linha k="MQL → venda" v={null} motivo={mTaxa} />
                   </>
                 ) : (
                   <>
-                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte />
-                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} />
+                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} />
+                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." />
                   </>
                 )}
               </div>
               <div className="mt-4 text-xs text-muted-foreground">{e.custo.rotulo}</div>
-              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <NaoDisponivel className="text-sm" />}</div>
+              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <NaoDisponivel className="text-sm" motivo={MOTIVO_CUSTO} />}</div>
             </div>
           );
         })}
@@ -286,8 +325,8 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
   );
 }
 
-function Linha({ k, v, forte, meta, taxa }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null }) {
-  const texto = v == null ? <NaoDisponivel /> : v;
+function Linha({ k, v, forte, meta, taxa, motivo }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string }) {
+  const texto = v == null ? <NaoDisponivel motivo={motivo} /> : v;
   const extra = meta != null && taxa != null ? <span className="text-muted-foreground"> · meta {fmtPct(meta, 2)} · {pp(taxa - meta)}</span> : null;
   return (
     <div className="flex items-baseline justify-between gap-2">
@@ -403,7 +442,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
                 })}
               </div>
               {visiveis.length === 0 && <div className="px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div>}
-              {visiveis.map((it, idx) => <LinhaItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} />)}
+              {visiveis.map((it, idx) => <LinhaItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} aba={aba} />)}
             </div>
           </div>
         </div>
@@ -433,26 +472,32 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
   );
 }
 
-function LinhaItem({ it, pos, visao, metas, aoAbrir }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null }) {
+function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
+  const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
   return (
     <div className="px-5 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
         <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
-        {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag ml-auto shrink-0" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
+        <span className="ml-auto flex items-center gap-1.5 shrink-0">
+          {it.atribuicao_completa === false && <span className="tag" title={motivoItem(it, aba)}>funil CRM não atribuído</span>}
+          {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
+        </span>
       </div>
       <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 mt-2 pl-8">
         <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
         {ETAPAS.map((e) => {
-          const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = e.custo.v(it);
+          const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
           const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
           const sit = e.taxa ? situacao(taxa, meta, v) : 'nd';
           const chip = e.taxa ? (
-            <span className={`inline-block rounded px-1.5 py-0.5 mono text-[11px] font-semibold ${e.chave === 'mql' ? 'text-muted-foreground' : COR[sit]}`}>{fmtPct(taxa) ?? <NaoDisponivel />}</span>
+            <span className={`inline-block rounded px-1.5 py-0.5 mono text-[11px] font-semibold ${e.chave === 'mql' ? 'text-muted-foreground' : COR[sit]}`}>{fmtPct(taxa) ?? <NaoDisponivel motivo={mTaxa} />}</span>
           ) : null;
-          if (visao === 'custos') return <Celula key={e.chave} principal={fmtBrl(custo)} secundaria={fmtNum(v)} />;
-          if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : fmtNum(v)} secundaria={e.taxa ? fmtNum(v) : null} />;
-          return <Celula key={e.chave} principal={fmtNum(v)} secundaria={chip} terciaria={fmtBrl(custo)} />;
+          const qtd = fmtNum(v) ?? <NaoDisponivel className="text-xs" motivo={mItem} />;
+          const custoTx = fmtBrl(custo) ?? <NaoDisponivel className="text-xs" motivo={MOTIVO_CUSTO} />;
+          if (visao === 'custos') return <Celula key={e.chave} principal={custoTx} secundaria={qtd} />;
+          if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : qtd} secundaria={e.taxa ? qtd : null} />;
+          return <Celula key={e.chave} principal={qtd} secundaria={chip} terciaria={custoTx} />;
         })}
       </div>
     </div>
@@ -473,10 +518,12 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
 function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () => void; it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
   const semImagem = aba === 'lps' ? 'Sem foto da página' : 'Sem imagem do anúncio';
   const rodou = it.campanhas != null || it.anuncios != null || it.pecas != null;
+  const imagem = imagemDe(it);
+  const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
   return (
     <article className="surface overflow-hidden flex flex-col">
       <div className={`relative ${aba === 'lps' ? 'aspect-[3/4]' : 'aspect-square'} bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground`}>
-        {urlSegura(it.thumb) ? <img src={urlSegura(it.thumb)!} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" /> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
+        {imagem ? <img src={imagem} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" /> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
         <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-background/90 border border-border text-xs font-bold flex items-center justify-center">{pos}</span>
         <span className="absolute top-3 right-3 flex items-center gap-1.5">
           {it.tipo && <span className="tag bg-background/90">{it.tipo === 'video' ? 'Vídeo' : it.tipo === 'imagem' ? 'Imagem' : it.tipo}</span>}
@@ -491,13 +538,14 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           </div>
           {it.nome_curto && <div className="text-[11px] text-muted-foreground mono truncate" title={it.nome}>{it.nome}</div>}
           <div className="text-xs text-muted-foreground mt-1">
-            {rodou ? <>Rodou em <b className="text-foreground/80">{fmtNum(it.campanhas) ?? '—'}</b> campanhas{it.anuncios != null && <> · {fmtNum(it.anuncios)} anúncios</>}{it.pecas != null && <> · {fmtNum(it.pecas)} peças</>}</> : <>Campanhas e anúncios: <NaoDisponivel /></>}
+            {rodou ? <>Rodou em <b className="text-foreground/80">{fmtNum(it.campanhas) ?? '—'}</b> campanhas{it.anuncios != null && <> · {fmtNum(it.anuncios)} anúncios</>}{it.pecas != null && <> · {fmtNum(it.pecas)} peças</>}</> : <>Campanhas e anúncios: <NaoDisponivel motivo="A RPC ainda não publica a contagem de campanhas e anúncios por item." /></>}
           </div>
+          {it.atribuicao_completa === false && <p className="text-[11px] text-amber-400 mt-1 leading-snug">{mItem}</p>}
         </div>
         <div className="grid grid-cols-3 gap-2 border-t border-border pt-3">
-          <Mini k="Investimento" v={fmtBrlCurto(it.investimento)} />
-          <Mini k="MQL" v={fmtNum(it.mql)} />
-          <Mini k="Custo por MQL" v={fmtBrl(it.cpmql)} />
+          <Mini k={aba === 'campanhas' ? 'Investimento' : 'Investimento atribuído'} v={fmtBrlCurto(it.investimento)} motivo="Investimento do item não publicado neste corte." />
+          <Mini k="MQL" v={fmtNum(it.mql)} motivo={mItem} />
+          <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} />
         </div>
         <table className="w-full text-xs border-t border-border">
           <thead>
@@ -505,16 +553,16 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           </thead>
           <tbody>
             {ETAPAS.map((e) => {
-              const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = e.custo.v(it);
+              const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
               const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
               const sit = e.taxa && e.chave !== 'mql' ? situacao(taxa, meta, v) : 'nd';
               const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
               return (
                 <tr key={e.chave} className="border-t border-border/60">
                   <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.curto}</td>
-                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <NaoDisponivel />}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <NaoDisponivel /> : ''}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? e.custo.v(referencia) : null)}`}>{v === 0 && e.chave === 'venda' ? <span className="text-red-400">sem venda</span> : fmtBrl(custo) ?? <NaoDisponivel />}</td>
+                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <NaoDisponivel motivo={mItem} />}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <NaoDisponivel motivo={mTaxa} /> : ''}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{v === 0 && e.chave === 'venda' ? <span className="text-red-400">sem venda</span> : fmtBrl(custo) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} />}</td>
                 </tr>
               );
             })}
@@ -526,11 +574,11 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
   );
 }
 
-function Mini({ k, v }: { k: string; v: string | null | undefined }) {
+function Mini({ k, v, motivo }: { k: string; v: string | null | undefined; motivo?: string }) {
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-muted-foreground">{k}</div>
-      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <NaoDisponivel className="text-xs" />}</div>
+      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <NaoDisponivel className="text-xs" motivo={motivo} />}</div>
     </div>
   );
 }
@@ -546,7 +594,9 @@ const COMO_LER: [string, string][] = [
   ['Datas', 'O período selecionado consulta os dados liberados pela atualização conjunta. O critério de datas e comparação das taxas será identificado após validação.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as campanhas, resolvidos por ID do anúncio no Meta (não por utm_content, que costuma identificar o público).'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
-  ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período. Zero só aparece quando a coleta terminou sem atividade.'],
+  ['Custos por etapa', 'Só aparecem quando o backend marca custos_validos no corte; a tela não divide investimento por quantidade por conta própria. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
+  ['Atribuição', 'O funil CRM por peça e por página só é mostrado com atribuição comprovada (ID exato); nomes repetidos ficam ambíguos e o destino do anúncio não comprova a página de conversão no HubSpot.'],
+  ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período; passe o mouse para ver o motivo. Zero só aparece quando a coleta terminou sem atividade.'],
 ];
 function ComoLer() {
   return (
@@ -569,17 +619,26 @@ function Status({ valor }: { valor?: string | null }) {
   return <span className={`tag bg-background/90 ${ativo ? 'text-emerald-400' : pausado ? 'text-amber-400' : 'text-muted-foreground'}`}>{ativo ? 'No ar' : pausado ? 'Inativo' : valor || 'Status não disponível'}</span>;
 }
 function Detalhes({ item, aba, aoFechar, metas }: { item: Item | null; aba: Aba; aoFechar: () => void; metas: PerpetuoMetas | null }) {
+  const imagem = item ? imagemDe(item) : null;
+  const mTaxa = motivoTaxa(item); const mItem = motivoItem(item, aba);
   return <Sheet open={!!item} onOpenChange={(aberto) => { if (!aberto) aoFechar(); }}>
     <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
       <SheetHeader><SheetTitle className="display text-3xl pr-8">{item?.nome_curto ?? item?.nome ?? 'Detalhes'}</SheetTitle><SheetDescription>{ABAS.find(a => a.valor === aba)?.rotulo} · dados do item selecionado</SheetDescription></SheetHeader>
       {item && <div className="space-y-5 mt-5">
-        {urlSegura(item.thumb) && <img src={urlSegura(item.thumb)!} alt={item.nome} className="max-h-80 w-full object-contain rounded-lg bg-secondary" />}
+        {imagem && <img src={imagem} alt={item.nome} className="max-h-80 w-full object-contain rounded-lg bg-secondary" />}
+        {item.atribuicao_completa === false && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{mItem}</p>}
         <div className="flex flex-wrap gap-2"><Status valor={item.status} />{item.campanha_status && <span className="flex items-center gap-1 text-xs">Campanha <Status valor={item.campanha_status} /></span>}{item.anuncio_status && <span className="flex items-center gap-1 text-xs">Anúncio <Status valor={item.anuncio_status} /></span>}</div>
         <dl className="text-xs space-y-2 text-muted-foreground"><div>ID: <span className="mono">{item.id}</span></div><div>Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</div><div>Campanhas: {fmtNum(item.campanhas) ?? 'Não disponível'} · Anúncios: {fmtNum(item.anuncios) ?? 'Não disponível'}</div></dl>
         {urlSegura(item.destino_url) && <a href={urlSegura(item.destino_url)!} target="_blank" rel="noopener noreferrer" className="text-gold underline text-sm">Abrir página de destino</a>}
-        <div className="grid grid-cols-3 gap-3"><Mini k="Investimento" v={fmtBrl(item.investimento)} /><Mini k="MQL" v={fmtNum(item.mql)} /><Mini k="Custo por MQL" v={fmtBrl(item.cpmql)} /></div>
-        <div className="surface p-4 space-y-3"><h4 className="display text-2xl">Jornada no funil</h4>{ETAPAS.map(e => <div key={e.chave} className="grid grid-cols-[1.3fr_1fr_1fr] gap-2 text-xs border-t border-border pt-2"><span>{e.rotulo}</span><span className="mono">{fmtNum(e.valor(item)) ?? 'Não disponível'}</span><span className="mono text-right">{fmtBrl(e.custo.v(item)) ?? 'Não disponível'}</span></div>)}</div>
-        <div className="grid grid-cols-2 gap-3"><Mini k="Impressões" v={fmtNum(item.impressoes)} /><Mini k="Cliques" v={fmtNum(item.cliques)} /><Mini k="CPM" v={fmtBrl(item.cpm)} /><Mini k="CTR" v={fmtPct(item.ctr)} /><Mini k="CPC" v={fmtBrl(item.cpc)} /><Mini k="CAC" v={fmtBrl(item.cac)} /><Mini k="Faturamento" v={fmtBrl(item.faturamento)} /><Mini k="ROAS" v={fmtNum(item.roas)} /></div>
+        <div className="grid grid-cols-3 gap-3"><Mini k={aba === 'campanhas' ? 'Investimento da campanha' : 'Investimento atribuído ao item'} v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." /><Mini k="MQL" v={fmtNum(item.mql)} motivo={mItem} /><Mini k="Custo por MQL" v={custosValidos(item) ? fmtBrl(item.cpmql) : null} motivo={MOTIVO_CUSTO} /></div>
+        <div className="surface p-4 space-y-3">
+          <h4 className="display text-2xl">Jornada no funil</h4>
+          <div className="grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-2 text-[11px] text-muted-foreground"><span>Etapa</span><span>Qtd</span><span className="text-right">Taxa</span><span className="text-right">Custo</span></div>
+          {ETAPAS.map(e => <div key={e.chave} className="grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-2 text-xs border-t border-border pt-2"><span>{e.rotulo}</span><span className="mono">{fmtNum(e.valor(item)) ?? <NaoDisponivel motivo={mItem} />}</span><span className="mono text-right">{e.taxa ? fmtPct(e.taxa.v(item)) ?? <NaoDisponivel motivo={mTaxa} /> : ''}</span><span className="mono text-right">{fmtBrl(custoDe(e, item)) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} />}</span></div>)}
+          {!custosValidos(item) && <p className="text-[11px] text-muted-foreground">{MOTIVO_CUSTO}</p>}
+          {ETAPAS.some(e => e.taxa && e.taxa.v(item) == null) && <p className="text-[11px] text-muted-foreground">{mTaxa}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-3"><Mini k="Impressões" v={fmtNum(item.impressoes)} /><Mini k="Cliques" v={fmtNum(item.cliques)} /><Mini k="CPM" v={fmtBrl(item.cpm)} /><Mini k="CTR" v={fmtPct(item.ctr)} /><Mini k="CPC" v={fmtBrl(item.cpc)} /><Mini k="CAC" v={custosValidos(item) ? fmtBrl(item.cac) : null} motivo={MOTIVO_CUSTO} /><Mini k="Faturamento" v={fmtBrl(item.faturamento)} motivo={mItem} /><Mini k="ROAS" v={custosValidos(item) ? fmtNum(item.roas) : null} motivo={MOTIVO_CUSTO} /></div>
         <ReguaMetas metas={metas} />
         <section className="surface p-4"><h4 className="display text-xl">Evolução diária deste item</h4>{item.diario?.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead><tr><th className="text-left">Dia</th><th>Investimento</th><th>MQL</th><th>Vendas</th></tr></thead><tbody>{item.diario.map(d => <tr key={d.data} className="border-t border-border"><td className="py-2">{dataBR(d.data)}</td><td className="text-right">{fmtBrl(d.investimento) ?? '—'}</td><td className="text-right">{fmtNum(d.mql) ?? '—'}</td><td className="text-right">{fmtNum(d.vendas) ?? '—'}</td></tr>)}</tbody></table></div> : <p className="mt-2 text-sm text-muted-foreground">Não disponível para este item.</p>}</section>
       </div>}

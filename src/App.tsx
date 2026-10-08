@@ -39,8 +39,8 @@ const App = () => (
             <Route path="/" element={<Navigate to="/central" replace />} />
             <Route path="/central" element={<Central />} />
             <Route path="/central/online" element={<Central />} />
-            <Route path="/perpetuo" element={<Navigate to="/perpetuo/trafego/campanhas" replace />} />
-            <Route path="/perpetuo/trafego" element={<Navigate to="/perpetuo/trafego/campanhas" replace />} />
+            <Route path="/perpetuo" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
+            <Route path="/perpetuo/trafego" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/trafego/:aba" element={<Perpetuo />} />
             <Route path="/perpetuo/criativos" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/lps" element={<Navigate to="/perpetuo/trafego/lps" replace />} />
