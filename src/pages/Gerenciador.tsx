@@ -75,7 +75,6 @@ export default function Gerenciador() {
   const estado = useQuery({ queryKey: ['gerenciador'], queryFn: () => r1Rpc<Estado>('gerenciador_estado'), refetchInterval: 60_000 });
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [edicaoCron, setEdicaoCron] = useState<Record<string, string>>({});
   const [edicaoParam, setEdicaoParam] = useState<Record<string, string>>({});
   const invalidar = () => qc.invalidateQueries({ queryKey: ['gerenciador'] });
 
@@ -122,49 +121,9 @@ export default function Gerenciador() {
               <div className="text-sm" title={notas.data?.find(n => n.chave === 'hubspot_historico_lote')?.observacoes}>HubSpot · até 50 negócios por lote com histórico</div>
               {observacoes('limite', 'hubspot_historico_lote')}
             </Secao>
-            <Secao titulo="Agendamentos (cron)">
-              <table className="w-full text-xs">
-                <thead><tr className="text-muted-foreground text-left"><th className="pb-2 font-semibold">Rotina</th><th className="pb-2 font-semibold">Quando (expressão cron, em UTC)</th><th className="pb-2 font-semibold">Última execução</th><th className="pb-2 font-semibold text-right">24h</th><th className="pb-2 font-semibold text-right">Ações</th></tr></thead>
-                <tbody>
-                  {d.agendamentos.map((a) => (
-                    <tr key={a.jobname} className="border-t border-border align-top">
-                      <td className="py-2 pr-3">
-                        <div className="font-semibold text-foreground flex items-center gap-2">{a.rotulo}
-                          <span className={`text-[10px] px-1.5 rounded ${a.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-secondary text-muted-foreground'}`}>{!a.existe ? 'não existe' : a.active ? 'ativo' : 'pausado'}</span>
-                        </div>
-                        <div className="text-muted-foreground">{a.descricao}</div>
-                        {observacoes('agendamento', a.jobname)}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex items-center gap-1.5">
-                          <input value={edicaoCron[a.jobname] ?? a.schedule ?? ''} onChange={(e) => setEdicaoCron({ ...edicaoCron, [a.jobname]: e.target.value })}
-                            className="mono w-48 bg-secondary rounded px-2 py-1 text-foreground" />
-                          {edicaoCron[a.jobname] !== undefined && edicaoCron[a.jobname] !== a.schedule && (
-                            <button title="Salvar horário" onClick={() => { agendamento.mutate({ jobname: a.jobname, schedule: edicaoCron[a.jobname] }); setEdicaoCron((c) => { const n = { ...c }; delete n[a.jobname]; return n; }); }} className="text-primary"><Save className="w-3.5 h-3.5" /></button>
-                          )}
-                        </div>
-                        <div className="text-muted-foreground mt-0.5">{explicaCron(a.schedule)}</div>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div>{fmt(a.ultima_execucao)} <span className={STATUS_COR[a.ultimo_status ?? ''] ?? ''}>{a.ultimo_status ?? ''}</span></div>
-                        <div className="text-muted-foreground truncate max-w-[260px]" title={a.ultima_msg ?? ''}>{a.ultima_msg}</div>
-                      </td>
-                      <td className="py-2 text-right mono">{num(a.execucoes_24h)}{a.falhas_24h > 0 && <span className="text-red-400"> ({a.falhas_24h} falhas)</span>}</td>
-                      <td className="py-2 text-right whitespace-nowrap">
-                        {a.existe && (
-                          <>
-                            <button onClick={() => agendamento.mutate({ jobname: a.jobname, active: !a.active })} className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-secondary text-foreground" title={a.active ? 'Pausar' : 'Retomar'}>
-                              {a.active ? <><Pause className="w-3.5 h-3.5" /> Pausar</> : <><Play className="w-3.5 h-3.5" /> Retomar</>}
-                            </button>
-                            <button onClick={() => executar.mutate(a.jobname)} className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-secondary text-primary" title="Executar agora"><Play className="w-3.5 h-3.5" /> Agora</button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Secao>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={d.logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={v => agendamento.mutate(v)} executar={() => executar.mutate(a.jobname)} />)}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {grupos.map((g) => (
@@ -251,4 +210,36 @@ export default function Gerenciador() {
       </main>
     </div>
   );
+}
+
+function horarioSimples(schedule: string | null) {
+  const campos = (schedule ?? '').trim().split(/\s+/);
+  if (campos.length !== 5 || campos.slice(2).some(v => v !== '*')) return null;
+  const [minuto, horas] = campos;
+  if (horas === '*' && (minuto === '0' || minuto === '*/15' || minuto === '*/30')) return { inicio: 0, fim: 23, intervalo: minuto === '0' ? 60 : Number(minuto.slice(2)) };
+  return null;
+}
+function cronHorario(inicio: number, fim: number, intervalo: number) {
+  const horas: number[] = [];
+  const total = ((fim - inicio + 24) % 24) + 1;
+  for (let i = 0; i < total; i += intervalo >= 60 ? intervalo / 60 : 1) horas.push((inicio + i + 3) % 24);
+  return `${intervalo < 60 ? '*/' + intervalo : '0'} ${horas.length === 24 ? '*' : horas.join(',')} * * *`;
+}
+function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: { a: Agendamento; logs: Log[]; observacoes: React.ReactNode; ocupado: boolean; salvar: (v: { jobname: string; schedule?: string; active?: boolean }) => void; executar: () => void }) {
+  const [rascunho, setRascunho] = useState<{ inicio: number; fim: number; intervalo: number } | null>(null);
+  const [cronAvancado, setCronAvancado] = useState<string | null>(null);
+  const atual = rascunho ?? horarioSimples(a.schedule);
+  const alterar = (campo: 'inicio' | 'fim' | 'intervalo', valor: number) => setRascunho({ ...(atual ?? { inicio: 0, fim: 23, intervalo: 60 }), [campo]: valor });
+  return <section className="surface p-5 space-y-4">
+    <h2 className="text-base font-bold">Sincronização · {a.rotulo}</h2>
+    <div className="flex items-center justify-between gap-3"><label htmlFor={`auto-${a.jobname}`} className="text-sm">Auto-sync</label><input id={`auto-${a.jobname}`} type="checkbox" role="switch" checked={!!a.active} disabled={!a.existe || ocupado} onChange={e => salvar({ jobname: a.jobname, active: e.target.checked })} className="w-5 h-5 accent-[hsl(var(--primary))]" /></div>
+    {a.descricao && <p className="text-xs text-muted-foreground">{a.descricao}</p>}
+    <p className="text-xs text-muted-foreground">{a.existe ? (a.active ? 'Automático ativo' : 'Automático pausado') : 'Rotina ainda não cadastrada'} · {explicaCron(a.schedule)}</p>
+    {atual ? <div className="grid grid-cols-3 gap-2"><label className="text-xs">Início<input type="number" min={0} max={23} value={atual.inicio} onChange={e => alterar('inicio', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Fim<input type="number" min={0} max={23} value={atual.fim} onChange={e => alterar('fim', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Intervalo<select value={atual.intervalo} onChange={e => alterar('intervalo', Number(e.target.value))} className="select-r1 mt-1 w-full"><option value={15}>15 min</option><option value={30}>30 min</option><option value={60}>1 hora</option><option value={120}>2 horas</option><option value={240}>4 horas</option></select></label></div> : <p className="text-xs text-muted-foreground">Horário personalizado. Para substituir por uma rotina diária, <button type="button" className="text-primary underline" onClick={() => setRascunho({ inicio: 0, fim: 23, intervalo: 60 })}>configurar horário</button>.</p>}
+    <p className="text-[11px] text-muted-foreground">Horários de Brasília · fim inclusivo. O agendamento é salvo em UTC.</p>
+    <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
+    {observacoes}
+    <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
+    <div className="border-t border-border pt-3"><h3 className="font-semibold text-xs">Log</h3><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}</li>)}</ul></div>
+  </section>;
 }
