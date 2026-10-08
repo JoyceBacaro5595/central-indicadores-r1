@@ -21,6 +21,8 @@ export interface PerpetuoMetricas {
   // Conversões (%)
   conversao_lp: number | null; taxa_mql: number | null; taxa_contato: number | null; taxa_sql: number | null;
   taxa_agendamento: number | null; taxa_comparecimento: number | null; taxa_fechamento: number | null;
+  /** Calculados pelo backend (rgv.funil_calc, 08/10): MQL → venda e custos por etapa = investimento / quantidade. */
+  taxa_mql_venda?: number | null; custo_contato?: number | null; custo_sql?: number | null; custo_agendado?: number | null;
   /** Chaves como a RPC devolve (rgv.aggregate_front). Custos por etapa só valem com `custos_validos === true`. */
   cobertura?: {
     dias_esperados?: number; dias_carregados?: number;
@@ -51,7 +53,7 @@ export interface PerpetuoCampanha extends PerpetuoMetricas, PerpetuoDescritivo {
 
 /** Metas do plano do ciclo (em %). A RPC ainda não devolve; quando devolver, a tela usa. */
 export interface PerpetuoMetas {
-  ciclo?: string;
+  ciclo?: string; numero?: number; fonte?: string | null;
   conexao?: number | null; qualificacao?: number | null; agendamento?: number | null;
   comparecimento?: number | null; fechamento?: number | null; mql_venda?: number | null;
 }
@@ -73,8 +75,12 @@ export interface PerpetuoFontesAtualizacao {
   capacidade?: { ok?: boolean; db_bytes?: number; limit_bytes?: number } | null;
 }
 
+/** Cobertura da atribuição por anúncio (nome do anúncio na UTM do negócio) no período. */
+export interface PerpetuoAtribuicao { leads_com_campanha?: number; leads_com_anuncio?: number; leads_sem_anuncio?: number }
+
 export interface PerpetuoFunil {
   versao?: string | number;
+  atribuicao?: PerpetuoAtribuicao | null;
   fontes_atualizacao?: PerpetuoFontesAtualizacao | null;
   qualidade?: PerpetuoQualidade | null;
   publicacao?: {

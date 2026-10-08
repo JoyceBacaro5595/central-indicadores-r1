@@ -237,7 +237,7 @@
 
   /* ─── Header ─── */
   .dashboard-header {
-    @apply flex items-center justify-between px-8 py-5;
+    @apply flex items-center justify-between px-8 py-5 sticky top-0 z-40;
     background: hsl(var(--background));
     border-bottom: 1px solid hsl(var(--border));
   }
