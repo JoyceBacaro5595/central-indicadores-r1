@@ -31,6 +31,8 @@ export interface PerpetuoMetricas {
 export interface PerpetuoDia extends PerpetuoMetricas { data: string }
 /** Campos descritivos opcionais; a RPC v2 ainda não os devolve (ficam "Não disponível"). */
 export interface PerpetuoDescritivo {
+  campanha_status?: string | null; anuncio_status?: string | null; destino_url?: string | null;
+  diario?: PerpetuoDia[] | null;
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
 }
