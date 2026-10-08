@@ -26,7 +26,7 @@ if(!r.ok)throw new Error("meta_error_"+(b.error?.code||r.status));return b;
 };
 while(Date.now()<deadline-23000&&cp.day<=end){
 const until=advance(cp.day,6)>end?end:advance(cp.day,6);
-const p:any={level:"ad",time_increment:"1",time_range:JSON.stringify({since:cp.day,until}),fields:"account_id,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,date_start,spend,impressions,inline_link_clicks,reach,actions",limit:"100",use_unified_attribution_setting:"true"};
+const p:any={level:"ad",time_increment:"1",time_range:JSON.stringify({since:cp.day,until}),fields:"account_id,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,date_start,spend,impressions,inline_link_clicks,reach,actions",limit:"250",use_unified_attribution_setting:"true"};
 
 if(cp.after)p.after=cp.after;
 const b=await api("act_"+ACCOUNT+"/insights",p);
