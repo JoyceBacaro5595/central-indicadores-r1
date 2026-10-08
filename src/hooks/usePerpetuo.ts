@@ -66,6 +66,8 @@ export interface PerpetuoFontesAtualizacao {
   meta_coletado_em?: string | null; meta_ultimo_dia?: string | null;
   lote_publicado_em?: string | null; lote_corte?: string | null;
   lote_proximo?: { status?: string | null; quando?: string | null; motivo?: string | null } | null;
+  /** Última verificação do cron horário (minuto 00) e a próxima prevista. */
+  verificacao_ultima?: string | null; verificacao_proxima?: string | null; verificacao_cron?: string | null;
   capacidade?: { ok?: boolean; db_bytes?: number; limit_bytes?: number } | null;
 }
 
