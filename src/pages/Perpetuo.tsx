@@ -65,9 +65,9 @@ const COR: Record<Situacao, string> = {
   nd: 'text-muted-foreground',
 };
 /** Custo frente ao total do período: abaixo → verde, mais de 10% acima → vermelho. */
-function corCusto(v: number | null | undefined, ref: number | null | undefined) {
-  if (v == null || ref == null || ref === 0) return 'text-foreground';
-  return v <= ref ? 'text-emerald-400' : v > ref * 1.1 ? 'text-red-400' : 'text-foreground';
+function corCusto(v: number | null | undefined, referencia: number | null | undefined) {
+  if (v == null || referencia == null || referencia === 0) return 'text-foreground';
+  return v <= referencia ? 'text-emerald-400' : v > referencia * 1.1 ? 'text-red-400' : 'text-foreground';
 }
 const PONTO: Record<Exclude<Situacao, 'sem-meta' | 'nd'>, string> = { meta: 'bg-emerald-400', perto: 'bg-amber-400', longe: 'bg-red-400', poucos: 'bg-muted-foreground' };
 
@@ -97,9 +97,9 @@ const metaDe = (metas: PerpetuoMetas | null | undefined, k: keyof PerpetuoMetas)
 
 /* ─── textos por aba ─── */
 const ABAS: { valor: Aba; rotulo: string; eyebrow: string; titulo: string; destaque: string; secao: string; nome: string; plural: string }[] = [
-  { valor: 'campanhas', rotulo: 'Campanhas', eyebrow: 'Meta Ads · Perpétuo RGV · campanhas que geram lead', titulo: 'Do lead à venda,', destaque: 'campanha a campanha', secao: 'Campanhas', nome: 'campanha', plural: 'campanhas' },
-  { valor: 'criativos', rotulo: 'Peças criativas', eyebrow: 'Meta Ads · Perpétuo RGV · peças criativas', titulo: 'Do lead à venda,', destaque: 'peça a peça', secao: 'Peças criativas', nome: 'peça', plural: 'peças' },
-  { valor: 'lps', rotulo: 'Páginas', eyebrow: 'Meta Ads · Perpétuo RGV · todas as campanhas', titulo: 'Páginas de destino,', destaque: 'somadas entre campanhas', secao: 'Páginas', nome: 'página', plural: 'páginas' },
+  { valor: 'campanhas', rotulo: 'Fluxo Campanhas', eyebrow: 'Meta Ads · Perpétuo RGV · campanhas que geram lead', titulo: 'Do lead à venda,', destaque: 'campanha a campanha', secao: 'Campanhas', nome: 'campanha', plural: 'campanhas' },
+  { valor: 'criativos', rotulo: 'Fluxo Criativo', eyebrow: 'Meta Ads · Perpétuo RGV · peças criativas', titulo: 'Do lead à venda,', destaque: 'peça a peça', secao: 'Peças criativas', nome: 'peça', plural: 'peças' },
+  { valor: 'lps', rotulo: 'Fluxo LP', eyebrow: 'Meta Ads · Perpétuo RGV · todas as campanhas', titulo: 'Páginas de destino,', destaque: 'somadas entre campanhas', secao: 'Páginas', nome: 'página', plural: 'páginas' },
 ];
 
 type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string };
@@ -145,7 +145,7 @@ export default function Perpetuo() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo={<>Perpétuo RGV · <span className="display text-lg font-normal">Fluxo de <span className="italic text-gold">Tráfego</span></span></>}
+        titulo={<>Perpétuo RGV · <span className="display text-lg font-normal">Fluxo <span className="italic text-gold">Marketing</span></span></>}
         subtitulo={<>Funil por campanha, criativo e página · Supabase r1-indicadores{data?.atualizado_em ? ` · atualizado em ${new Date(data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ' · mart ainda sem carga'}</>}
         onAtualizar={() => refetch()}
         atualizando={isFetching}
@@ -212,7 +212,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} />}
 
-        {data && <Lista key={aba} aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} ref={r ?? null} />}
+        {data && <Lista key={aba} aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
         <ComoLer />
       </PageBody>
@@ -295,7 +295,7 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: 'vendas', rotulo: 'Mais vendas' }, { valor: 'cac', rotulo: 'Menor CAC' },
 ];
 
-function Lista({ aba, secao, nome, itens, metas, ref }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; ref: PerpetuoMetricas | null }) {
+function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
   const [status, setStatus] = useState<string>('todas');
@@ -369,7 +369,7 @@ function Lista({ aba, secao, nome, itens, metas, ref }: { aba: Aba; secao: strin
       ) : visao === 'cards' ? (
         visiveis.length === 0 ? <div className="surface px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div> : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {visiveis.map((it, idx) => <CardItem key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} ref={ref} />)}
+            {visiveis.map((it, idx) => <CardItem key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} referencia={referencia} />)}
           </div>
         )
       ) : (
@@ -457,7 +457,7 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
 }
 
 /* ─── card (peças e páginas) ─── */
-function CardItem({ it, pos, aba, metas, ref }: { it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; ref: PerpetuoMetricas | null }) {
+function CardItem({ it, pos, aba, metas, referencia }: { it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
   const semImagem = aba === 'lps' ? 'Sem foto da página' : 'Sem imagem do anúncio';
   const rodou = it.campanhas != null || it.anuncios != null || it.pecas != null;
   return (
@@ -501,7 +501,7 @@ function CardItem({ it, pos, aba, metas, ref }: { it: Item; pos: number; aba: Ab
                   <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.curto}</td>
                   <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <NaoDisponivel />}</td>
                   <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <NaoDisponivel /> : ''}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, ref ? e.custo.v(ref) : null)}`}>{v === 0 && e.chave === 'venda' ? <span className="text-red-400">sem venda</span> : fmtBrl(custo) ?? <NaoDisponivel />}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? e.custo.v(referencia) : null)}`}>{v === 0 && e.chave === 'venda' ? <span className="text-red-400">sem venda</span> : fmtBrl(custo) ?? <NaoDisponivel />}</td>
                 </tr>
               );
             })}
@@ -524,8 +524,9 @@ function Mini({ k, v }: { k: string; v: string | null | undefined }) {
 /* ─── como ler ─── */
 const COMO_LER: [string, string][] = [
   ['Investimento', 'Gasto no Meta Ads da conta PERPETUO RGV no período, carregado pelo ETL no Supabase r1-indicadores (rgv.front_daily).'],
-  ['Lead no CRM', 'Negócios do HubSpot (pipeline Perpétuo) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
-  ['Lead no perfil (MQL)', 'Leads que entraram no perfil qualificado segundo as regras de segmentação ativas (faixa de faturamento). MQL pendente de segmentação fica fora até ser classificado.'],
+  ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
+  ['Lead no perfil (MQL)', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
+  ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
   ['Datas', 'Leads contam pela data de criação, cada etapa pela data de entrada nela e vendas pela data real da venda. Por isso o funil de um período é operacional (o que aconteceu nele), não a safra dos leads daquele período; taxas de períodos curtos misturam leads de datas diferentes.'],
