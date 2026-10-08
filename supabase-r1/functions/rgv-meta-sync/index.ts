@@ -52,6 +52,7 @@ await tx`update rgv.sync_config set checkpoint=${tx.json(next)},updated_at=now()
 }
 if(cp.day>end){cp.account_index++;cp.day=cp.start_day||START;delete cp.after;}
 const complete=cp.account_index>=ACCOUNTS.length;cp.historical_done=complete;
+if(complete&&cp.priority_period==="incremental_hourly")await sql`select rgv.queue_meta_metadata_refresh(${end}::date)`;
 if(complete&&(cp.priority_period==="incremental_hourly"||cp.priority_period==="revisao_semanal_7_dias"))completedCut=end;
 if(complete&&cp.resume_checkpoint){const saved=cp.resume_checkpoint;cp={...saved,lease_id:lease,lease_until:cp.lease_until};cp.historical_done=Boolean(saved.historical_done);}
 await sql`update rgv.sync_run set status=${complete?"success":"partial"},finished_at=now(),rows_processed=${count},checkpoint=${sql.json({day:cp.day,end_day:end,historical_done:complete})} where id=${id}::uuid`;
