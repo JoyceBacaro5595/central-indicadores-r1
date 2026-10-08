@@ -77,7 +77,7 @@ export default function Usuarios() {
   const salvarMatriz = useMutation({
     mutationFn: (m: Record<string, Papel[]>) => r1Rpc<Record<string, Papel[]>>('permissoes_salvar', { p_matriz: m }),
     onSuccess: async () => { setErro(null); setAviso('Matriz de permissões salva.'); setMatriz(null); qc.invalidateQueries({ queryKey: ['permissoes'] }); await recarregarPerfil(); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onError: (e: Error) => { setAviso(null); setErro(/permissoes_salvar/.test(e.message) ? 'A gravação da matriz ainda não está liberada no backend (função permissoes_salvar pendente). Nada foi alterado.' : e.message); },
   });
 
   useEffect(() => { if (!erro && !aviso) return; const t = setTimeout(() => setAviso(null), 6000); return () => clearTimeout(t); }, [erro, aviso]);
