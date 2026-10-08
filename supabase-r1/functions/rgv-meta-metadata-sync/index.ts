@@ -9,7 +9,12 @@ try{
  const [key]=await sql`select decrypted_secret s from vault.decrypted_secrets where name='rgv_sync_key'`;
  if(!key?.s||req.headers.get("x-rgv-sync-key")!==key.s)return json({error:"unauthorized"},403);
  const body=await req.json().catch(()=>({}));
- const ids=await sql`select a.ad_id from rgv.ad a where a.account_id='696363384474339' and strpos(upper(coalesce(a.campaign_name,'')),'[FF]')>0 and exists(select 1 from rgv.ad_daily x where x.account_id=a.account_id and x.ad_id=a.ad_id and x.day between '2026-09-01' and '2026-10-07') and not exists(select 1 from rgv.meta_ad_record r where r.account_id=a.account_id and r.ad_id=a.ad_id and r.collected_at>now()-interval '24 hours') order by a.ad_id limit 50`;
+ const parts=new Intl.DateTimeFormat("en",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(Date.now()-86400000));
+ const datePart=(t:string)=>parts.find(p=>p.type===t)!.value;
+ const endDay=datePart("year")+"-"+datePart("month")+"-"+datePart("day");
+ const from=body.date_from||"2026-09-01",to=body.date_to||endDay;
+ if(!/^2026-\d{2}-\d{2}$/.test(from)||!/^2026-\d{2}-\d{2}$/.test(to)||from>to||to>endDay)return json({error:"invalid_date_range"},400);
+ const ids=await sql`select a.ad_id from rgv.ad a where a.account_id='696363384474339' and strpos(upper(coalesce(a.campaign_name,'')),'[FF]')>0 and exists(select 1 from rgv.ad_daily x where x.account_id=a.account_id and x.ad_id=a.ad_id and x.day between ${from}::date and ${to}::date) and not exists(select 1 from rgv.meta_ad_record r where r.account_id=a.account_id and r.ad_id=a.ad_id and r.collected_at>now()-interval '24 hours') order by a.ad_id limit 50`;
  if(!ids.length)return json({status:"complete",rows:0});
  const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,campaign{id,effective_status},creative{id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
  const r=await fetch(url,{headers:{Authorization:"Bearer "+Deno.env.get("META_TOKEN_API")},signal:AbortSignal.timeout(25000)});
