@@ -47,6 +47,10 @@ export interface PerpetuoMetas {
 
 export interface PerpetuoFunil {
   versao?: string;
+  publicacao?: {
+    status?: string | null; corte_publicado?: string | null; publicado_em?: string | null;
+    motivo?: string | null; solucao?: string | null;
+  } | null;
   atualizado_em: string | null;
   periodo: { inicio: string; fim: string };
   ciclos: PerpetuoCiclo[];
