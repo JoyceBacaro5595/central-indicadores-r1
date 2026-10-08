@@ -59,11 +59,13 @@ Deno.serve(async req=>{
     const pipelineMap=new Map(pipelines.results.map((p:any)=>[p.id,p]));
     if(PIPELINES.some(id=>!pipelineMap.has(id)))throw new Error("required_pipeline_missing");
     const stageMap=new Map<string,any>();for(const p of pipelines.results)for(const s of p.stages)stageMap.set(s.id,{pipeline:p.id,name:s.label});
-    const props=[...new Set([...BASE,...Object.values(mapping)])];
+    const reasonProps=["motivo_de_loss__sdr_","motivo_de_perda__closer_"].filter(name=>properties.results.some((p:any)=>p.name===name));
+    const props=[...new Set([...BASE,...Object.values(mapping),...reasonProps])];
+    const historyProps=[...new Set(["dealstage","pipeline","amount",mapping.product,mapping.sale_at,...reasonProps].filter(Boolean))];
     if(body.mode==="check"){
       const ids=await sql`select deal_id from rgv.deal order by deal_id limit 1`;
-      const check=await api("/crm/v3/objects/deals/batch/read",{inputs:ids.map((r:any)=>({id:r.deal_id})),properties:props,propertiesWithHistory:["dealstage","pipeline"]});
-      return json({status:"ready",pipelines:PIPELINES,mapped_fields:Object.keys(mapping),sample_records:check.results?.length||0,stage_history_available:Array.isArray(check.results?.[0]?.propertiesWithHistory?.dealstage),start_at:START_AT});
+      const check=await api("/crm/v3/objects/deals/batch/read",{inputs:ids.map((r:any)=>({id:r.deal_id})),properties:props,propertiesWithHistory:historyProps});
+      return json({status:"ready",pipelines:PIPELINES,mapped_fields:Object.keys(mapping),sample_records:check.results?.length||0,stage_history_available:Array.isArray(check.results?.[0]?.propertiesWithHistory?.dealstage),product_history_available:!!mapping.product&&Array.isArray(check.results?.[0]?.propertiesWithHistory?.[mapping.product]),start_at:START_AT});
     }
     stage="stage_mapping";for(const id of PIPELINES){const p:any=pipelineMap.get(id);for(const s of p.stages){await sql`insert into rgv.stage_mapping(pipeline_id,stage_id,stage_name) values (${id},${s.id},${s.label}) on conflict(pipeline_id,stage_id) do update set stage_name=excluded.stage_name`}}
     const save=async(result:any[],cursorUpdate:()=>void)=>{
@@ -99,7 +101,7 @@ Deno.serve(async req=>{
       if(!cp.bootstrap_done&&body.phase!=="incremental"){
         const ids=await sql`select deal_id from rgv.deal where deal_id>${cp.bootstrap_cursor||""} order by deal_id limit 50`;
         if(!ids.length){cp.bootstrap_done=true;delete cp.bootstrap_cursor;await checkpoint();continue}
-        const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids.map((r:any)=>({id:r.deal_id})),properties:props,propertiesWithHistory:["dealstage","pipeline"]});
+        const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids.map((r:any)=>({id:r.deal_id})),properties:props,propertiesWithHistory:historyProps});
         if(!Array.isArray(b.results)||b.results.length!==ids.length)throw new Error("hubspot_batch_incomplete_checkpoint_retained");
         await save(b.results,()=>{cp.bootstrap_cursor=ids.at(-1).deal_id});continue;
       }
@@ -109,7 +111,7 @@ Deno.serve(async req=>{
       stage="search";const page=await api("/crm/v3/objects/deals/search",{filterGroups:[{filters}],sorts:[{propertyName:"hs_lastmodifieddate",direction:"ASCENDING"}],properties:BASE,limit:50,...(cp.delta_after?{after:cp.delta_after}:{})});
       if(page.total>=10000){const a=Date.parse(cp.delta_from),b=Date.parse(cp.delta_to);if(b-a<=1)throw new Error("hubspot_search_limit_same_timestamp");cp.delta_to=new Date(Math.floor((a+b)/2)).toISOString();cp.delta_after=null;await checkpoint();continue}
       const ids=(page.results||[]).map((r:any)=>({id:String(r.id)}));
-      let result:any[]=[];if(ids.length){const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids,properties:props,propertiesWithHistory:["dealstage","pipeline"]});if(b.results?.length!==ids.length)throw new Error("hubspot_batch_incomplete_checkpoint_retained");result=b.results}
+      let result:any[]=[];if(ids.length){const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids,properties:props,propertiesWithHistory:historyProps});if(b.results?.length!==ids.length)throw new Error("hubspot_batch_incomplete_checkpoint_retained");result=b.results}
       await save(result,()=>{if(page.paging?.next?.after)cp.delta_after=String(page.paging.next.after);else{cp.delta_from=cp.delta_to;delete cp.delta_to;delete cp.delta_after}});
     }
     const deltaCaughtUp=!cp.delta_to&&Date.parse(cp.delta_from||0)>=Date.now()-300000;
