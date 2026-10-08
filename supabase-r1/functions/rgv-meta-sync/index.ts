@@ -5,11 +5,12 @@ const advance=(s:string,n:number)=>day(new Date(Date.parse(s+"T12:00:00Z")+n*864
 Deno.serve(async(req)=>{
 const sql=postgres(Deno.env.get("SUPABASE_DB_URL")!,{prepare:false,max:1});
 const send=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"Content-Type":"application/json"}});
-let id:string|undefined,cp:any={},count=0;const lease=crypto.randomUUID(),deadline=Date.now()+70000;
+let id:string|undefined,cp:any={},count=0,completedCut:string|null=null;const lease=crypto.randomUUID(),deadline=Date.now()+70000;
 try{
 if(req.method!=="POST")return send({error:"method_not_allowed"},405);
 const [key]=await sql`select decrypted_secret as s from vault.decrypted_secrets where name='rgv_sync_key'`;
 if(!key?.s||req.headers.get("x-rgv-sync-key")!==key.s)return send({error:"unauthorized"},403);
+const requestBody=await req.json().catch(()=>({}));const runSource=requestBody.source==="cron"?"cron":"manual";
 const [cfg]=await sql`update rgv.sync_config set checkpoint=coalesce(checkpoint,'{}'::jsonb)||jsonb_build_object('lease_id',${lease}::text,'lease_until',now()+interval '3 minutes') where tool='meta' and enabled and (checkpoint->>'lease_until' is null or (checkpoint->>'lease_until')::timestamptz<now()) returning *`;
 if(!cfg)return send({status:"busy_or_disabled"});
 cp=cfg.checkpoint;cp.day=cp.day||cp.start_day||START;
@@ -17,7 +18,7 @@ cp.account_index=cp.account_index||0;
 let ACCOUNT=ACCOUNTS[cp.account_index];
 if(!ACCOUNT)return send({status:"success",historical_done:true});
 const end=cp.end_day||advance(new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),-1);
-const [run]=await sql`insert into rgv.sync_run(tool,source,status,started_at) values('meta','manual','running',now()) returning id`;id=run.id;
+const [run]=await sql`insert into rgv.sync_run(tool,source,status,started_at) values('meta',${runSource},'running',now()) returning id`;id=run.id;
 const token=Deno.env.get("META_TOKEN_API");if(!token)throw new Error("meta_token_missing");
 const api=async(path:string,params:Record<string,string>)=>{
 const url=new URL("https://graph.facebook.com/v24.0/"+path);for(const [k,v]of Object.entries(params))url.searchParams.set(k,v);
@@ -51,6 +52,8 @@ await tx`update rgv.sync_config set checkpoint=${tx.json(next)},updated_at=now()
 }
 if(cp.day>end){cp.account_index++;cp.day=cp.start_day||START;delete cp.after;}
 const complete=cp.account_index>=ACCOUNTS.length;cp.historical_done=complete;
+if(complete&&cp.priority_period==="incremental_hourly")await sql`select rgv.queue_meta_metadata_refresh(${end}::date)`;
+if(complete&&(cp.priority_period==="incremental_hourly"||cp.priority_period==="revisao_semanal_7_dias"))completedCut=end;
 if(complete&&cp.resume_checkpoint){const saved=cp.resume_checkpoint;cp={...saved,lease_id:lease,lease_until:cp.lease_until};cp.historical_done=Boolean(saved.historical_done);}
 await sql`update rgv.sync_run set status=${complete?"success":"partial"},finished_at=now(),rows_processed=${count},checkpoint=${sql.json({day:cp.day,end_day:end,historical_done:complete})} where id=${id}::uuid`;
 return send({status:complete?"success":"partial",rows:count,account_id:ACCOUNT,next_account_index:cp.account_index,next_day:cp.day,end_day:end,historical_done:complete});
@@ -59,5 +62,5 @@ const code=/^meta_[a-z0-9_]+$/.test((e as Error).message)?(e as Error).message:"
 const detail=code==="meta_error_190"?"Token inválido ou expirado. Solução: renovar META_TOKEN_API.":code==="meta_error_4"||code==="meta_error_17"?"Limite da Meta atingido. Solução: aguardar e retomar do ponto salvo.":"Falha na coleta Meta. Solução: verificar código técnico e reduzir intervalo se houver timeout. Ponto salvo preservado.";
 if(id)await sql`update rgv.sync_run set status='error',finished_at=now(),rows_processed=${count},error_type=${code},error_detail=${detail} where id=${id}::uuid`;
 return send({status:"error",error:code,rows:count,sql_code:/^[A-Z0-9]{5}$/.test(String((e as any).code||""))?(e as any).code:null,error_class:(e as Error).name},500);
-}finally{if(cp.lease_id===lease){delete cp.lease_id;delete cp.lease_until;await sql`update rgv.sync_config set checkpoint=${sql.json(cp)},updated_at=now() where tool='meta' and checkpoint->>'lease_id'=${lease}`.catch(()=>{});}await sql.end({timeout:3});}
+}finally{if(cp.lease_id===lease){delete cp.lease_id;delete cp.lease_until;await sql`update rgv.sync_config set checkpoint=${sql.json(cp)},watermark=case when ${completedCut}::date is not null then greatest(watermark,(${completedCut}::date+1)::timestamp at time zone 'America/Sao_Paulo') else watermark end,updated_at=now() where tool='meta' and checkpoint->>'lease_id'=${lease}`.catch(()=>{});}await sql.end({timeout:3});}
 });
