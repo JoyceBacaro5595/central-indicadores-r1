@@ -112,9 +112,9 @@ function itensDaAba(aba: Aba, d: PerpetuoFunil | undefined): Item[] | null | und
   return d.por_lp?.map((l) => ({ ...l, nome: rotulo(l.pagina, l.id) })) ?? null;
 }
 const MOTIVO_ND: Record<Aba, string> = {
-  campanhas: 'A quebra por campanha ainda não é entregue pela RPC perpetuo_funil_v2 (só total, criativo e LP). Os totais acima já são os da conta.',
-  criativos: 'O ETL ainda não gravou dados por criativo em rgv.front_daily (grão creative). Quando a carga da Meta no nível de anúncio e a atribuição entrarem, a lista preenche sozinha.',
-  lps: 'O ETL ainda não gravou dados por página em rgv.front_daily (grão lp). Quando a atribuição por página de destino entrar, a lista preenche sozinha.',
+  campanhas: 'A carga e a identificação por campanha ainda estão sendo preparadas. Os totais disponíveis aparecem acima.',
+  criativos: 'A identificação dos criativos e sua ligação com a jornada comercial ainda estão sendo preparadas.',
+  lps: 'A identificação das páginas de destino e sua ligação com a jornada comercial ainda estão sendo preparadas.',
 };
 
 /* ═══════════════════════════ página ═══════════════════════════ */
@@ -209,6 +209,16 @@ export default function Perpetuo() {
 
         {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+
+        {data?.publicacao && (
+          <div className="surface p-4 text-sm space-y-1" role="status">
+            <p className="font-semibold text-foreground">Atualização conjunta · HubSpot e Meta</p>
+            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dados liberados até ${dataBR(data.publicacao.corte_publicado)}.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
+            {data.publicacao.motivo && <p className="text-amber-400">{data.publicacao.motivo}</p>}
+            {data.publicacao.solucao && <p className="text-muted-foreground">{data.publicacao.solucao}</p>}
+            {data.publicacao.publicado_em && <p className="text-xs text-muted-foreground">Última liberação: {new Date(data.publicacao.publicado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>}
+          </div>
+        )}
 
         {r && <FaixaFunil m={r} metas={metas} />}
 
@@ -529,7 +539,7 @@ const COMO_LER: [string, string][] = [
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
-  ['Datas', 'Leads contam pela data de criação, cada etapa pela data de entrada nela e vendas pela data real da venda. Por isso o funil de um período é operacional (o que aconteceu nele), não a safra dos leads daquele período; taxas de períodos curtos misturam leads de datas diferentes.'],
+  ['Datas', 'O período selecionado consulta os dados liberados pela atualização conjunta. O critério de datas e comparação das taxas será identificado após validação.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as campanhas, resolvidos por ID do anúncio no Meta (não por utm_content, que costuma identificar o público).'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período. Zero só aparece quando a coleta terminou sem atividade.'],
