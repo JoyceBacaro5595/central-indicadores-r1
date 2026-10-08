@@ -18,4 +18,8 @@ update rgv.deal set current_stage_id='1086973557' where deal_id='__test_won__';
 do $$ begin
  if not (select sale_at is null and historical_won_at is not null from rgv.crm_funnel_deal_v1 where deal_id='__test_won__') then raise exception 'Cancellation did not preserve historical won/remove current sale'; end if;
 end $$;
+do $$ begin
+ if (select movement_days ? 'mql' from rgv.crm_funnel_snapshot_at_v1('2026-09-01') where deal_id='__test_transfer__') then raise exception 'Future MQL evidence leaked before cutoff'; end if;
+ if not (select movement_days->'mql' = '["2026-09-01"]'::jsonb and actual_mql_days @> '["2026-09-02"]'::jsonb from rgv.crm_funnel_snapshot_at_v1('2026-09-03') where deal_id='__test_transfer__') then raise exception 'MQL creation cohort or actual history wrong'; end if;
+end $$;
 rollback;
