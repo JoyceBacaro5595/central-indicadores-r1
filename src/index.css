@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
 
 @layer base {
   :root {
@@ -38,6 +38,7 @@
 
     /* Extended palette */
     --card-elevated: 228 16% 11%;
+    --gold: 42 62% 66%;
     --glow-primary: 0 72% 51% / 0.08;
     --glow-success: 160 60% 45% / 0.08;
 
@@ -81,6 +82,7 @@
     --ring: 0 72% 51%;
 
     --card-elevated: 0 0% 100%;
+    --gold: 38 65% 38%;
     --glow-primary: 0 72% 51% / 0.06;
     --glow-success: 160 60% 45% / 0.06;
 
@@ -313,6 +315,31 @@
   .section-container {
     @apply surface-elevated p-6;
   }
+
+  /* ─── Tipografia de destaque (Perpétuo RGV · Fluxo de Tráfego) ─── */
+  .display {
+    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .text-gold { color: hsl(var(--gold)); }
+  .bg-gold { background: hsl(var(--gold)); }
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase;
+    letter-spacing: 0.16em;
+    color: hsl(var(--muted-foreground));
+  }
+  .toggle-group { @apply inline-flex items-center rounded-lg border border-border bg-secondary/40 p-0.5; }
+  .toggle-item { @apply px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground; }
+  .toggle-item-ativo { @apply bg-background text-foreground shadow-sm; }
+  .select-r1 {
+    @apply h-9 rounded-lg border border-border bg-secondary/40 px-3 text-xs font-semibold text-foreground outline-none;
+  }
+  .input-r1 {
+    @apply h-9 rounded-lg border border-border bg-secondary/40 px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground;
+  }
+  .tag { @apply inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground; }
+  .tag-gold { color: hsl(var(--gold)); border-color: hsl(var(--gold) / 0.35); background: hsl(var(--gold) / 0.1); }
 
   .section-label {
     @apply text-xs font-bold uppercase tracking-[0.12em];
