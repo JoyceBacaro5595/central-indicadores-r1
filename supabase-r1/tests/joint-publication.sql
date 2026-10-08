@@ -1,0 +1,32 @@
+begin;
+do $test$
+declare b uuid; r jsonb; original_n bigint; original_spend numeric; got numeric;
+begin
+select count(*),sum(spend) into original_n,original_spend from rgv.front_daily;
+insert into rgv.front_batch(start_day,end_day,rules_version,validated) values('2026-09-01','2026-09-01','test-only',true) returning id into b;
+insert into rgv.front_pending(batch_id,grain,entity_id,day,media_complete,crm_complete,history_complete,attribution_complete,spend,crm_leads,mql,contact,sql,scheduled,realized,sales,revenue) values(b,'total','all','2026-09-01',true,true,true,true,100,10,9,8,7,6,5,1,1000);
+delete from rgv.meta_complete_window where '2026-09-01' between start_day and end_day;
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'waiting' or r->>'reason' not like 'Meta%' then raise exception 'Falhou: Meta incompleta não bloqueou %',r;end if;
+if (select count(*) from rgv.front_daily)<>original_n then raise exception 'Falhou: versão anterior alterada';end if;
+insert into rgv.meta_complete_window(account_id,start_day,end_day) values('696363384474339','2026-09-01','2026-09-01');
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'waiting' then raise exception 'Falhou: uma conta liberou lote';end if;
+insert into rgv.meta_complete_window(account_id,start_day,end_day) values('171474008015977','2026-09-01','2026-09-01');
+update rgv.sync_config set watermark='2026-08-31 00:00:00-03' where tool='hubspot';
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'waiting' or r->>'reason' not like 'HubSpot%' then raise exception 'Falhou: Hub atrasado não bloqueou';end if;
+update rgv.sync_config set watermark='2026-09-02 00:00:00-03',checkpoint=checkpoint||'{"bootstrap_done":true}'::jsonb where tool='hubspot';
+update rgv.front_pending set media_complete=false where batch_id=b;
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'waiting' then raise exception 'Falhou: cobertura parcial liberada';end if;
+update rgv.front_pending set media_complete=true where batch_id=b;
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'published' then raise exception 'Falhou: lote completo não publicou %',r;end if;
+select spend into got from rgv.front_daily where grain='total' and entity_id='all' and day='2026-09-01';
+if got<>100 then raise exception 'Falhou: valores publicados';end if;
+r:=rgv.try_publish_front(b);
+if r->>'status'<>'already_published' then raise exception 'Falhou: idempotência';end if;
+end $test$;
+select 'PASS: Meta incompleta, uma conta, Hub atrasado e cobertura parcial bloqueados; lote completo publicado; repetição idempotente. Tudo revertido.' as resultado;
+rollback;
