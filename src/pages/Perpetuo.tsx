@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Search, ImageOff } from 'lucide-react';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
@@ -233,7 +234,7 @@ export default function Perpetuo() {
 function ContaPill() {
   return (
     <div className="inline-flex items-center gap-2 h-9 rounded-lg border border-border bg-secondary/40 px-3">
-      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+      <span className="w-2 h-2 rounded-full bg-muted-foreground" title="Identificação da conta; não indica status de atualização" />
       <span className="text-xs font-bold text-foreground">{CONTA_META.nome}</span>
       <span className="text-[11px] text-muted-foreground mono">{CONTA_META.id}</span>
     </div>
@@ -306,6 +307,7 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
 ];
 
 function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+  const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
   const [status, setStatus] = useState<string>('todas');
@@ -370,6 +372,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       </div>
 
       <ReguaMetas metas={metas} />
+      <Detalhes item={selecionado} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} />
 
       {itens === null ? (
         <div className="surface p-5 text-sm text-muted-foreground leading-relaxed">
@@ -379,7 +382,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       ) : visao === 'cards' ? (
         visiveis.length === 0 ? <div className="surface px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div> : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {visiveis.map((it, idx) => <CardItem key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} referencia={referencia} />)}
+            {visiveis.map((it, idx) => <CardItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} referencia={referencia} />)}
           </div>
         )
       ) : (
@@ -400,7 +403,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
                 })}
               </div>
               {visiveis.length === 0 && <div className="px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div>}
-              {visiveis.map((it, idx) => <LinhaItem key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} />)}
+              {visiveis.map((it, idx) => <LinhaItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} />)}
             </div>
           </div>
         </div>
@@ -430,12 +433,12 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
   );
 }
 
-function LinhaItem({ it, pos, visao, metas }: { it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null }) {
+function LinhaItem({ it, pos, visao, metas, aoAbrir }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null }) {
   return (
     <div className="px-5 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
-        <span className="text-sm font-bold text-foreground truncate" title={it.nome}>{it.nome}</span>
+        <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
         {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag ml-auto shrink-0" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
       </div>
       <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 mt-2 pl-8">
@@ -467,23 +470,23 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
 }
 
 /* ─── card (peças e páginas) ─── */
-function CardItem({ it, pos, aba, metas, referencia }: { it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () => void; it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
   const semImagem = aba === 'lps' ? 'Sem foto da página' : 'Sem imagem do anúncio';
   const rodou = it.campanhas != null || it.anuncios != null || it.pecas != null;
   return (
     <article className="surface overflow-hidden flex flex-col">
-      <div className="relative aspect-[4/3] bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground">
-        {it.thumb ? <img src={it.thumb} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" /> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
+      <div className={`relative ${aba === 'lps' ? 'aspect-[3/4]' : 'aspect-square'} bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground`}>
+        {urlSegura(it.thumb) ? <img src={urlSegura(it.thumb)!} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" /> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
         <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-background/90 border border-border text-xs font-bold flex items-center justify-center">{pos}</span>
         <span className="absolute top-3 right-3 flex items-center gap-1.5">
           {it.tipo && <span className="tag bg-background/90">{it.tipo === 'video' ? 'Vídeo' : it.tipo === 'imagem' ? 'Imagem' : it.tipo}</span>}
-          {it.status && <span className={`tag bg-background/90 ${it.status === 'no_ar' ? 'text-emerald-400 border-emerald-500/40' : ''}`}>{it.status === 'no_ar' ? 'No ar' : it.status === 'pausado' ? 'Pausado' : it.status}</span>}
+          <Status valor={it.status} />
         </span>
       </div>
       <div className="p-4 space-y-3 flex-1">
         <div>
           <div className="flex items-baseline gap-2 min-w-0">
-            <span className="text-sm font-bold text-foreground truncate" title={it.nome}>{it.nome_curto ?? it.nome}</span>
+            <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome_curto ?? it.nome}</button>
             {it.arte_em && <span className="text-xs text-muted-foreground shrink-0">arte de {dataBR(it.arte_em)}</span>}
           </div>
           {it.nome_curto && <div className="text-[11px] text-muted-foreground mono truncate" title={it.nome}>{it.nome}</div>}
@@ -493,7 +496,7 @@ function CardItem({ it, pos, aba, metas, referencia }: { it: Item; pos: number; 
         </div>
         <div className="grid grid-cols-3 gap-2 border-t border-border pt-3">
           <Mini k="Investimento" v={fmtBrlCurto(it.investimento)} />
-          <Mini k="Leads CRM" v={fmtNum(it.leads_crm)} />
+          <Mini k="MQL" v={fmtNum(it.mql)} />
           <Mini k="Custo por MQL" v={fmtBrl(it.cpmql)} />
         </div>
         <table className="w-full text-xs border-t border-border">
@@ -517,6 +520,7 @@ function CardItem({ it, pos, aba, metas, referencia }: { it: Item; pos: number; 
             })}
           </tbody>
         </table>
+        <button type="button" onClick={aoAbrir} className="w-full border-t border-border pt-3 text-sm font-semibold text-gold hover:underline">Ver detalhes</button>
       </div>
     </article>
   );
@@ -553,4 +557,32 @@ function ComoLer() {
       </dl>
     </section>
   );
+}
+
+function urlSegura(v?: string | null) {
+  if (!v) return null;
+  try { const u = new URL(v); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null; } catch { return null; }
+}
+function Status({ valor }: { valor?: string | null }) {
+  const ativo = valor === 'no_ar' || valor === 'ACTIVE';
+  const pausado = valor === 'pausado' || valor === 'PAUSED' || valor === 'INACTIVE';
+  return <span className={`tag bg-background/90 ${ativo ? 'text-emerald-400' : pausado ? 'text-amber-400' : 'text-muted-foreground'}`}>{ativo ? 'No ar' : pausado ? 'Inativo' : valor || 'Status não disponível'}</span>;
+}
+function Detalhes({ item, aba, aoFechar, metas }: { item: Item | null; aba: Aba; aoFechar: () => void; metas: PerpetuoMetas | null }) {
+  return <Sheet open={!!item} onOpenChange={(aberto) => { if (!aberto) aoFechar(); }}>
+    <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetHeader><SheetTitle className="display text-3xl pr-8">{item?.nome_curto ?? item?.nome ?? 'Detalhes'}</SheetTitle><SheetDescription>{ABAS.find(a => a.valor === aba)?.rotulo} · dados do item selecionado</SheetDescription></SheetHeader>
+      {item && <div className="space-y-5 mt-5">
+        {urlSegura(item.thumb) && <img src={urlSegura(item.thumb)!} alt={item.nome} className="max-h-80 w-full object-contain rounded-lg bg-secondary" />}
+        <div className="flex flex-wrap gap-2"><Status valor={item.status} />{item.campanha_status && <span className="flex items-center gap-1 text-xs">Campanha <Status valor={item.campanha_status} /></span>}{item.anuncio_status && <span className="flex items-center gap-1 text-xs">Anúncio <Status valor={item.anuncio_status} /></span>}</div>
+        <dl className="text-xs space-y-2 text-muted-foreground"><div>ID: <span className="mono">{item.id}</span></div><div>Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</div><div>Campanhas: {fmtNum(item.campanhas) ?? 'Não disponível'} · Anúncios: {fmtNum(item.anuncios) ?? 'Não disponível'}</div></dl>
+        {urlSegura(item.destino_url) && <a href={urlSegura(item.destino_url)!} target="_blank" rel="noopener noreferrer" className="text-gold underline text-sm">Abrir página de destino</a>}
+        <div className="grid grid-cols-3 gap-3"><Mini k="Investimento" v={fmtBrl(item.investimento)} /><Mini k="MQL" v={fmtNum(item.mql)} /><Mini k="Custo por MQL" v={fmtBrl(item.cpmql)} /></div>
+        <div className="surface p-4 space-y-3"><h4 className="display text-2xl">Jornada no funil</h4>{ETAPAS.map(e => <div key={e.chave} className="grid grid-cols-[1.3fr_1fr_1fr] gap-2 text-xs border-t border-border pt-2"><span>{e.rotulo}</span><span className="mono">{fmtNum(e.valor(item)) ?? 'Não disponível'}</span><span className="mono text-right">{fmtBrl(e.custo.v(item)) ?? 'Não disponível'}</span></div>)}</div>
+        <div className="grid grid-cols-2 gap-3"><Mini k="Impressões" v={fmtNum(item.impressoes)} /><Mini k="Cliques" v={fmtNum(item.cliques)} /><Mini k="CPM" v={fmtBrl(item.cpm)} /><Mini k="CTR" v={fmtPct(item.ctr)} /><Mini k="CPC" v={fmtBrl(item.cpc)} /><Mini k="CAC" v={fmtBrl(item.cac)} /><Mini k="Faturamento" v={fmtBrl(item.faturamento)} /><Mini k="ROAS" v={fmtNum(item.roas)} /></div>
+        <ReguaMetas metas={metas} />
+        <section className="surface p-4"><h4 className="display text-xl">Evolução diária deste item</h4>{item.diario?.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead><tr><th className="text-left">Dia</th><th>Investimento</th><th>MQL</th><th>Vendas</th></tr></thead><tbody>{item.diario.map(d => <tr key={d.data} className="border-t border-border"><td className="py-2">{dataBR(d.data)}</td><td className="text-right">{fmtBrl(d.investimento) ?? '—'}</td><td className="text-right">{fmtNum(d.mql) ?? '—'}</td><td className="text-right">{fmtNum(d.vendas) ?? '—'}</td></tr>)}</tbody></table></div> : <p className="mt-2 text-sm text-muted-foreground">Não disponível para este item.</p>}</section>
+      </div>}
+    </SheetContent>
+  </Sheet>;
 }
