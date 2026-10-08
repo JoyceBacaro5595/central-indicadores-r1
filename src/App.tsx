@@ -1,21 +1,22 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "./pages/NotFound.tsx";
-import Central from "./pages/Central.tsx";
-import Relatorio from "./pages/Relatorio.tsx";
-import Login from "./pages/Login.tsx";
-import RedefinirSenha from "./pages/RedefinirSenha.tsx";
-import Conta from "./pages/Conta.tsx";
-import Usuarios from "./pages/Usuarios.tsx";
-import Gerenciador from "./pages/Gerenciador.tsx";
-import Regras from "./pages/Regras.tsx";
-import Eventos from "./pages/Eventos.tsx";
-import Checkins from "./pages/Checkins.tsx";
-import Recuperacao from "./pages/Recuperacao.tsx";
-import Perpetuo from "./pages/Perpetuo.tsx";
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const Central = lazy(() => import("./pages/Central.tsx"));
+const Relatorio = lazy(() => import("./pages/Relatorio.tsx"));
+const Login = lazy(() => import("./pages/Login.tsx"));
+const RedefinirSenha = lazy(() => import("./pages/RedefinirSenha.tsx"));
+const Conta = lazy(() => import("./pages/Conta.tsx"));
+const Usuarios = lazy(() => import("./pages/Usuarios.tsx"));
+const Gerenciador = lazy(() => import("./pages/Gerenciador.tsx"));
+const Regras = lazy(() => import("./pages/Regras.tsx"));
+const Eventos = lazy(() => import("./pages/Eventos.tsx"));
+const Checkins = lazy(() => import("./pages/Checkins.tsx"));
+const Recuperacao = lazy(() => import("./pages/Recuperacao.tsx"));
+const Perpetuo = lazy(() => import("./pages/Perpetuo.tsx"));
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 import AppShell from "./layout/AppShell.tsx";
@@ -29,6 +30,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+        <Suspense fallback={<div role="status" className="min-h-screen bg-background p-8 text-sm text-muted-foreground">Carregando página…</div>}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/redefinir-senha" element={<RedefinirSenha />} />
@@ -63,6 +65,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
