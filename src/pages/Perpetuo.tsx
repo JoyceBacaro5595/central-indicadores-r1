@@ -142,14 +142,21 @@ export default function Perpetuo() {
   const [preset, setPreset] = useState<string>(inicial.chave);
   const [de, setDe] = useState(inicial.de);
   const [ate, setAte] = useState(inicial.ate);
-  const { data, error, isFetching, refetch } = usePerpetuo(de, ate);
+  // As datas da tela seguem o filtro escolhido (ex.: ciclo RGV 45 = 29/09 a 03/11). A consulta vai só até o último
+  // dia fechado (ontem), porque o backend não publica dia aberto; o restante do período aparece como "em andamento".
+  const ontem = addDias(hojeSP(), -1);
+  const ateConsulta = ate > ontem ? ontem : ate;
+  const { data, error, isFetching, refetch } = usePerpetuo(de, ateConsulta);
+  const emAndamento = ate > ontem;
+  const diasPeriodo = Math.round((Date.parse(ate + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1;
+  const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1);
 
   const aplicarPreset = (chave: string) => {
     setPreset(chave);
     const p = lista.find((x) => x.chave === chave);
     if (p) { setDe(p.de); setAte(p.ate); return; }
     const c = data?.ciclos.find((x) => x.ciclo === chave);
-    if (c) { setDe(c.inicio); setAte(c.fim > hojeSP() ? addDias(hojeSP(), -1) : c.fim); }
+    if (c) { setDe(c.inicio); setAte(c.fim); }
   };
   const mudarData = (campo: 'de' | 'ate', v: string) => { setPreset('custom'); if (campo === 'de') setDe(v); else setAte(v); };
 
@@ -161,7 +168,7 @@ export default function Perpetuo() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo={<>Perpétuo RGV · <span className="display text-lg font-normal">Fluxo <span className="italic text-gold">Marketing</span></span></>}
-        subtitulo={<>Funil por campanha, criativo e página · Supabase r1-indicadores{data?.atualizado_em ? ` · atualizado em ${new Date(data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ' · mart ainda sem carga'}</>}
+        subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
         onAtualizar={() => refetch()}
         atualizando={isFetching}
         acoes={
@@ -209,7 +216,7 @@ export default function Perpetuo() {
               {cfg.titulo} <span className="italic text-gold">{cfg.destaque}</span>
             </h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span>{dataBR(de)} a {dataBR(ate)}</span>
+              <span>{dataBR(de)} a {dataBR(ate)}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}</span>
               <span>{itens === undefined ? '…' : itens === null ? <>Quebra por {cfg.nome}: <NaoDisponivel /></> : <><b className="text-foreground">{itens.length}</b> {itens.length === 1 ? cfg.nome : cfg.plural}</>}</span>
               <span>CRM: HubSpot · base do ETL (Supabase r1-indicadores)</span>
               <span>Meta coletado em {data ? (data.fontes.meta_ate ? dataBR(data.fontes.meta_ate) : <NaoDisponivel />) : '…'}</span>
@@ -235,7 +242,7 @@ export default function Perpetuo() {
           </div>
         )}
 
-        {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} />}
+        {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
 
         {r && <FaixaFunil m={r} metas={metas} />}
 
@@ -247,14 +254,32 @@ export default function Perpetuo() {
   );
 }
 
+const horaSP = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null);
+/** Hora de cada fonte e do último lote publicado (o painel só muda quando um lote novo é publicado). */
+function FontesLinha({ d }: { d: PerpetuoFunil | undefined }) {
+  if (!d) return <>carregando…</>;
+  const f = d.fontes_atualizacao;
+  const lote = horaSP(f?.lote_publicado_em ?? d.atualizado_em);
+  return (
+    <>
+      <span title="Último lote dos indicadores publicado; é o que o painel mostra">lote publicado {lote ?? 'ainda sem lote'}{f?.lote_corte ? ` (corte ${dataBR(f.lote_corte)})` : ''}</span>
+      <span> · HubSpot {horaSP(f?.hubspot_atualizado_em) ?? 'sem carga'}</span>
+      <span> · Meta {horaSP(f?.meta_coletado_em) ?? 'sem carga'}{f?.meta_ultimo_dia ? ` (até ${dataBR(f.meta_ultimo_dia)})` : ''}</span>
+      {f?.lote_proximo?.status === 'skipped' && f.lote_proximo.motivo && <span className="text-amber-400"> · próximo lote: {f.lote_proximo.motivo}</span>}
+      {f?.capacidade && f.capacidade.ok === false && <span className="text-red-400"> · banco no limite: novos lotes bloqueados</span>}
+    </>
+  );
+}
+
 /** Avisos de limitação vindos do backend: atribuição, taxas, custos e período completo. */
-function Limitacoes({ d, aba, de, ate }: { d: PerpetuoFunil; aba: Aba; de: string; ate: string }) {
+function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: Aba; de: string; ate: string; ateConsulta: string }) {
   const q = d.qualidade; const r = d.resumo;
   const avisos: { k: string; texto: string }[] = [];
   if (q?.atribuicao_completa === false && aba !== 'campanhas') avisos.push({ k: 'atrib', texto: q.motivo ?? MOTIVO_ND[aba] });
   if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
   if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
-  if (q?.periodo_completo_inicio && q?.periodo_completo_fim && (de < q.periodo_completo_inicio || ate > q.periodo_completo_fim)) {
+  if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (último dia fechado). Os dias seguintes entram conforme o lote diário é publicado.` });
+  if (q?.periodo_completo_inicio && q?.periodo_completo_fim && (de < q.periodo_completo_inicio || ateConsulta > q.periodo_completo_fim)) {
     avisos.push({ k: 'periodo', texto: `O período escolhido sai do intervalo com dados completos (${dataBR(q.periodo_completo_inicio)} a ${dataBR(q.periodo_completo_fim)}); fora dele os números ficam parciais ou indisponíveis.` });
   }
   if (avisos.length === 0) return null;
@@ -591,7 +616,7 @@ const COMO_LER: [string, string][] = [
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
-  ['Datas', 'O período selecionado consulta os dados liberados pela atualização conjunta. O critério de datas e comparação das taxas será identificado após validação.'],
+  ['Datas', 'O período segue o filtro escolhido (ciclo ou datas). A consulta vai até o último dia fechado; dias abertos entram quando o lote diário é publicado (06:10 de Brasília, após HubSpot e Meta fecharem o mesmo corte). O critério de datas e comparação das taxas será identificado após validação.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as campanhas, resolvidos por ID do anúncio no Meta (não por utm_content, que costuma identificar o público).'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Custos por etapa', 'Só aparecem quando o backend marca custos_validos no corte; a tela não divide investimento por quantidade por conta própria. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],

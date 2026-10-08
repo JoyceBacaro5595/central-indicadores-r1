@@ -60,8 +60,18 @@ export interface PerpetuoQualidade {
   periodo_completo_inicio?: string | null; periodo_completo_fim?: string | null;
 }
 
+/** Horas de atualização das fontes e do último lote publicado (rgv.fontes_atualizacao). */
+export interface PerpetuoFontesAtualizacao {
+  hubspot_atualizado_em?: string | null; hubspot_ultima_execucao?: string | null;
+  meta_coletado_em?: string | null; meta_ultimo_dia?: string | null;
+  lote_publicado_em?: string | null; lote_corte?: string | null;
+  lote_proximo?: { status?: string | null; quando?: string | null; motivo?: string | null } | null;
+  capacidade?: { ok?: boolean; db_bytes?: number; limit_bytes?: number } | null;
+}
+
 export interface PerpetuoFunil {
   versao?: string | number;
+  fontes_atualizacao?: PerpetuoFontesAtualizacao | null;
   qualidade?: PerpetuoQualidade | null;
   publicacao?: {
     status?: string | null; corte_publicado?: string | null; publicado_em?: string | null;
