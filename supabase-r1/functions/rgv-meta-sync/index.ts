@@ -10,6 +10,7 @@ try{
 if(req.method!=="POST")return send({error:"method_not_allowed"},405);
 const [key]=await sql`select decrypted_secret as s from vault.decrypted_secrets where name='rgv_sync_key'`;
 if(!key?.s||req.headers.get("x-rgv-sync-key")!==key.s)return send({error:"unauthorized"},403);
+const requestBody=await req.json().catch(()=>({}));const runSource=requestBody.source==="cron"?"cron":"manual";
 const [cfg]=await sql`update rgv.sync_config set checkpoint=coalesce(checkpoint,'{}'::jsonb)||jsonb_build_object('lease_id',${lease}::text,'lease_until',now()+interval '3 minutes') where tool='meta' and enabled and (checkpoint->>'lease_until' is null or (checkpoint->>'lease_until')::timestamptz<now()) returning *`;
 if(!cfg)return send({status:"busy_or_disabled"});
 cp=cfg.checkpoint;cp.day=cp.day||cp.start_day||START;
@@ -17,7 +18,7 @@ cp.account_index=cp.account_index||0;
 let ACCOUNT=ACCOUNTS[cp.account_index];
 if(!ACCOUNT)return send({status:"success",historical_done:true});
 const end=cp.end_day||advance(new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),-1);
-const [run]=await sql`insert into rgv.sync_run(tool,source,status,started_at) values('meta','manual','running',now()) returning id`;id=run.id;
+const [run]=await sql`insert into rgv.sync_run(tool,source,status,started_at) values('meta',${runSource},'running',now()) returning id`;id=run.id;
 const token=Deno.env.get("META_TOKEN_API");if(!token)throw new Error("meta_token_missing");
 const api=async(path:string,params:Record<string,string>)=>{
 const url=new URL("https://graph.facebook.com/v24.0/"+path);for(const [k,v]of Object.entries(params))url.searchParams.set(k,v);
