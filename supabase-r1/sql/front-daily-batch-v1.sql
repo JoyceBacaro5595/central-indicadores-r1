@@ -44,12 +44,12 @@ begin
 end $fn$;
 revoke all on function rgv.dispatch_front_daily(boolean) from public,anon,authenticated;
 
-update rgv.sync_config set enabled=true, cron_expression='10 9-23 * * *', daily_time='06:10:00', timezone='America/Sao_Paulo',
-  checkpoint = coalesce(checkpoint,'{}'::jsonb) || jsonb_build_object('capacity_limit_bytes', 524288000, 'start_day', '2026-09-01', 'descricao', 'Lote diário dos indicadores: tenta a cada hora a partir das 06:10 de Brasília até gerar um lote por corte (ontem).'),
+update rgv.sync_config set enabled=true, cron_expression='0 * * * *', daily_time='00:00:00', timezone='America/Sao_Paulo',
+  checkpoint = coalesce(checkpoint,'{}'::jsonb) || jsonb_build_object('capacity_limit_bytes', 524288000, 'start_day', '2026-09-01', 'descricao', 'Lote dos indicadores: verifica a cada hora cheia (minuto 00) e gera um lote por corte (ontem) assim que HubSpot e Meta fecham o corte.'),
   updated_at=now()
 where tool='etl';
 
-select cron.schedule('rgv-lote-diario', '10 9-23 * * *', 'select rgv.dispatch_front_daily();');
+select cron.schedule('rgv-lote-diario', '0 * * * *', 'select rgv.dispatch_front_daily();');
 
 -- Horas das fontes e do último lote, para o painel (recurso painel).
 create or replace function rgv.fontes_atualizacao() returns jsonb language sql stable security definer set search_path='' as $fn$
@@ -62,6 +62,9 @@ select jsonb_build_object(
   'lote_publicado_em', (select max(published_at) from rgv.front_batch where status='published'),
   'lote_corte', (select max(end_day) from rgv.front_batch where status='published'),
   'lote_proximo', (select jsonb_build_object('status', status, 'quando', finished_at, 'motivo', error_detail) from rgv.sync_run where tool='etl' order by coalesce(finished_at, started_at, run_after) desc limit 1),
+  'verificacao_ultima', (select max(coalesce(finished_at, started_at)) from rgv.sync_run where tool='etl'),
+  'verificacao_proxima', date_trunc('hour', now()) + interval '1 hour',
+  'verificacao_cron', (select cron_expression from rgv.sync_config where tool='etl'),
   'capacidade', rgv.capacity_status());
 $fn$;
 revoke all on function rgv.fontes_atualizacao() from public,anon;

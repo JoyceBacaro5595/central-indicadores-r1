@@ -255,7 +255,8 @@ export default function Perpetuo() {
 }
 
 const horaSP = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null);
-/** Hora de cada fonte e do último lote publicado (o painel só muda quando um lote novo é publicado). */
+const soHoraSP = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : null);
+/** Hora de cada fonte, do último lote publicado e da verificação horária (cron no minuto 00). */
 function FontesLinha({ d }: { d: PerpetuoFunil | undefined }) {
   if (!d) return <>carregando…</>;
   const f = d.fontes_atualizacao;
@@ -265,6 +266,7 @@ function FontesLinha({ d }: { d: PerpetuoFunil | undefined }) {
       <span title="Último lote dos indicadores publicado; é o que o painel mostra">lote publicado {lote ?? 'ainda sem lote'}{f?.lote_corte ? ` (corte ${dataBR(f.lote_corte)})` : ''}</span>
       <span> · HubSpot {horaSP(f?.hubspot_atualizado_em) ?? 'sem carga'}</span>
       <span> · Meta {horaSP(f?.meta_coletado_em) ?? 'sem carga'}{f?.meta_ultimo_dia ? ` (até ${dataBR(f.meta_ultimo_dia)})` : ''}</span>
+      {f?.verificacao_ultima && <span title="O cron verifica a cada hora cheia se há corte novo fechado nas duas fontes e gera o lote"> · verificado {horaSP(f.verificacao_ultima)}{f.verificacao_proxima ? `, próxima ${soHoraSP(f.verificacao_proxima)}` : ''}</span>}
       {f?.lote_proximo?.status === 'skipped' && f.lote_proximo.motivo && <span className="text-amber-400"> · próximo lote: {f.lote_proximo.motivo}</span>}
       {f?.capacidade && f.capacidade.ok === false && <span className="text-red-400"> · banco no limite: novos lotes bloqueados</span>}
     </>
