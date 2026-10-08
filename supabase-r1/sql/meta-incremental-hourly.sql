@@ -48,3 +48,17 @@ request_id:=net.http_post(url:='https://lgaujmjedphzynhbokob.supabase.co/functio
 return jsonb_build_object('status','queued','inicio',start_date,'fim',end_date,'request_id',request_id);
 end $fn$;
 revoke all on function rgv.prepare_meta_weekly_refresh() from public,anon,authenticated;
+
+create or replace function rgv.queue_meta_metadata_refresh(p_end date) returns bigint language plpgsql set search_path='' as $fn$
+declare secret_key text; request_id bigint;
+begin
+if p_end is null or p_end>=(now() at time zone 'America/Sao_Paulo')::date then raise exception 'closed_cut_required'; end if;
+select decrypted_secret into secret_key from vault.decrypted_secrets where name='rgv_sync_key';
+if secret_key is null then raise exception 'internal_sync_key_missing'; end if;
+request_id:=net.http_post(url:='https://lgaujmjedphzynhbokob.supabase.co/functions/v1/rgv-meta-metadata-sync',body:=jsonb_build_object('date_from','2026-09-01','date_to',p_end,'source','cron'),headers:=jsonb_build_object('Content-Type','application/json','x-rgv-sync-key',secret_key),timeout_milliseconds:=110000);
+return request_id;
+exception when others then
+insert into rgv.sync_run(tool,source,status,started_at,finished_at,error_type,error_detail) values('meta','cron','error',now(),now(),'metadata_dispatch_failure','Falha ao iniciar atualização dos metadados. Solução: conferir a função de metadados e repetir após liberar a execução; mídia coletada preservada.');
+return null;
+end $fn$;
+revoke all on function rgv.queue_meta_metadata_refresh(date) from public,anon,authenticated;
