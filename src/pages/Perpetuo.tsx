@@ -564,6 +564,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
             {it.arte_em && <span className="text-xs text-muted-foreground shrink-0">arte de {dataBR(it.arte_em)}</span>}
           </div>
           {it.nome_curto && <div className="text-[11px] text-muted-foreground mono truncate" title={it.nome}>{it.nome}</div>}
+          {it.codigo && it.codigo !== it.nome && <div className="text-[11px] text-muted-foreground mono truncate" title={it.codigos?.join('\n') ?? it.codigo}>{it.codigo}{(it.variacoes ?? 0) > 1 && <> · e mais {(it.variacoes ?? 1) - 1} nome{(it.variacoes ?? 0) > 2 ? 's' : ''}</>}</div>}
           <div className="text-xs text-muted-foreground mt-1">
             {rodou ? <>Rodou em <b className="text-foreground/80">{fmtNum(it.campanhas) ?? '—'}</b> campanhas{it.anuncios != null && <> · {fmtNum(it.anuncios)} anúncios</>}{it.pecas != null && <> · {fmtNum(it.pecas)} peças</>}</> : <>Campanhas e anúncios: <NaoDisponivel motivo="A RPC ainda não publica a contagem de campanhas e anúncios por item." /></>}
           </div>
@@ -612,14 +613,14 @@ function Mini({ k, v, motivo }: { k: string; v: string | null | undefined; motiv
 
 /* ─── como ler ─── */
 const COMO_LER: [string, string][] = [
-  ['Investimento', 'Gasto no Meta Ads da conta PERPETUO RGV no período, carregado pelo ETL no Supabase r1-indicadores (rgv.front_daily).'],
+  ['Investimento', 'Gasto no Meta Ads da conta PERPETUO RGV no período, só das campanhas marcadas [FF] (Perpétuo); campanhas de distribuição e remarketing sem lead ficam de fora.'],
   ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
   ['Lead no perfil (MQL)', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo quando o plano estiver cadastrado; sem plano, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
   ['Datas', 'O período segue o filtro escolhido (ciclo ou datas). A consulta vai até o último dia fechado; dias abertos entram quando o lote diário é publicado (06:10 de Brasília, após HubSpot e Meta fecharem o mesmo corte). O critério de datas e comparação das taxas será identificado após validação.'],
-  ['Peça criativa', 'Anúncios com a mesma arte somados em todas as campanhas, resolvidos por ID do anúncio no Meta (não por utm_content, que costuma identificar o público).'],
+  ['Peça criativa', 'Anúncios com a mesma arte somados em todas as datas, campanhas e anúncios. A arte é o AD no nome do anúncio ([RGV][VD][FEED][AD11][data] = VD AD11; VD = vídeo, IMG = imagem; marcações como CORTES ou PABLO separam a peça). Anúncios fora desse padrão aparecem com o nome original. O lead do CRM por peça virá pelo nome do anúncio na UTM e ainda não está atribuído.'],
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Custos por etapa', 'Só aparecem quando o backend marca custos_validos no corte; a tela não divide investimento por quantidade por conta própria. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O funil CRM por peça e por página só é mostrado com atribuição comprovada (ID exato); nomes repetidos ficam ambíguos e o destino do anúncio não comprova a página de conversão no HubSpot.'],
@@ -655,7 +656,7 @@ function Detalhes({ item, aba, aoFechar, metas }: { item: Item | null; aba: Aba;
         {imagem && <img src={imagem} alt={item.nome} className="max-h-80 w-full object-contain rounded-lg bg-secondary" />}
         {item.atribuicao_completa === false && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{mItem}</p>}
         <div className="flex flex-wrap gap-2"><Status valor={item.status} />{item.campanha_status && <span className="flex items-center gap-1 text-xs">Campanha <Status valor={item.campanha_status} /></span>}{item.anuncio_status && <span className="flex items-center gap-1 text-xs">Anúncio <Status valor={item.anuncio_status} /></span>}</div>
-        <dl className="text-xs space-y-2 text-muted-foreground"><div>ID: <span className="mono">{item.id}</span></div><div>Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</div><div>Campanhas: {fmtNum(item.campanhas) ?? 'Não disponível'} · Anúncios: {fmtNum(item.anuncios) ?? 'Não disponível'}</div></dl>
+        <dl className="text-xs space-y-2 text-muted-foreground"><div>ID: <span className="mono">{item.id}</span></div>{item.arte_em && <div>Arte de {dataBR(item.arte_em)}</div>}<div>Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</div><div>Campanhas: {fmtNum(item.campanhas) ?? 'Não disponível'} · Anúncios: {fmtNum(item.anuncios) ?? 'Não disponível'}</div>{item.codigos?.length ? <div>Nomes dos anúncios somados nesta peça:<ul className="mono mt-1 space-y-0.5">{item.codigos.map(c => <li key={c}>{c}</li>)}</ul></div> : null}</dl>
         {urlSegura(item.destino_url) && <a href={urlSegura(item.destino_url)!} target="_blank" rel="noopener noreferrer" className="text-gold underline text-sm">Abrir página de destino</a>}
         <div className="grid grid-cols-3 gap-3"><Mini k={aba === 'campanhas' ? 'Investimento da campanha' : 'Investimento atribuído ao item'} v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." /><Mini k="MQL" v={fmtNum(item.mql)} motivo={mItem} /><Mini k="Custo por MQL" v={custosValidos(item) ? fmtBrl(item.cpmql) : null} motivo={MOTIVO_CUSTO} /></div>
         <div className="surface p-4 space-y-3">

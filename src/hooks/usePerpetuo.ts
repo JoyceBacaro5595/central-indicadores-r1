@@ -42,6 +42,8 @@ export interface PerpetuoDescritivo {
   diario?: PerpetuoDia[] | null;
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
+  /** Peça criativa: código do anúncio mais recente, todos os códigos somados e quantas variações de nome a peça tem. */
+  codigo?: string | null; codigos?: string[] | null; variacoes?: number | null; padrao?: boolean | null;
 }
 export interface PerpetuoCriativo extends PerpetuoMetricas, PerpetuoDescritivo { id: string; criativo: string | null }
 export interface PerpetuoLp extends PerpetuoMetricas, PerpetuoDescritivo { id: string; pagina: string | null }
