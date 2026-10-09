@@ -65,6 +65,9 @@ export interface PerpetuoMetas {
 export interface PerpetuoQualidade {
   motivo?: string | null; atribuicao_completa?: boolean | null;
   periodo_completo_inicio?: string | null; periodo_completo_fim?: string | null;
+  /** Parcial em tempo real (09/10/2026): dias depois do corte publicado, recalculados a cada meia hora pelo cron. */
+  parcial?: boolean | null; parcial_ate?: string | null; parcial_atualizado_em?: string | null;
+  parcial_meta_coletado_em?: string | null; parcial_hubspot_em?: string | null;
 }
 
 /** Horas de atualização das fontes e do último lote publicado (rgv.fontes_atualizacao). */
@@ -91,7 +94,7 @@ export interface PerpetuoFunil {
     motivo?: string | null; solucao?: string | null;
   } | null;
   atualizado_em: string | null;
-  periodo: { inicio: string; fim: string };
+  periodo: { inicio: string; fim: string; fim_solicitado?: string | null; corte_publicado?: string | null; parcial?: boolean };
   ciclos: PerpetuoCiclo[];
   fontes: {
     meta_ate?: string | null; funil_ate?: string | null; meta_no_periodo?: boolean; funil_no_periodo?: boolean;

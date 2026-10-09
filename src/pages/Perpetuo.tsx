@@ -42,8 +42,8 @@ function presets(): Preset[] {
   return [
     { chave: 'hoje', rotulo: 'Hoje', de: hoje, ate: hoje },
     { chave: 'ontem', rotulo: 'Ontem', de: ontem, ate: ontem },
-    { chave: 'todos', rotulo: 'Todo o período', de: '2026-01-01', ate: ontem },
-    { chave: 'ano', rotulo: `${hoje.slice(0, 4)} até ontem`, de: `${hoje.slice(0, 4)}-01-01`, ate: ontem },
+    { chave: 'todos', rotulo: 'Todo o período', de: '2026-01-01', ate: hoje },
+    { chave: 'ano', rotulo: `${hoje.slice(0, 4)} até hoje`, de: `${hoje.slice(0, 4)}-01-01`, ate: hoje },
     { chave: '90', rotulo: 'Últimos 90 dias', de: addDias(ontem, -89), ate: ontem },
     { chave: '60', rotulo: 'Últimos 60 dias', de: addDias(ontem, -59), ate: ontem },
     { chave: '30', rotulo: 'Últimos 30 dias', de: addDias(ontem, -29), ate: ontem },
@@ -175,17 +175,17 @@ export default function Perpetuo() {
   const [preset, setPreset] = useState<string>(inicial.chave);
   const [de, setDe] = useState(inicial.de);
   const [ate, setAte] = useState(inicial.ate);
-  // As datas da tela seguem o filtro escolhido (ex.: ciclo RGV 45 = 29/09 a 03/11). A consulta vai só até o último
-  // dia fechado (ontem), porque o backend não publica dia aberto; o restante do período aparece como "em andamento".
-  const ontem = addDias(hojeSP(), -1);
-  const ateConsulta = ate > ontem ? ontem : ate;
+  // As datas da tela seguem o filtro escolhido (ex.: ciclo RGV 45 = 29/09 a 03/11). A consulta vai até hoje: os dias
+  // fechados vêm do lote publicado e os dias depois do corte (inclusive hoje) vêm da parcial em tempo real, recalculada
+  // a cada meia hora pelo cron (Joyce, 09/10: "precisamos ver em tempo real seguindo o cron"). O que passa de hoje é "em andamento".
+  const hoje = hojeSP();
+  const ateConsulta = ate > hoje ? hoje : ate;
   // O histórico publicado começa em `inicioPublicado` (qualidade.periodo_completo_inicio). Um filtro que começa antes
   // disso ("2026 até ontem", ciclos antigos) consulta a partir do início publicado em vez de devolver zeros (Joyce, 09/10).
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
-  // "Hoje" sozinho não tem dia fechado: o backend só publica até ontem, então não consultamos e avisamos na tela.
-  const semDiaFechado = deConsulta > ateConsulta;
-  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta, !semDiaFechado);
+  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
+  const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
   // Botão atualizar: recarrega o período; faltando até 10 min para o cron, pergunta antes (pedido de Joyce, 09/10).
@@ -194,7 +194,7 @@ export default function Perpetuo() {
     const prox = minutosParaCron(data?.fontes_atualizacao?.verificacao_proxima);
     if (prox.minutos <= AVISO_CRON_MIN) setConfirmarAtualizar(prox); else void refetch();
   };
-  const emAndamento = ate > ontem;
+  const emAndamento = ate > hoje;
   const recortado = deConsulta !== de;
   const diasPeriodo = Math.round((Date.parse(ate + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1;
   const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(deConsulta + 'T12:00:00')) / 86400000) + 1);
@@ -283,7 +283,7 @@ export default function Perpetuo() {
               {cfg.titulo} <span className="italic text-gold">{cfg.destaque}</span>
             </h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}</span>
+              <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}{parcial && <> · <b className="text-gold" title={data?.qualidade?.motivo ?? undefined}>parcial em tempo real</b>: atualizada {soHoraSP(data?.qualidade?.parcial_atualizado_em) ?? '…'} (Meta {soHoraSP(data?.qualidade?.parcial_meta_coletado_em) ?? 'sem coleta de hoje'} · HubSpot {soHoraSP(data?.qualidade?.parcial_hubspot_em) ?? '…'})</>}</span>
               <span>{itens === undefined ? '…' : itens === null ? <>Quebra por {cfg.nome}: <NaoDisponivel /></> : <><b className="text-foreground">{itens.length}</b> {itens.length === 1 ? cfg.nome : cfg.plural}</>}</span>
               <span>CRM: HubSpot · base do ETL (Supabase r1-indicadores)</span>
               <span>Meta coletado em {data ? (data.fontes.meta_ate ? dataBR(data.fontes.meta_ate) : <NaoDisponivel />) : '…'}</span>
@@ -296,15 +296,14 @@ export default function Perpetuo() {
           </div>
         </div>
 
-        {semDiaFechado && <div className="surface p-4 text-sm" role="note">Os indicadores de <b className="text-foreground">hoje</b> ainda não foram publicados: o dia entra na Central depois de fechado, no lote da manhã seguinte (Meta e HubSpot coletados até ontem). Enquanto isso, use <b className="text-foreground">Ontem</b> ou um período que inclua dias fechados.</div>}
-        {error && !semDiaFechado && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
+        {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {isFetching && data && <div role="status" className="text-sm text-muted-foreground">{isPlaceholderData ? `Atualizando o filtro… Indicadores exibidos de ${dataBR(data.periodo.inicio)} a ${dataBR(data.periodo.fim)} até concluir a consulta.` : 'Atualizando indicadores…'}</div>}
-        {!data && !error && !semDiaFechado && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+        {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
 
         {data?.publicacao && (
           <div className="surface p-4 text-sm space-y-1" role="status">
             <p className="font-semibold text-foreground">Atualização conjunta · HubSpot e Meta</p>
-            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dados liberados até ${dataBR(data.publicacao.corte_publicado)}.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
+            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dias fechados publicados até ${dataBR(data.publicacao.corte_publicado)}; depois disso a Central mostra a parcial em tempo real, recalculada a cada meia hora.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
             {data.publicacao.motivo && <p className="text-amber-400">{data.publicacao.motivo}</p>}
             {data.publicacao.solucao && <p className="text-muted-foreground">{data.publicacao.solucao}</p>}
             {data.publicacao.publicado_em && <p className="text-xs text-muted-foreground">Última liberação: {new Date(data.publicacao.publicado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>}
@@ -350,11 +349,12 @@ function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: A
   if (q?.atribuicao_completa && d.atribuicao?.leads_sem_anuncio && aba !== 'campanhas') avisos.push({ k: 'sem-anuncio', texto: `${fmtNum(d.atribuicao.leads_sem_anuncio)} de ${fmtNum(d.atribuicao.leads_com_campanha)} leads do período não trazem o nome do anúncio na UTM: ficam fora da visão por peça e entram na página principal da campanha.` });
   if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
   if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
-  if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (último dia fechado). Os dias seguintes entram conforme o lote diário é publicado.` });
+  if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (hoje, parcial). Os dias seguintes entram conforme acontecem.` });
+  if (q?.parcial && q.motivo) avisos.push({ k: 'parcial', texto: q.motivo });
   if (q?.periodo_completo_inicio && de < q.periodo_completo_inicio) {
     avisos.push({ k: 'periodo', texto: `O histórico publicado começa em ${dataBR(q.periodo_completo_inicio)}: os números mostrados vão de ${dataBR(q.periodo_completo_inicio)} a ${dataBR(ateConsulta)}. Meses anteriores dependem de recoleta do Meta e de espaço no banco.` });
-  } else if (q?.periodo_completo_fim && ateConsulta > q.periodo_completo_fim) {
-    avisos.push({ k: 'periodo', texto: `O período escolhido vai além do último lote publicado (${dataBR(q.periodo_completo_fim)}); depois dele os números ficam parciais ou indisponíveis.` });
+  } else if (!q?.parcial && q?.periodo_completo_fim && ateConsulta > q.periodo_completo_fim) {
+    avisos.push({ k: 'periodo', texto: `O período escolhido vai além do último lote publicado (${dataBR(q.periodo_completo_fim)}) e a parcial em tempo real ainda não cobre esses dias; os números vão até ${dataBR(q.periodo_completo_fim)}.` });
   }
   if (avisos.length === 0) return null;
   return (
@@ -739,6 +739,8 @@ const COMO_LER: [string, string][] = [
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
+  ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados a cada meia hora com a coleta mais recente do Meta e do HubSpot; a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
+  ['MQL', 'Lead no perfil: faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
   ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
 function ComoLer() {

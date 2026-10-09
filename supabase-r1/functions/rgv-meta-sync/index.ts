@@ -15,7 +15,10 @@ const [cfg]=await sql`update rgv.sync_config set checkpoint=coalesce(checkpoint,
 if(!cfg)return send({status:"busy_or_disabled"});
 cp=cfg.checkpoint;cp.day=cp.day||cp.start_day||START;
 cp.account_index=cp.account_index||0;
-let ACCOUNT=ACCOUNTS[cp.account_index];
+// Parcial de hoje (Joyce, 09/10/2026: "ver em tempo real seguindo o cron"): só o dia aberto, só a conta Perpétuo,
+// sem marcar janela completa (rgv.meta_complete_window) nem mexer no watermark/metadados: o dia só fecha no lote diário.
+const parcial=cp.priority_period==="parcial_hoje",accounts=parcial?[ACCOUNTS[0]]:ACCOUNTS;
+let ACCOUNT=accounts[cp.account_index];
 if(!ACCOUNT)return send({status:"success",historical_done:true});
 const end=cp.end_day||advance(new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),-1);
 const [run]=await sql`insert into rgv.sync_run(tool,source,status,started_at) values('meta',${runSource},'running',now()) returning id`;id=run.id;
@@ -47,13 +50,13 @@ const unique=[...new Map(ads.map(r=>[r.ad_id,r])).values()];
 await tx`insert into rgv.ad(account_id,ad_id,campaign_id,campaign_name,adset_id,adset_name,ad_name,campaign_verified,updated_at) select account_id,ad_id,campaign_id,campaign_name,adset_id,adset_name,ad_name,campaign_verified,updated_at from jsonb_populate_recordset(null::rgv.ad,${tx.json(unique)}::jsonb) on conflict(account_id,ad_id) do update set campaign_id=excluded.campaign_id,campaign_name=excluded.campaign_name,adset_id=excluded.adset_id,adset_name=excluded.adset_name,ad_name=excluded.ad_name,updated_at=excluded.updated_at`;
 await tx`insert into rgv.ad_daily(account_id,ad_id,day,spend,impressions,link_clicks,landing_page_views,pixel_leads,reach_daily,actions,attribution_setting,collected_at) select account_id,ad_id,day,spend,impressions,link_clicks,landing_page_views,pixel_leads,reach_daily,actions,attribution_setting,collected_at from jsonb_populate_recordset(null::rgv.ad_daily,${tx.json(metrics)}::jsonb) on conflict(account_id,ad_id,day) do update set spend=excluded.spend,impressions=excluded.impressions,link_clicks=excluded.link_clicks,landing_page_views=excluded.landing_page_views,pixel_leads=excluded.pixel_leads,reach_daily=excluded.reach_daily,actions=excluded.actions,attribution_setting=excluded.attribution_setting,collected_at=excluded.collected_at`;
 }
-if(!(b.paging?.next&&b.paging?.cursors?.after)){await tx`insert into rgv.meta_complete_window(account_id,start_day,end_day,completed_at) values(${ACCOUNT},${cp.day}::date,${until}::date,now()) on conflict(account_id,start_day,end_day) do update set completed_at=excluded.completed_at`;}
+if(!parcial&&!(b.paging?.next&&b.paging?.cursors?.after)){await tx`insert into rgv.meta_complete_window(account_id,start_day,end_day,completed_at) values(${ACCOUNT},${cp.day}::date,${until}::date,now()) on conflict(account_id,start_day,end_day) do update set completed_at=excluded.completed_at`;}
 const next={...cp};if(b.paging?.next&&b.paging?.cursors?.after)next.after=b.paging.cursors.after;else{next.day=advance(until,1);delete next.after}
 await tx`update rgv.sync_config set checkpoint=${tx.json(next)},updated_at=now() where tool='meta' and checkpoint->>'lease_id'=${lease}`;cp=next;
 });count+=b.data.length;
 }
 if(cp.day>end){cp.account_index++;cp.day=cp.start_day||START;delete cp.after;}
-const complete=cp.account_index>=ACCOUNTS.length;cp.historical_done=complete;
+const complete=cp.account_index>=accounts.length;cp.historical_done=complete;
 if(complete&&cp.priority_period==="incremental_hourly")await sql`select rgv.queue_meta_metadata_refresh(${end}::date)`;
 if(complete&&(cp.priority_period==="incremental_hourly"||cp.priority_period==="revisao_semanal_7_dias"))completedCut=end;
 if(complete&&cp.resume_checkpoint){const saved=cp.resume_checkpoint;cp={...saved,lease_id:lease,lease_until:cp.lease_until};cp.historical_done=Boolean(saved.historical_done);}
