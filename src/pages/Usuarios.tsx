@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, MailCheck, Pencil, Send, Trash2, UserPlus } from 'lucide-react';
+import { KeyRound, MailCheck, Pencil, Send, Trash2, UserPlus, Users2 } from 'lucide-react';
 import { r1Function, r1Rpc } from '@/integrations/r1/client';
 import { useAuth, type Papel } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
@@ -9,6 +9,18 @@ import { PageHeader } from '@/components/shared';
 interface Usuario {
   user_id: string; email: string; nome: string | null; papel: Papel; ativo: boolean;
   escopos: Record<string, unknown>; criado_em: string; ultimo_login: string | null; confirmado: boolean;
+  time_id?: number | null; time?: string | null;
+}
+interface Time { id: number; nome: string; ativo: boolean; pessoas: number }
+interface Recurso { chave: string; rotulo: string; descricao?: string | null }
+/** permissoes_listar: { recursos, matriz } (catálogo em identity.recurso). Aceita também o formato antigo (só a matriz). */
+interface Permissoes { recursos: Recurso[]; matriz: Record<string, Papel[]> }
+function normalizarPermissoes(raw: unknown): Permissoes {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  if (Array.isArray(o.recursos) && o.matriz && typeof o.matriz === 'object') return { recursos: o.recursos as Recurso[], matriz: o.matriz as Record<string, Papel[]> };
+  const matriz = o as Record<string, Papel[]>;
+  const recursos = Object.entries(RECURSOS).map(([chave, rotulo]) => ({ chave, rotulo }));
+  return { recursos, matriz };
 }
 
 const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
@@ -19,9 +31,11 @@ const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
   { valor: 'consulta', rotulo: 'Consulta', descricao: 'Só painel e relatório' },
 ];
 
+/* Rótulos de reserva, usados só se o backend ainda não devolver o catálogo identity.recurso. */
 const RECURSOS: Record<string, string> = {
-  painel: 'Central de ingressos', relatorio: 'Relatório', exportar: 'Exportar CSV/PDF', gerenciador: 'Gerenciador (integrações e horários)',
-  recuperacao: 'Fila de recuperação de carrinho', presenca: 'Presença e check-ins', dados_pessoais: 'Ver dados pessoais', usuarios: 'Usuários e permissões',
+  painel: 'Visão geral (Central de ingressos)', eventos: 'Eventos e metas', relatorio: 'Relatório', exportar: 'Exportar CSV/PDF', presenca: 'Check-ins',
+  recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing (Perpétuo RGV)', regras: 'Regras de segmentação',
+  gerenciador: 'Integrações e logs', analista: 'Consulta SQL (analista de dados)', usuarios: 'Usuários e permissões',
 };
 
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
@@ -30,12 +44,14 @@ export default function Usuarios() {
   const { perfil, recarregarPerfil } = useAuth();
   const qc = useQueryClient();
   const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar') });
-  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: () => r1Rpc<Record<string, Papel[]>>('permissoes_listar') });
+  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: async () => normalizarPermissoes(await r1Rpc<unknown>('permissoes_listar')) });
+  const times = useQuery({ queryKey: ['times'], queryFn: () => r1Rpc<Time[]>('times_listar'), retry: false });
+  const timesAtivos = (times.data ?? []).filter((t) => t.ativo);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   // linha em edição (nome, e-mail, perfil, ativo) — só grava ao clicar em Salvar
   const [editando, setEditando] = useState<string | null>(null);
-  const [rascunho, setRascunho] = useState<{ nome: string; email: string; papel: Papel; ativo: boolean } | null>(null);
+  const [rascunho, setRascunho] = useState<{ nome: string; email: string; papel: Papel; ativo: boolean; time_id: number | null } | null>(null);
   // matriz de permissões em edição — só grava ao clicar em Salvar
   const [matriz, setMatriz] = useState<Record<string, Papel[]> | null>(null);
   // definir senha de um acesso existente (pedido de Joyce, 09/10): o administrador digita e a pessoa troca depois
@@ -58,10 +74,12 @@ export default function Usuarios() {
   // Salvar a linha: nome/perfil/ativo pela RPC; e-mail pela Edge Function (API admin do Auth).
   const salvarLinha = useMutation({
     mutationFn: async (v: { u: Usuario; r: NonNullable<typeof rascunho> }) => {
-      const mudouPerfil = v.r.nome !== (v.u.nome ?? '') || v.r.papel !== v.u.papel || v.r.ativo !== v.u.ativo;
+      const mudouTime = v.r.time_id !== (v.u.time_id ?? null);
+      const mudouPerfil = v.r.nome !== (v.u.nome ?? '') || v.r.papel !== v.u.papel || v.r.ativo !== v.u.ativo || mudouTime;
       if (mudouPerfil) {
         await r1Rpc('usuario_atualizar', { p_user_id: v.u.user_id, p_nome: v.r.nome !== (v.u.nome ?? '') ? v.r.nome : null,
-          p_papel: v.r.papel !== v.u.papel ? v.r.papel : null, p_ativo: v.r.ativo !== v.u.ativo ? v.r.ativo : null, p_escopos: null });
+          p_papel: v.r.papel !== v.u.papel ? v.r.papel : null, p_ativo: v.r.ativo !== v.u.ativo ? v.r.ativo : null, p_escopos: null,
+          p_time_id: mudouTime ? (v.r.time_id ?? 0) : null });
       }
       const email = v.r.email.trim().toLowerCase();
       if (email !== v.u.email) await r1Function<{ ok: boolean }>('usuarios', { op: 'editar_email', user_id: v.u.user_id, email });
@@ -87,7 +105,7 @@ export default function Usuarios() {
 
   function comecarEdicao(u: Usuario) {
     setEditando(u.user_id);
-    setRascunho({ nome: u.nome ?? '', email: u.email, papel: u.papel, ativo: u.ativo });
+    setRascunho({ nome: u.nome ?? '', email: u.email, papel: u.papel, ativo: u.ativo, time_id: u.time_id ?? null });
   }
 
   function confirmarExclusao(u: Usuario) {
@@ -97,9 +115,18 @@ export default function Usuarios() {
     excluir.mutate(u);
   }
 
+  // times
+  const salvarTime = useMutation({
+    mutationFn: (v: { id?: number; nome?: string; ativo?: boolean }) => r1Rpc<Time>('time_salvar', { p_id: v.id ?? null, p_nome: v.nome ?? null, p_ativo: v.ativo ?? null }),
+    onSuccess: () => { setErro(null); setNovoTime(''); qc.invalidateQueries({ queryKey: ['times'] }); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+  });
+  const [novoTime, setNovoTime] = useState('');
+  const [timeEditando, setTimeEditando] = useState<{ id: number; nome: string } | null>(null);
+
   function alternarPermissao(rec: string, papel: Papel) {
     setMatriz((m) => {
-      const base = m ?? permissoes.data ?? {};
+      const base = m ?? permissoes.data?.matriz ?? {};
       const atual = base[rec] ?? [];
       return { ...base, [rec]: atual.includes(papel) ? atual.filter((p) => p !== papel) : [...atual, papel] };
     });
@@ -109,12 +136,13 @@ export default function Usuarios() {
   const [novoEmail, setNovoEmail] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novoPapel, setNovoPapel] = useState<Papel>('consulta');
+  const [novoTimeId, setNovoTimeId] = useState<number | null>(null);
   const [modo, setModo] = useState<'convidar' | 'criar'>('criar');
   const [novaSenha, setNovaSenha] = useState('');
 
   function criar(e: FormEvent) {
     e.preventDefault();
-    acao.mutate({ op: modo, email: novoEmail.trim(), nome: novoNome.trim() || null, papel: novoPapel, senha: modo === 'criar' ? novaSenha : undefined,
+    acao.mutate({ op: modo, email: novoEmail.trim(), nome: novoNome.trim() || null, papel: novoPapel, time_id: novoTimeId, senha: modo === 'criar' ? novaSenha : undefined,
       redirect_to: `${window.location.origin}/redefinir-senha` });
     setNovoEmail(''); setNovoNome(''); setNovaSenha('');
   }
@@ -149,6 +177,15 @@ export default function Usuarios() {
                 {PAPEIS.map((p) => <option key={p.valor} value={p.valor}>{p.rotulo}</option>)}
               </select>
             </label>
+            {timesAtivos.length > 0 && (
+              <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
+                Time
+                <select value={novoTimeId ?? ''} onChange={(e) => setNovoTimeId(e.target.value ? Number(e.target.value) : null)} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 normal-case font-normal">
+                  <option value="">Sem time</option>
+                  {timesAtivos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                </select>
+              </label>
+            )}
             <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
               Como
               <select value={modo} onChange={(e) => setModo(e.target.value as 'convidar' | 'criar')} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 normal-case font-normal">
@@ -177,6 +214,7 @@ export default function Usuarios() {
               <tr className="border-b border-border">
                 <th className="text-left p-3">Usuário</th>
                 <th className="text-left p-3">Perfil</th>
+                <th className="text-left p-3">Time</th>
                 <th className="text-left p-3">Ativo</th>
                 <th className="text-left p-3">Último login</th>
                 <th className="text-left p-3">Ações</th>
@@ -211,6 +249,15 @@ export default function Usuarios() {
                           {PAPEIS.map((p) => <option key={p.valor} value={p.valor}>{p.rotulo}</option>)}
                         </select>
                       ) : <span className="text-foreground">{PAPEIS.find((p) => p.valor === u.papel)?.rotulo ?? u.papel}</span>}
+                    </td>
+                    <td className="p-3">
+                      {emEdicao ? (
+                        <select value={rascunho.time_id ?? ''} onChange={(e) => setRascunho({ ...rascunho, time_id: e.target.value ? Number(e.target.value) : null })}
+                          className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5">
+                          <option value="">Sem time</option>
+                          {(times.data ?? []).filter((t) => t.ativo || t.id === rascunho.time_id).map((t) => <option key={t.id} value={t.id}>{t.nome}{t.ativo ? '' : ' (inativo)'}</option>)}
+                        </select>
+                      ) : <span className={u.time ? 'text-foreground' : 'text-muted-foreground'}>{u.time ?? '—'}</span>}
                     </td>
                     <td className="p-3">
                       {emEdicao ? (
@@ -275,10 +322,42 @@ export default function Usuarios() {
                   </tr>
                 );
               })}
-              {usuarios.data?.length === 0 && <tr><td className="p-3 text-muted-foreground" colSpan={5}>Nenhum usuário ainda.</td></tr>}
+              {usuarios.data?.length === 0 && <tr><td className="p-3 text-muted-foreground" colSpan={6}>Nenhum usuário ainda.</td></tr>}
             </tbody>
           </table>
         </div>
+
+        {times.data && (
+          <div className="surface p-4 space-y-3">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2"><Users2 className="w-4 h-4 text-primary" /> Times</h2>
+            <div className="flex flex-wrap gap-2">
+              {times.data.map((t) => (
+                <div key={t.id} className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs ${t.ativo ? 'bg-secondary text-foreground' : 'bg-secondary/40 text-muted-foreground'}`}>
+                  {timeEditando?.id === t.id ? (
+                    <form className="inline-flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); salvarTime.mutate({ id: t.id, nome: timeEditando.nome }, { onSuccess: () => setTimeEditando(null) }); }}>
+                      <input autoFocus value={timeEditando.nome} onChange={(e) => setTimeEditando({ id: t.id, nome: e.target.value })} className="bg-background text-foreground rounded px-1.5 py-0.5 w-32" />
+                      <button type="submit" className="text-primary font-semibold">OK</button>
+                      <button type="button" onClick={() => setTimeEditando(null)} className="text-muted-foreground">Cancelar</button>
+                    </form>
+                  ) : (
+                    <>
+                      <span>{t.nome}</span>
+                      <span className="text-muted-foreground">({t.pessoas})</span>
+                      <button type="button" title="Renomear" aria-label={`Renomear ${t.nome}`} onClick={() => setTimeEditando({ id: t.id, nome: t.nome })} className="text-primary"><Pencil className="w-3 h-3" /></button>
+                      <button type="button" onClick={() => salvarTime.mutate({ id: t.id, ativo: !t.ativo })} className="text-muted-foreground hover:text-foreground">{t.ativo ? 'Desativar' : 'Reativar'}</button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {times.data.length === 0 && <span className="text-xs text-muted-foreground">Nenhum time cadastrado.</span>}
+            </div>
+            <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (novoTime.trim()) salvarTime.mutate({ nome: novoTime.trim() }); }}>
+              <input value={novoTime} onChange={(e) => setNovoTime(e.target.value)} placeholder="Novo time (ex.: Comercial)" className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 min-w-[200px]" />
+              <button type="submit" disabled={salvarTime.isPending || !novoTime.trim()} className="rounded-md bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 disabled:opacity-50">Adicionar time</button>
+            </form>
+            <p className="text-[11px] text-muted-foreground">O time classifica as pessoas (comercial, marketing, diretoria, CS…). O que cada um vê continua definido pelo perfil na matriz abaixo. Desativar um time não apaga o vínculo das pessoas.</p>
+          </div>
+        )}
 
         <div className="surface p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -292,7 +371,7 @@ export default function Usuarios() {
                 <button type="button" disabled={salvarMatriz.isPending} onClick={() => setMatriz(null)} className="text-muted-foreground font-semibold">Cancelar</button>
               </div>
             ) : (
-              <button type="button" disabled={!permissoes.data} onClick={() => setMatriz({ ...(permissoes.data ?? {}) })} className="text-primary text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+              <button type="button" disabled={!permissoes.data} onClick={() => setMatriz({ ...(permissoes.data?.matriz ?? {}) })} className="text-primary text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
                 <Pencil className="w-3.5 h-3.5" /> Editar matriz
               </button>
             )}
@@ -306,11 +385,11 @@ export default function Usuarios() {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(RECURSOS).map(([rec, rotulo]) => (
+                {(permissoes.data?.recursos ?? []).map(({ chave: rec, rotulo, descricao }) => (
                   <tr key={rec} className="border-b border-border/60">
-                    <td className="p-2 text-foreground">{rotulo}</td>
+                    <td className="p-2 text-foreground" title={descricao ?? undefined}>{rotulo}</td>
                     {PAPEIS.map((p) => {
-                      const ligado = !!(matriz ?? permissoes.data)?.[rec]?.includes(p.valor);
+                      const ligado = !!(matriz ?? permissoes.data?.matriz)?.[rec]?.includes(p.valor);
                       const travado = rec === 'usuarios' && p.valor === 'administrador';
                       return (
                         <td key={p.valor} className="p-2 text-center">

@@ -12,9 +12,9 @@ const SECOES: Secao[] = [
   {
     titulo: 'Máquina de Vendas',
     itens: [
-      { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true, extra: ['/central/online'] },
-      { to: '/central/eventos', rotulo: 'Eventos e metas', icone: CalendarRange },
-      { to: '/central/relatorio', rotulo: 'Relatório', icone: FileText },
+      { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true, extra: ['/central/online'], recurso: 'painel' },
+      { to: '/central/eventos', rotulo: 'Eventos e metas', icone: CalendarRange, recurso: 'eventos' },
+      { to: '/central/relatorio', rotulo: 'Relatório', icone: FileText, recurso: 'relatorio' },
       { to: '/central/checkins', rotulo: 'Check-ins', icone: UserCheck, recurso: 'presenca' },
       { to: '/central/recuperacao', rotulo: 'Recuperação', icone: ShoppingCart, recurso: 'recuperacao' },
     ],
@@ -22,7 +22,7 @@ const SECOES: Secao[] = [
   {
     titulo: 'Perpétuo RGV',
     itens: [
-      { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing', icone: Waypoints },
+      { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing', icone: Waypoints, recurso: 'perpetuo' },
     ],
   },
   {
@@ -32,10 +32,9 @@ const SECOES: Secao[] = [
   },
   {
     titulo: 'Gerenciador',
-    recurso: 'gerenciador',
     itens: [
-      { to: '/central/gerenciador', rotulo: 'Integrações e logs', icone: Settings },
-      { to: '/central/regras', rotulo: 'Regras de segmentação', icone: SlidersHorizontal },
+      { to: '/central/gerenciador', rotulo: 'Integrações e logs', icone: Settings, recurso: 'gerenciador' },
+      { to: '/central/regras', rotulo: 'Regras de segmentação', icone: SlidersHorizontal, recurso: 'regras' },
     ],
   },
 ];

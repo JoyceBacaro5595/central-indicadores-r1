@@ -37,16 +37,25 @@ const App = () => (
           <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<Navigate to="/central" replace />} />
+            <Route path="/central/conta" element={<Conta />} />
+          {/* Cada visão tem o próprio recurso na matriz de permissões (identity.recurso). */}
+          <Route element={<RequireAuth recurso="painel" />}>
             <Route path="/central" element={<Central />} />
             <Route path="/central/online" element={<Central />} />
+          </Route>
+          <Route element={<RequireAuth recurso="perpetuo" />}>
             <Route path="/perpetuo" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/trafego" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/trafego/:aba" element={<Perpetuo />} />
             <Route path="/perpetuo/criativos" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/lps" element={<Navigate to="/perpetuo/trafego/lps" replace />} />
+          </Route>
+          <Route element={<RequireAuth recurso="relatorio" />}>
             <Route path="/central/relatorio" element={<Relatorio />} />
-            <Route path="/central/conta" element={<Conta />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
             <Route path="/central/eventos" element={<Eventos />} />
+          </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />
           </Route>
@@ -55,6 +64,8 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="gerenciador" />}>
             <Route path="/central/gerenciador" element={<Gerenciador />} />
+          </Route>
+          <Route element={<RequireAuth recurso="regras" />}>
             <Route path="/central/regras" element={<Regras />} />
           </Route>
           <Route element={<RequireAuth recurso="usuarios" />}>

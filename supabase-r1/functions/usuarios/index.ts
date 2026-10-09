@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
   const nome = body.nome ? String(body.nome).trim() : null;
   const papel = body.papel ? String(body.papel) : 'consulta';
   const userId = body.user_id ? String(body.user_id) : '';
+  const timeId = Number.isInteger(Number(body.time_id)) && Number(body.time_id) > 0 ? Number(body.time_id) : null;
   const redirectTo = redirectPermitido(body.redirect_to as string | undefined);
   const precisaEmail = ['convidar', 'criar', 'resetar_senha', 'editar_email'].includes(op);
   const precisaUsuario = ['excluir', 'editar_email', 'definir_senha'].includes(op);
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
   const admin = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
   async function aplicarPerfil(id: string) {
-    const { error } = await admin.rpc('usuario_definir_papel', { p_user_id: id, p_papel: papel, p_nome: nome, p_por: perfil.user_id });
+    const { error } = await admin.rpc('usuario_definir_papel', { p_user_id: id, p_papel: papel, p_nome: nome, p_por: perfil.user_id, p_time_id: timeId });
     if (error) throw new Error(error.message);
   }
 
