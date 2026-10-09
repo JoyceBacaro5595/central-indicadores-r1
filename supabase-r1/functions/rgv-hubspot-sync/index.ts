@@ -1,7 +1,8 @@
 import postgres from "npm:postgres@3.4.4";
 
 const START_AT = "2026-10-08T00:00:00-03:00";
-const PIPELINES = ["749390743", "746355509"];
+// Joyce (09/10/2026): RGV Processos (763255146) recebe, por automação, os leads de Perpétuo fora do perfil de MQL; conta como Lead no CRM.
+const PIPELINES = ["749390743", "746355509", "763255146"];
 const BASE = ["dealname", "pipeline", "dealstage", "createdate", "hs_lastmodifieddate", "amount"];
 const labels: Record<string,string[]> = {
   product:["Produto"], sale_at:["Data da venda"], origin:["Origem dos Negócios"],
@@ -104,6 +105,16 @@ Deno.serve(async req=>{
         const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids.map((r:any)=>({id:r.deal_id})),properties:props,propertiesWithHistory:historyProps});
         if(!Array.isArray(b.results)||b.results.length!==ids.length)throw new Error("hubspot_batch_incomplete_checkpoint_retained");
         await save(b.results,()=>{cp.bootstrap_cursor=ids.at(-1).deal_id});continue;
+      }
+      // Carga inicial de um pipeline recém-incluído (checkpoint.backfill = {pipeline, from, after, done, loaded}): varre por data de criação, com histórico de etapas.
+      if(cp.backfill&&!cp.backfill.done){
+        const bf=cp.backfill;
+        const filters=[{propertyName:"pipeline",operator:"EQ",value:String(bf.pipeline)},{propertyName:"createdate",operator:"GTE",value:String(Date.parse(bf.from))}];
+        stage="backfill_search";const page=await api("/crm/v3/objects/deals/search",{filterGroups:[{filters}],sorts:[{propertyName:"createdate",direction:"ASCENDING"}],properties:BASE,limit:50,...(bf.after?{after:bf.after}:{})});
+        if(page.total>=10000)throw new Error("hubspot_backfill_limit");
+        const ids=(page.results||[]).map((r:any)=>({id:String(r.id)}));
+        let result:any[]=[];if(ids.length){const b=await api("/crm/v3/objects/deals/batch/read",{inputs:ids,properties:props,propertiesWithHistory:historyProps});if(b.results?.length!==ids.length)throw new Error("hubspot_batch_incomplete_checkpoint_retained");result=b.results}
+        await save(result,()=>{const after=page.paging?.next?.after?String(page.paging.next.after):null;cp.backfill={...bf,after,done:!after,loaded:(bf.loaded||0)+ids.length}});continue;
       }
       if(!cp.delta_from)cp.delta_from=new Date(new Date(initial.watermark||START_AT).getTime()-300000).toISOString();
       if(!cp.delta_to){const from=Date.parse(cp.delta_from),until=Math.min(Date.now()-120000,from+900000);if(until<=from)break;cp.delta_to=new Date(until).toISOString();cp.delta_after=null;await checkpoint()}
