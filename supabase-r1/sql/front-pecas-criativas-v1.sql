@@ -109,3 +109,10 @@ $fn$;
 --   qualidade.motivo: 'Peças e LPs mostram mídia real. Funil por item aguarda atribuição comprovada; nomes repetidos permanecem ambíguos.'
 
 -- Validação 08/10 (08/09 a 07/10): 120 peças somam R$ 693.513,95 = resumo = rgv.ad_daily [FF]; antes eram 555 creatives.
+
+-- 09/10/2026 — imagem em alta resolução (pedido da Joyce: "A imagem precisa estar mais nítida").
+-- A Edge Function rgv-meta-metadata-sync (v8) passou a pedir ao Meta
+--   creative.thumbnail_width(1080).thumbnail_height(1080){thumbnail_url,image_url,...}
+-- e a gravar rgv.ad.preview_url = image_url (arte original) ou, para vídeos, a miniatura de 1080px.
+-- Antes todas as 722 peças vinham com a miniatura padrão de 64x64 (stp=..._p64x64_q75), por isso borradas.
+-- Recoleta única: rgv.meta_ad_record.collected_at recuado em 25h para as peças [FF] e rgv.queue_meta_metadata_refresh(ontem) em lotes de 50.

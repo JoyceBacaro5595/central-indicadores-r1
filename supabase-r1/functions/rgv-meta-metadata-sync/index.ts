@@ -16,7 +16,8 @@ try{
  if(!/^2026-\d{2}-\d{2}$/.test(from)||!/^2026-\d{2}-\d{2}$/.test(to)||from>to||to>endDay)return json({error:"invalid_date_range"},400);
  const ids=await sql`select a.ad_id from rgv.ad a where a.account_id='696363384474339' and strpos(upper(coalesce(a.campaign_name,'')),'[FF]')>0 and exists(select 1 from rgv.ad_daily x where x.account_id=a.account_id and x.ad_id=a.ad_id and x.day between ${from}::date and ${to}::date) and not exists(select 1 from rgv.meta_ad_record r where r.account_id=a.account_id and r.ad_id=a.ad_id and r.collected_at>now()-interval '24 hours') order by a.ad_id limit 50`;
  if(!ids.length)return json({status:"complete",rows:0});
- const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,campaign{id,effective_status},creative{id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
+ // Imagem em alta: image_url (arte original) e, para vídeos, miniatura de 1080px em vez do padrão 64x64.
+ const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,campaign{id,effective_status},creative.thumbnail_width(1080).thumbnail_height(1080){id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
  const r=await fetch(url,{headers:{Authorization:"Bearer "+Deno.env.get("META_TOKEN_API")},signal:AbortSignal.timeout(25000)});
  const data=await r.json();if(!r.ok||data.error)return json({error:"meta_metadata_error",code:data.error?.code||r.status},502);
  let saved=0,unavailable=0,ambiguous=0;const changedAds:string[]=[];
@@ -33,7 +34,7 @@ try{
   if(lpId)await tx`insert into rgv.landing_page(lp_id,canonical_url,name,verified) values(${lpId},${dest},${forms.length?"Formulário Meta "+forms[0]:dest},true) on conflict(lp_id) do update set canonical_url=excluded.canonical_url,name=excluded.name,verified=true`;
   const payload={...a,_derived:{destination_candidates:urls,form_ids:forms,destination_ambiguous:urls.length>1}};
   await tx`insert into rgv.meta_ad_record(account_id,ad_id,payload) values('696363384474339',${id.ad_id},${tx.json(payload)}) on conflict(account_id,ad_id) do update set payload=excluded.payload,collected_at=now()`;
-  await tx`update rgv.ad set creative_id=${c.id||null},creative_name=${c.name||null},preview_url=${safe(c.thumbnail_url)||safe(c.image_url)},destination_url=${dest},lp_id=${forms.length===1?"meta-form:"+forms[0]:dest?"lp:"+dest:null},lp_verified=${forms.length===1||!!dest},campaign_status=${a.campaign?.effective_status||null},ad_status=${a.effective_status||null},destination_type=${type},updated_at=now() where account_id='696363384474339' and ad_id=${id.ad_id}`;
+  await tx`update rgv.ad set creative_id=${c.id||null},creative_name=${c.name||null},preview_url=${safe(c.image_url)||safe(c.thumbnail_url)},destination_url=${dest},lp_id=${forms.length===1?"meta-form:"+forms[0]:dest?"lp:"+dest:null},lp_verified=${forms.length===1||!!dest},campaign_status=${a.campaign?.effective_status||null},ad_status=${a.effective_status||null},destination_type=${type},updated_at=now() where account_id='696363384474339' and ad_id=${id.ad_id}`;
   saved++;changedAds.push(id.ad_id);
  }
  });
