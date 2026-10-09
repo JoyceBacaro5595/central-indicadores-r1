@@ -1,5 +1,5 @@
 // Gestão de usuários da Central de Indicadores R1.
-// Só quem tem a permissão 'usuarios' (administrador) pode convidar, criar, editar e-mail, excluir ou resetar senha.
+// Só quem tem a permissão 'usuarios' (administrador) pode convidar, criar, editar e-mail, definir senha, excluir ou resetar senha.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const URL = Deno.env.get('SUPABASE_URL')!;
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
   const userId = body.user_id ? String(body.user_id) : '';
   const redirectTo = redirectPermitido(body.redirect_to as string | undefined);
   const precisaEmail = ['convidar', 'criar', 'resetar_senha', 'editar_email'].includes(op);
-  const precisaUsuario = ['excluir', 'editar_email'].includes(op);
+  const precisaUsuario = ['excluir', 'editar_email', 'definir_senha'].includes(op);
   if (precisaEmail && (!email || !email.includes('@'))) return json(400, { ok: false, erro: 'E-mail inválido' });
   if (precisaUsuario && !userId) return json(400, { ok: false, erro: 'Usuário não informado' });
   if (!PAPEIS.includes(papel)) return json(400, { ok: false, erro: 'Perfil inválido' });
@@ -72,7 +72,15 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome } });
       if (error) throw new Error(error.message);
       await aplicarPerfil(data.user.id);
-      return json(200, { ok: true, mensagem: `Usuário ${email} criado; peça para trocar a senha em “Minha conta”` });
+      return json(200, { ok: true, mensagem: `Usuário ${email} criado; a pessoa pode trocar a senha em “Minha conta” quando quiser` });
+    }
+    if (op === 'definir_senha') {
+      // Senha definida pelo administrador para um acesso já existente; a pessoa troca depois em “Minha conta”.
+      const senha = String(body.senha ?? '');
+      if (senha.length < 8) return json(400, { ok: false, erro: 'A senha precisa ter ao menos 8 caracteres' });
+      const { data, error } = await admin.auth.admin.updateUserById(userId, { password: senha, email_confirm: true });
+      if (error) throw new Error(error.message);
+      return json(200, { ok: true, mensagem: `Senha definida para ${data.user?.email ?? 'o usuário'}; ela pode ser trocada em “Minha conta”` });
     }
     if (op === 'resetar_senha') {
       const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
