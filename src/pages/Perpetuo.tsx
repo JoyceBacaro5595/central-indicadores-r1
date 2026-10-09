@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -160,7 +160,13 @@ export default function Perpetuo() {
   // dia fechado (ontem), porque o backend não publica dia aberto; o restante do período aparece como "em andamento".
   const ontem = addDias(hojeSP(), -1);
   const ateConsulta = ate > ontem ? ontem : ate;
-  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(de, ateConsulta);
+  // O histórico publicado começa em `inicioPublicado` (qualidade.periodo_completo_inicio). Um filtro que começa antes
+  // disso ("2026 até ontem", ciclos antigos) consulta a partir do início publicado em vez de devolver zeros (Joyce, 09/10).
+  const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
+  const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
+  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
+  const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
+  useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
   // Botão atualizar: recarrega o período; faltando até 10 min para o cron, pergunta antes (pedido de Joyce, 09/10).
   const [confirmarAtualizar, setConfirmarAtualizar] = useState<{ minutos: number; quando: string } | null>(null);
   const atualizar = () => {
@@ -168,8 +174,9 @@ export default function Perpetuo() {
     if (prox.minutos <= AVISO_CRON_MIN) setConfirmarAtualizar(prox); else void refetch();
   };
   const emAndamento = ate > ontem;
+  const recortado = deConsulta !== de;
   const diasPeriodo = Math.round((Date.parse(ate + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1;
-  const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1);
+  const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(deConsulta + 'T12:00:00')) / 86400000) + 1);
 
   const aplicarPreset = (chave: string) => {
     setPreset(chave);
@@ -255,7 +262,7 @@ export default function Perpetuo() {
               {cfg.titulo} <span className="italic text-gold">{cfg.destaque}</span>
             </h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span>{dataBR(de)} a {dataBR(ate)}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}</span>
+              <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}</span>
               <span>{itens === undefined ? '…' : itens === null ? <>Quebra por {cfg.nome}: <NaoDisponivel /></> : <><b className="text-foreground">{itens.length}</b> {itens.length === 1 ? cfg.nome : cfg.plural}</>}</span>
               <span>CRM: HubSpot · base do ETL (Supabase r1-indicadores)</span>
               <span>Meta coletado em {data ? (data.fontes.meta_ate ? dataBR(data.fontes.meta_ate) : <NaoDisponivel />) : '…'}</span>
@@ -322,8 +329,10 @@ function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: A
   if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
   if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
   if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (último dia fechado). Os dias seguintes entram conforme o lote diário é publicado.` });
-  if (q?.periodo_completo_inicio && q?.periodo_completo_fim && (de < q.periodo_completo_inicio || ateConsulta > q.periodo_completo_fim)) {
-    avisos.push({ k: 'periodo', texto: `O período escolhido sai do intervalo com dados completos (${dataBR(q.periodo_completo_inicio)} a ${dataBR(q.periodo_completo_fim)}); fora dele os números ficam parciais ou indisponíveis.` });
+  if (q?.periodo_completo_inicio && de < q.periodo_completo_inicio) {
+    avisos.push({ k: 'periodo', texto: `O histórico publicado começa em ${dataBR(q.periodo_completo_inicio)}: os números mostrados vão de ${dataBR(q.periodo_completo_inicio)} a ${dataBR(ateConsulta)}. Meses anteriores dependem de recoleta do Meta e de espaço no banco.` });
+  } else if (q?.periodo_completo_fim && ateConsulta > q.periodo_completo_fim) {
+    avisos.push({ k: 'periodo', texto: `O período escolhido vai além do último lote publicado (${dataBR(q.periodo_completo_fim)}); depois dele os números ficam parciais ou indisponíveis.` });
   }
   if (avisos.length === 0) return null;
   return (
