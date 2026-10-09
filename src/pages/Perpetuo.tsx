@@ -303,7 +303,7 @@ export default function Perpetuo() {
         {data?.publicacao && (
           <div className="surface p-4 text-sm space-y-1" role="status">
             <p className="font-semibold text-foreground">Atualização conjunta · HubSpot e Meta</p>
-            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dias fechados publicados até ${dataBR(data.publicacao.corte_publicado)}; depois disso a Central mostra a parcial em tempo real, recalculada a cada meia hora.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
+            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dias fechados publicados até ${dataBR(data.publicacao.corte_publicado)}; depois disso a Central mostra a parcial em tempo real, recalculada de hora em hora.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
             {data.publicacao.motivo && <p className="text-amber-400">{data.publicacao.motivo}</p>}
             {data.publicacao.solucao && <p className="text-muted-foreground">{data.publicacao.solucao}</p>}
             {data.publicacao.publicado_em && <p className="text-xs text-muted-foreground">Última liberação: {new Date(data.publicacao.publicado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>}
@@ -739,7 +739,7 @@ const COMO_LER: [string, string][] = [
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
-  ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados a cada meia hora com a coleta mais recente do Meta e do HubSpot; a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
+  ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados de hora em hora, logo depois da recarga do Meta e do HubSpot (minuto 00); a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
   ['MQL', 'Lead no perfil: faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
   ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
