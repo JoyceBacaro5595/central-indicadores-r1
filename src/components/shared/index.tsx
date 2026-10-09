@@ -17,9 +17,16 @@ export function NaoDisponivel({ motivo, className = '' }: { motivo?: string; cla
   );
 }
 
-/** Valor formatado ou "Não disponível". */
-export function Valor({ v, motivo }: { v: string | null | undefined; motivo?: string }) {
-  return v == null ? <NaoDisponivel motivo={motivo} /> : <>{v}</>;
+/** Indicador sem valor: mostra o zero do tipo (0, 0,0% ou R$ 0) em cinza, com o motivo no tooltip.
+ *  Pedido de Joyce (09/10/2026): os indicadores trazem unicamente números, nunca texto. */
+export const ZERO: Record<'num' | 'pct' | 'brl', string> = { num: '0', pct: '0,0%', brl: 'R$ 0' };
+export function Zero({ tipo = 'num', motivo, className = '' }: { tipo?: keyof typeof ZERO; motivo?: string; className?: string }) {
+  return <span className={`text-muted-foreground ${className}`} title={motivo}>{ZERO[tipo]}</span>;
+}
+
+/** Valor formatado ou zero do tipo (indicadores só com números). */
+export function Valor({ v, motivo, tipo = 'num' }: { v: string | null | undefined; motivo?: string; tipo?: keyof typeof ZERO }) {
+  return v == null ? <Zero tipo={tipo} motivo={motivo} /> : <>{v}</>;
 }
 
 /** Cabeçalho de página: título, subtítulo e ações à direita (sempre com o menu do usuário). */
@@ -51,14 +58,14 @@ export function PageBody({ children, className = '' }: { children: ReactNode; cl
   return <main className={`py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8 ${className}`}>{children}</main>;
 }
 
-/** Cartão de KPI. `value` nulo mostra "Não disponível". */
-export function KpiCard({ label, value, sub, highlight, motivo }: {
-  label: string; value: string | null | undefined; sub?: ReactNode; highlight?: boolean; motivo?: string;
+/** Cartão de KPI. `value` nulo mostra o zero do tipo. */
+export function KpiCard({ label, value, sub, highlight, motivo, tipo = 'num' }: {
+  label: string; value: string | null | undefined; sub?: ReactNode; highlight?: boolean; motivo?: string; tipo?: keyof typeof ZERO;
 }) {
   return (
     <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'}>
       <div className="kpi-label">{label}</div>
-      <div className={`kpi-value ${value == null ? 'text-xs font-medium' : 'mono'}`}><Valor v={value} motivo={motivo} /></div>
+      <div className="kpi-value mono"><Valor v={value} motivo={motivo} tipo={tipo} /></div>
       {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
