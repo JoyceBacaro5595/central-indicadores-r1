@@ -640,16 +640,19 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
   const semImagem = aba === 'lps' ? 'Sem foto da página' : 'Sem imagem do anúncio';
   const rodou = it.campanhas != null || it.anuncios != null || it.pecas != null;
   const imagem = imagemDe(it);
+  // Joyce (09/10/2026, "Aqui, redirecionar"): o botão do cartão leva ao anúncio, à campanha no Gerenciador ou à página.
+  const hrefCartao = aba === 'criativos' ? urlSegura(it.anuncio_link) : aba === 'campanhas' ? linkGerenciadorCampanha(it.id) : urlDaPagina(it);
+  const redirecionar = hrefCartao ? { href: hrefCartao, rotulo: aba === 'criativos' ? 'Ver o anúncio' : aba === 'campanhas' ? 'Abrir no Gerenciador' : 'Abrir a página' } : null;
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
   return (
     <article className="surface overflow-hidden flex flex-col">
       <div className={`relative ${aba === 'lps' ? 'aspect-[3/4]' : 'aspect-square'} bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground`}>
         {imagem ? <>
-          {/* Clique na imagem abre o painel de detalhes (pedido da Joyce, 09/10); ampliar fica no botão do canto. */}
+          {/* Clique na imagem abre o painel de detalhes (pedido da Joyce, 09/10); o botão do canto redirecionar. */}
           <button type="button" onClick={aoAbrir} className="absolute inset-0 w-full h-full focus-visible:outline focus-visible:outline-2" aria-label={`Ver detalhes de ${it.nome}`} title="Ver detalhes">
             <img src={imagem} alt={it.nome} className="w-full h-full object-contain" loading="lazy" />
           </button>
-          <button type="button" onClick={() => setAmpliada(true)} className="absolute bottom-3 right-3 rounded bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-background focus-visible:outline focus-visible:outline-2" aria-label={`Ampliar imagem de ${it.nome}`}>Ampliar imagem</button>
+          {redirecionar && <a href={redirecionar.href} target="_blank" rel="noopener noreferrer" className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-background focus-visible:outline focus-visible:outline-2">{redirecionar.rotulo} <ExternalLink className="w-3 h-3" /></a>}
         </> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
         <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-background/90 border border-border text-xs font-bold flex items-center justify-center">{pos}</span>
         <span className="absolute top-3 right-3 flex items-center gap-1.5">
