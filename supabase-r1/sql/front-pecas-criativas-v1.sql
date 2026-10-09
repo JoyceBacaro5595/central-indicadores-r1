@@ -116,3 +116,7 @@ $fn$;
 -- e a gravar rgv.ad.preview_url = image_url (arte original) ou, para vídeos, a miniatura de 1080px.
 -- Antes todas as 722 peças vinham com a miniatura padrão de 64x64 (stp=..._p64x64_q75), por isso borradas.
 -- Recoleta única: rgv.meta_ad_record.collected_at recuado em 25h para as peças [FF] e rgv.queue_meta_metadata_refresh(ontem) em lotes de 50.
+
+-- 09/10/2026 — painel de detalhes da peça (pedido da Joyce): rgv.aggregate_pecas_media passou a devolver
+-- 'diario' (mídia do Meta por dia: investimento, impressões, cliques, visualizacoes_lp, leads_pixel, midia_completa)
+-- e 'anuncio_ids' (IDs dos anúncios somados, para abrir o Gerenciador já filtrado). Leads do CRM por dia por peça ainda não existem.

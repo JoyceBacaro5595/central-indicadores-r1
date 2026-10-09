@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, ImageOff } from 'lucide-react';
+import { Search, ImageOff, ExternalLink, Maximize2 } from 'lucide-react';
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
 
@@ -496,7 +497,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       </div>
 
       <ReguaMetas metas={metas} />
-      <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} />
+      <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
         <div className="surface p-5 text-sm text-muted-foreground leading-relaxed">
@@ -723,29 +724,108 @@ function Status({ valor }: { valor?: string | null }) {
   const pausado = valor === 'pausado' || valor === 'PAUSED' || valor === 'INACTIVE';
   return <span className={`tag bg-background/90 ${ativo ? 'text-emerald-400' : pausado ? 'text-amber-400' : 'text-muted-foreground'}`}>{ativo ? 'No ar' : pausado ? 'Inativo' : valor || 'Status não disponível'}</span>;
 }
-function Detalhes({ item, aba, aoFechar, metas }: { item: Item | null; aba: Aba; aoFechar: () => void; metas: PerpetuoMetas | null }) {
+const linkGerenciador = (ids?: string[] | null) => ids?.length ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${CONTA_META.id}&selected_ad_ids=${ids.slice(0, 50).join(',')}` : null;
+const rotuloTipo = (t?: string | null) => t === 'video' ? 'Vídeo' : t === 'imagem' ? 'Imagem' : t ?? null;
+const rotuloStatus = (v?: string | null) => v === 'no_ar' || v === 'ACTIVE' ? 'No ar' : v === 'pausado' || v === 'PAUSED' || v === 'INACTIVE' ? 'Inativo' : v ?? null;
+
+/** Painel de detalhes do item (formato pedido pela Joyce em 09/10: cabeçalho, ações, Meta, do lead à venda, dia a dia). */
+function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | null; aba: Aba; aoFechar: () => void; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+  const [ampliada, setAmpliada] = useState(false);
   const imagem = item ? imagemDe(item) : null;
   const mTaxa = motivoTaxa(item); const mItem = motivoItem(item, aba);
+  const gerenciador = linkGerenciador(item?.anuncio_ids);
+  const destino = urlSegura(item?.destino_url);
+  const eyebrow = item ? [rotuloTipo(item.tipo), rotuloStatus(item.status), item.arte_em ? `arte de ${dataBR(item.arte_em)}` : null].filter(Boolean).join(' · ') : '';
+  const nomeAba = aba === 'campanhas' ? 'campanha' : aba === 'lps' ? 'página' : 'peça';
+  const poucosLeads = item?.leads_crm != null && item.leads_crm < 10;
+  const dias = (item?.diario ?? []).filter(d => d.data);
+  const temLeadsDia = dias.some(d => d.leads_pixel != null);
+  const temInvestDia = dias.some(d => d.investimento != null);
+  const serie = dias.map(d => ({ dia: dataBR(d.data).slice(0, 5), investimento: d.investimento ?? null, leads: d.leads_pixel ?? null }));
   return <Sheet open={!!item} onOpenChange={(aberto) => { if (!aberto) aoFechar(); }}>
     <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-      <SheetHeader><SheetTitle className="display text-3xl pr-8">{item?.nome_curto ?? item?.nome ?? 'Detalhes'}</SheetTitle><SheetDescription>{ABAS.find(a => a.valor === aba)?.rotulo} · dados do item selecionado</SheetDescription></SheetHeader>
+      <SheetHeader className="text-left">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{eyebrow || `${ABAS.find(a => a.valor === aba)?.rotulo}`}</p>
+        <SheetTitle className="display text-3xl pr-8">{item?.nome_curto ?? item?.nome ?? 'Detalhes'}</SheetTitle>
+        <SheetDescription className="mono text-xs">{item?.codigo ?? item?.id}{item?.anuncios != null ? ` · ${fmtNum(item.anuncios)} anúncios` : ''}{item?.campanhas != null ? ` · ${fmtNum(item.campanhas)} campanhas` : ''}</SheetDescription>
+      </SheetHeader>
       {item && <div className="space-y-5 mt-5">
-        {imagem && <img src={imagem} alt={item.nome} className="max-h-80 w-full object-contain rounded-lg bg-secondary" />}
+        <div className="flex flex-wrap gap-2">
+          {gerenciador && <a href={gerenciador} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Abrir no Gerenciador <ExternalLink className="w-3.5 h-3.5" /></a>}
+          {destino && <a href={destino} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Página de destino <ExternalLink className="w-3.5 h-3.5" /></a>}
+          {imagem && <button type="button" onClick={() => setAmpliada(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Ampliar imagem <Maximize2 className="w-3.5 h-3.5" /></button>}
+        </div>
+        {imagem && <button type="button" onClick={() => setAmpliada(true)} className="block w-full" aria-label={`Ampliar imagem de ${item.nome}`}><img src={imagem} alt={item.nome} className="max-h-72 w-full object-contain rounded-lg bg-secondary" /></button>}
+        {imagem && <Dialog open={ampliada} onOpenChange={setAmpliada}>
+          <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[95vh] flex flex-col">
+            <DialogHeader><DialogTitle>{item.nome_curto ?? item.nome}</DialogTitle><DialogDescription>Imagem completa · role para visualizar toda a página.</DialogDescription></DialogHeader>
+            <div className="overflow-auto min-h-0 bg-secondary/40 rounded"><img src={imagem} alt={item.nome} className="block w-auto max-w-full h-auto mx-auto" /></div>
+            <a href={imagem} target="_blank" rel="noopener noreferrer" className="text-sm underline">Abrir imagem em tamanho original</a>
+          </DialogContent>
+        </Dialog>}
+        {item.anuncios != null && item.anuncios > 1 && <p className="text-xs text-muted-foreground">Soma {fmtNum(item.anuncios)} anúncios com este nome (a mesma arte em conjuntos ou campanhas diferentes).</p>}
+        {(item.variacoes ?? 0) > 1 && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{fmtNum(item.variacoes)} nomes de anúncio diferentes usam esta {nomeAba}. A UTM só grava o nome, então os números somam as variações.{item.codigos?.length ? <> <span className="mono">{item.codigos.join(' · ')}</span></> : null}</p>}
         {item.atribuicao_completa === false && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{mItem}</p>}
-        <div className="flex flex-wrap gap-2"><Status valor={item.status} />{item.campanha_status && <span className="flex items-center gap-1 text-xs">Campanha <Status valor={item.campanha_status} /></span>}{item.anuncio_status && <span className="flex items-center gap-1 text-xs">Anúncio <Status valor={item.anuncio_status} /></span>}</div>
-        <dl className="text-xs space-y-2 text-muted-foreground"><div>ID: <span className="mono">{item.id}</span></div>{item.arte_em && <div>Arte de {dataBR(item.arte_em)}</div>}<div>Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</div><div>Campanhas: {fmtNum(item.campanhas) ?? 'Não disponível'} · Anúncios: {fmtNum(item.anuncios) ?? 'Não disponível'}</div>{item.codigos?.length ? <div>Nomes dos anúncios somados nesta peça:<ul className="mono mt-1 space-y-0.5">{item.codigos.map(c => <li key={c}>{c}</li>)}</ul></div> : null}</dl>
-        {urlSegura(item.destino_url) && <a href={urlSegura(item.destino_url)!} target="_blank" rel="noopener noreferrer" className="text-gold underline text-sm">Abrir página de destino</a>}
-        <div className="grid grid-cols-3 gap-3"><Mini k={aba === 'campanhas' ? 'Investimento da campanha' : 'Investimento atribuído ao item'} v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." /><Mini k="MQL" v={fmtNum(item.mql)} motivo={mItem} /><Mini k="Custo por MQL" v={custosValidos(item) ? fmtBrl(item.cpmql) : null} motivo={MOTIVO_CUSTO} /></div>
-        <div className="surface p-4 space-y-3">
-          <h4 className="display text-2xl">Jornada no funil</h4>
-          <div className="grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-2 text-[11px] text-muted-foreground"><span>Etapa</span><span>Qtd</span><span className="text-right">Taxa</span><span className="text-right">Custo</span></div>
-          {ETAPAS.map(e => <div key={e.chave} className="grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-2 text-xs border-t border-border pt-2"><span>{e.rotulo}</span><span className="mono">{fmtNum(e.valor(item)) ?? <NaoDisponivel motivo={mItem} />}</span><span className="mono text-right">{e.taxa ? fmtPct(e.taxa.v(item)) ?? <NaoDisponivel motivo={mTaxa} /> : ''}</span><span className="mono text-right">{fmtBrl(custoDe(e, item)) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} />}</span></div>)}
+        <div className="flex flex-wrap gap-2 text-xs"><Status valor={item.status} />{item.campanha_status && <span className="flex items-center gap-1">Campanha <Status valor={item.campanha_status} /></span>}{item.anuncio_status && <span className="flex items-center gap-1">Anúncio <Status valor={item.anuncio_status} /></span>}{(item.inicio || item.fim) && <span className="text-muted-foreground">Período: {dataBR(item.inicio)} a {dataBR(item.fim)}</span>}</div>
+
+        <section className="space-y-2">
+          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Meta</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Mini k="Investimento" v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." />
+            <Mini k="Impressões" v={fmtNum(item.impressoes)} />
+            <Mini k="CTR (link)" v={fmtPct(item.ctr)} />
+            <Mini k="Visitas à página" v={fmtNum(item.visualizacoes_lp)} />
+            <Mini k="Leads no Meta" v={fmtNum(item.leads_pixel)} motivo="Leads do pixel não coletados para este item." />
+            <Mini k="CPL no Meta" v={fmtBrl(item.cpl_pixel)} motivo="Sem leads do pixel para calcular." />
+            <Mini k="Leads no CRM" v={fmtNum(item.leads_crm)} motivo={mItem} />
+            <Mini k="Visita → lead" v={fmtPct(item.conversao_lp)} motivo="Precisa de visitas e leads do CRM no mesmo corte." />
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Do lead à venda</h4>
+          <div className="divide-y divide-border">
+            {ETAPAS.map(e => {
+              const qtd = e.valor(item); const taxa = e.taxa ? e.taxa.v(item) : null; const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+              const custo = custoDe(e, item); const ref = referencia ? custoDe(e, referencia) : null;
+              const sit = e.taxa ? situacao(taxa, meta, qtd) : 'nd';
+              return <div key={e.chave} className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
+                <span className="text-foreground font-semibold pt-1">{e.rotulo}</span>
+                <div className="space-y-1">
+                  <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{fmtNum(qtd) ?? <NaoDisponivel className="text-xs" motivo={mItem} />}</div>
+                  {e.taxa && <div className="text-muted-foreground">{e.taxa.rotulo} <b className={taxa != null && sit !== 'nd' ? COR[sit] : 'text-foreground'}>{fmtPct(taxa) ?? <NaoDisponivel className="text-xs" motivo={mTaxa} />}</b>{meta != null && <> · meta {fmtPct(meta, 0)}</>}</div>}
+                  <div className="text-muted-foreground">{e.custo.rotulo} <b className="text-foreground">{fmtBrl(custo) ?? <span className="text-primary">sem {e.curto.toLowerCase()}</span>}</b>{ref != null && <> · {aba === 'campanhas' ? 'total' : 'campanha'} {fmtBrl(ref)}</>}</div>
+                </div>
+              </div>;
+            })}
+          </div>
+          {poucosLeads && <p className="text-[11px] text-muted-foreground">Amostra pequena: menos de 10 leads. Os custos ainda não servem de comparação.</p>}
           {!custosValidos(item) && <p className="text-[11px] text-muted-foreground">{MOTIVO_CUSTO}</p>}
           {ETAPAS.some(e => e.taxa && e.taxa.v(item) == null) && <p className="text-[11px] text-muted-foreground">{mTaxa}</p>}
-        </div>
-        <div className="grid grid-cols-2 gap-3"><Mini k="Impressões" v={fmtNum(item.impressoes)} /><Mini k="Cliques" v={fmtNum(item.cliques)} /><Mini k="CPM" v={fmtBrl(item.cpm)} /><Mini k="CTR" v={fmtPct(item.ctr)} /><Mini k="CPC" v={fmtBrl(item.cpc)} /><Mini k="CAC" v={custosValidos(item) ? fmtBrl(item.cac) : null} motivo={MOTIVO_CUSTO} /><Mini k="Faturamento" v={fmtBrl(item.faturamento)} motivo={mItem} /><Mini k="ROAS" v={custosValidos(item) ? fmtNum(item.roas) : null} motivo={MOTIVO_CUSTO} /></div>
+        </section>
+
+        <section className="space-y-2">
+          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Dia a dia</h4>
+          {serie.length && (temInvestDia || temLeadsDia) ? <>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={serie} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" minTickGap={24} />
+                  {temLeadsDia && <YAxis yAxisId="leads" allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={28} />}
+                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={56} tickFormatter={(v: number) => fmtBrlCurto(v) ?? ''} />}
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: number, nome: string) => [nome === 'Investimento por dia' ? fmtBrl(v) ?? '—' : fmtNum(v) ?? '—', nome]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {temLeadsDia && <Bar yAxisId="leads" dataKey="leads" name="Leads no Meta por dia" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />}
+                  {temInvestDia && <Line yAxisId="invest" type="monotone" dataKey="investimento" name="Investimento por dia" stroke="hsl(var(--gold))" dot={false} strokeWidth={2} connectNulls />}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            {!temLeadsDia && <p className="text-[11px] text-muted-foreground">Leads por dia: <NaoDisponivel className="text-[11px]" motivo="A RPC ainda não devolve leads do CRM por dia para este item." /> (só o investimento do Meta por dia está disponível).</p>}
+          </> : <p className="text-sm text-muted-foreground"><NaoDisponivel motivo="A RPC não devolve o dia a dia deste item." /> para esta {nomeAba}.</p>}
+        </section>
+
         <ReguaMetas metas={metas} />
-        <section className="surface p-4"><h4 className="display text-xl">Evolução diária deste item</h4>{item.diario?.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead><tr><th className="text-left">Dia</th><th>Investimento</th><th>MQL</th><th>Vendas</th></tr></thead><tbody>{item.diario.map(d => <tr key={d.data} className="border-t border-border"><td className="py-2">{dataBR(d.data)}</td><td className="text-right">{fmtBrl(d.investimento) ?? '—'}</td><td className="text-right">{fmtNum(d.mql) ?? '—'}</td><td className="text-right">{fmtNum(d.vendas) ?? '—'}</td></tr>)}</tbody></table></div> : <p className="mt-2 text-sm text-muted-foreground">Não disponível para este item.</p>}</section>
       </div>}
     </SheetContent>
   </Sheet>;
