@@ -406,6 +406,21 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: 'vendas', rotulo: 'Mais vendas' }, { valor: 'cac', rotulo: 'Menor CAC' },
 ];
 
+/* Peças por linha nos cards: escolha da pessoa, guardada no navegador. Classes completas para o Tailwind enxergar. */
+const POR_LINHA = [2, 3, 4, 5, 6] as const;
+type PorLinha = (typeof POR_LINHA)[number];
+const CHAVE_POR_LINHA = 'perpetuo.pecasPorLinha';
+const GRID_POR_LINHA: Record<PorLinha, string> = {
+  2: 'md:grid-cols-2',
+  3: 'md:grid-cols-2 xl:grid-cols-3',
+  4: 'md:grid-cols-2 xl:grid-cols-4',
+  5: 'md:grid-cols-3 xl:grid-cols-5',
+  6: 'md:grid-cols-3 xl:grid-cols-6',
+};
+function lerPorLinha(): PorLinha {
+  try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
+}
+
 function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
@@ -415,6 +430,8 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
   const [ordem, setOrdem] = useState<Ordem>('investimento');
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const [busca, setBusca] = useState('');
+  const [porLinha, setPorLinha] = useState<PorLinha>(() => lerPorLinha());
+  const escolherPorLinha = (n: PorLinha) => { setPorLinha(n); try { localStorage.setItem(CHAVE_POR_LINHA, String(n)); } catch { /* preferência só desta sessão */ } };
 
   const visiveis = useMemo(() => {
     if (!itens) return [];
@@ -440,6 +457,13 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
               <button key={v} onClick={() => setVisao(v)} className={`toggle-item capitalize ${visao === v ? 'toggle-item-ativo' : ''}`}>{v}</button>
             ))}
           </div>
+          {visao === 'cards' && (
+            <div className="toggle-group" role="group" aria-label="Peças por linha" title="Peças por linha">
+              {POR_LINHA.map((n) => (
+                <button key={n} onClick={() => escolherPorLinha(n)} className={`toggle-item ${porLinha === n ? 'toggle-item-ativo' : ''}`} aria-label={`${n} por linha`}>{n}</button>
+              ))}
+            </div>
+          )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">Ordenar por
             <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="select-r1">
               {ORDENS.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
@@ -481,7 +505,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
         </div>
       ) : visao === 'cards' ? (
         visiveis.length === 0 ? <div className="surface px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 gap-4 ${GRID_POR_LINHA[porLinha]}`}>
             {visiveis.map((it, idx) => <CardItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} referencia={referencia} />)}
           </div>
         )
