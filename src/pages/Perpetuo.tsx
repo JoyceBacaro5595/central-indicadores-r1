@@ -7,6 +7,7 @@ import { Search, ImageOff, ExternalLink, Maximize2 } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
+import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
  * Layout reproduzido do painel de referência (Funil por criativo · RGV): cabeçalho com abas
@@ -137,7 +138,23 @@ function itensDaAba(aba: Aba, d: PerpetuoFunil | undefined): Item[] | null | und
   const rotulo = (v: string | null | undefined, id: string) => (v && v.trim() ? v : `Sem rótulo · ${id}`);
   if (aba === 'campanhas') return d.por_campanha === undefined ? null : d.por_campanha?.map((c) => ({ ...c, nome: rotulo(c.campanha, c.id) })) ?? null;
   if (aba === 'criativos') return d.por_criativo?.map((c) => ({ ...c, nome: rotulo(c.criativo, c.id) })) ?? null;
-  return d.por_lp?.map((l) => ({ ...l, nome: rotulo(l.pagina, l.id) })) ?? null;
+  return d.por_lp?.map((l) => ({ ...l, nome: rotulo(l.pagina, l.id), imagem_url: l.imagem_url ?? fotoDaLp(l.id, l.destino_url) })) ?? null;
+}
+/** Foto da página de destino (pedido da Joyce, 09/10/2026): usa a captura guardada em src/data/lpFotos.json
+ *  (scripts/capturar-lps.mjs) e, na falta dela, a miniatura pública do serviço mShots (WordPress.com) da URL base
+ *  da página, sem os parâmetros de rastreio. Só para páginas http(s); nada é presumido para outros destinos. */
+const FOTOS_LP = lpFotos as Record<string, { arquivo: string }>;
+function fotoDaLp(id: string, destino: string | null | undefined): string | null {
+  const guardada = FOTOS_LP[id]?.arquivo;
+  if (guardada) return guardada;
+  const bruta = destino ?? id.replace(/^lp:/, '');
+  try {
+    const u = new URL(bruta);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (/(^|\.)fb\.me$/.test(u.hostname)) return null;
+    u.search = ''; u.hash = '';
+    return `https://s0.wp.com/mshots/v1/${encodeURIComponent(u.toString())}?w=900&h=1200`;
+  } catch { return null; }
 }
 const MOTIVO_ND: Record<Aba, string> = {
   campanhas: 'A carga e a identificação por campanha ainda estão sendo preparadas. Os totais disponíveis aparecem acima.',
