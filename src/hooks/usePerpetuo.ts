@@ -41,7 +41,10 @@ export interface PerpetuoDescritivo {
   imagem_url?: string | null; preview_url?: string | null; thumbnail_url?: string | null;
   /** false = funil CRM deste item ainda não tem atribuição comprovada; `motivo_indisponivel` explica. */
   atribuicao_completa?: boolean | null; motivo_indisponivel?: string | null;
-  diario?: PerpetuoDia[] | null;
+  /** Dia a dia do item. Para peças (09/10/2026) vem só a mídia do Meta por dia; o que faltar fica "Não disponível". */
+  diario?: (Partial<PerpetuoMetricas> & { data: string; midia_completa?: boolean | null })[] | null;
+  /** IDs dos anúncios somados na peça (abre o Gerenciador de Anúncios já filtrado). */
+  anuncio_ids?: string[] | null;
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
   /** Peça criativa: código do anúncio mais recente, todos os códigos somados e quantas variações de nome a peça tem. */
