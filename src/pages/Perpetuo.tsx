@@ -39,8 +39,10 @@ function presets(): Preset[] {
   const mesIni = hoje.slice(0, 8) + '01';
   const mesPassadoFim = addDias(mesIni, -1); const mesPassadoIni = mesPassadoFim.slice(0, 8) + '01';
   return [
+    { chave: 'todos', rotulo: 'Todo o período', de: '2026-01-01', ate: ontem },
     { chave: 'ano', rotulo: `${hoje.slice(0, 4)} até ontem`, de: `${hoje.slice(0, 4)}-01-01`, ate: ontem },
     { chave: '90', rotulo: 'Últimos 90 dias', de: addDias(ontem, -89), ate: ontem },
+    { chave: '60', rotulo: 'Últimos 60 dias', de: addDias(ontem, -59), ate: ontem },
     { chave: '30', rotulo: 'Últimos 30 dias', de: addDias(ontem, -29), ate: ontem },
     { chave: '7', rotulo: 'Últimos 7 dias', de: addDias(ontem, -6), ate: ontem },
     { chave: 'mes', rotulo: 'Este mês', de: mesIni, ate: hoje },
@@ -192,17 +194,19 @@ export default function Perpetuo() {
         acoes={
           <div className="hidden lg:flex items-center gap-2">
             <ContaPill />
-            <select value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
+            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
+              <option value="custom">Personalizado</option>
               {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
               {data && data.ciclos.length > 0 && (
                 <optgroup label="Ciclos">
                   {data.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo} · {dataCurta(c.inicio)} a {dataCurta(c.fim)}</option>)}
                 </optgroup>
               )}
-              <option value="custom">Personalizado</option>
             </select>
-            <input type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
-            <input type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            {preset === 'custom' && <>
+            <input aria-label="Data inicial" type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
+            <input aria-label="Data final" type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            </>}
           </div>
         }
       />
@@ -231,13 +235,15 @@ export default function Perpetuo() {
           </div>
           <div className="flex lg:hidden flex-wrap items-center gap-2">
             <ContaPill />
-            <select value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
+            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
+              <option value="custom">Personalizado</option>
               {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
               {data?.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo}</option>)}
-              <option value="custom">Personalizado</option>
             </select>
-            <input type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
-            <input type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            {preset === 'custom' && <>
+            <input aria-label="Data inicial" type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
+            <input aria-label="Data final" type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            </>}
           </div>
         </div>
 
