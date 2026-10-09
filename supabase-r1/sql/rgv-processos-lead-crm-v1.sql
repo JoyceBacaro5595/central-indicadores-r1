@@ -171,3 +171,8 @@ begin
 end $function$;
 
 -- Depois de aplicar: recalcular a parcial e republicar os lotes desde 01/09 (select rgv.build_front_parcial(); e o lote diário das 23:10).
+
+-- Ajuste (Joyce, 09/10/2026 18:41): "O RGV processos vamos considerar unicamente na etapa Leads no CRM".
+-- Aplicado no banco em rgv.crm_funnel_snapshot_at_v2: o histórico de etapas (h) volta a usar só Principal e Boletos,
+-- a evidência de etapas e o MQL excluem d.pipeline_id = '763255146' e a receita do Processos sai como null;
+-- o pipeline entra apenas em 'crm_leads' (dia de criação com UTM de Perpétuo).
