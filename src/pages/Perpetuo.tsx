@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink, Maximize2 } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { NaoDisponivel, PageBody, PageHeader, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
+import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
  * Layout reproduzido do painel de referência (Funil por criativo · RGV): cabeçalho com abas
@@ -257,8 +257,8 @@ export default function Perpetuo() {
           </div>
           <div className="text-right">
             <div className="eyebrow">Investimento no período</div>
-            <div className="display text-4xl md:text-[40px] leading-none mt-1 text-foreground">{r ? fmtBrl(r.investimento, 2) ?? <NaoDisponivel className="text-xl" /> : '…'}</div>
-            <div className="text-sm text-muted-foreground mt-1">CAC {r ? (custosValidos(r) ? fmtBrl(r.cac) : null) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} /> : '…'}</div>
+            <div className="display text-4xl md:text-[40px] leading-none mt-1 text-foreground">{r ? fmtBrl(r.investimento, 2) ?? <Zero tipo="brl" /> : '…'}</div>
+            <div className="text-sm text-muted-foreground mt-1">CAC {r ? (custosValidos(r) ? fmtBrl(r.cac) : null) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} /> : '…'}</div>
           </div>
         </div>
 
@@ -356,29 +356,29 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
           return (
             <div key={e.chave} className={`p-4 ${i >= 4 ? 'md:border-t md:border-border xl:border-t-0' : ''}`}>
               <div className="text-sm font-bold text-foreground">{e.rotulo}</div>
-              <div className="display text-[34px] leading-none mt-2 text-foreground">{fmtNum(v) ?? <NaoDisponivel className="text-base" />}</div>
+              <div className="display text-[34px] leading-none mt-2 text-foreground">{fmtNum(v) ?? <Zero />}</div>
               <div className="h-1.5 rounded-full bg-muted mt-3 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
               <div className="mt-3 space-y-1 text-xs">
                 {e.chave === 'leads' ? (
                   <>
                     <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
-                    <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} />
+                    <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
                   </>
                 ) : e.chave === 'mql' ? (
                   <>
-                    <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} />
+                    <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
                     {/* MQL → venda vem do backend (rgv.funil_calc). */}
-                    <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} />
+                    <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
                   </>
                 ) : (
                   <>
-                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} />
-                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." />
+                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
+                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
                   </>
                 )}
               </div>
               <div className="mt-4 text-xs text-muted-foreground">{e.custo.rotulo}</div>
-              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <NaoDisponivel className="text-sm" motivo={MOTIVO_CUSTO} />}</div>
+              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
             </div>
           );
         })}
@@ -387,8 +387,8 @@ function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | 
   );
 }
 
-function Linha({ k, v, forte, meta, taxa, motivo }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string }) {
-  const texto = v == null ? <NaoDisponivel motivo={motivo} /> : v;
+function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num' }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string; tipo?: 'num' | 'pct' | 'brl' }) {
+  const texto = v == null ? <Zero tipo={tipo} motivo={motivo} /> : v;
   const extra = meta != null && taxa != null ? <span className="text-muted-foreground"> · meta {fmtPct(meta, 2)} · {pp(taxa - meta)}</span> : null;
   return (
     <div className="flex items-baseline justify-between gap-2">
@@ -547,7 +547,7 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
     <div className="surface px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span title={metas?.fonte ?? undefined}><b className="text-foreground">Metas</b> · Plano do ciclo{metas?.ciclo ? ` ${metas.ciclo}` : ''}:</span>
       {tem ? partes.map(([k, v, casas]) => (
-        <span key={k}>{k} <b className="text-foreground">{fmtPct(v, casas) ?? <NaoDisponivel />}</b></span>
+        <span key={k}>{k} <b className="text-foreground">{fmtPct(v, casas) ?? <Zero tipo="pct" />}</b></span>
       )) : <NaoDisponivel motivo="O plano de metas do ciclo ainda não está cadastrado no Supabase; quando a RPC devolver `metas`, a régua e as cores das taxas passam a usar o plano." />}
       <span className="ml-auto flex flex-wrap items-center gap-3">
         {([['meta', 'na meta'], ['perto', 'até 10% abaixo'], ['longe', 'mais de 10% abaixo'], ['poucos', 'menos de 5 casos']] as [keyof typeof PONTO, string][]).map(([s, rot]) => (
@@ -577,10 +577,10 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
           const sit = e.taxa ? situacao(taxa, meta, v) : 'nd';
           const chip = e.taxa ? (
-            <span className={`inline-block rounded px-1.5 py-0.5 mono text-[11px] font-semibold ${e.chave === 'mql' ? 'text-muted-foreground' : COR[sit]}`}>{fmtPct(taxa) ?? <NaoDisponivel motivo={mTaxa} />}</span>
+            <span className={`inline-block rounded px-1.5 py-0.5 mono text-[11px] font-semibold ${e.chave === 'mql' ? 'text-muted-foreground' : COR[sit]}`}>{fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} />}</span>
           ) : null;
-          const qtd = fmtNum(v) ?? <NaoDisponivel className="text-xs" motivo={mItem} />;
-          const custoTx = fmtBrl(custo) ?? <NaoDisponivel className="text-xs" motivo={MOTIVO_CUSTO} />;
+          const qtd = fmtNum(v) ?? <Zero motivo={mItem} />;
+          const custoTx = fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />;
           if (visao === 'custos') return <Celula key={e.chave} principal={custoTx} secundaria={qtd} />;
           if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : qtd} secundaria={e.taxa ? qtd : null} />;
           return <Celula key={e.chave} principal={qtd} secundaria={chip} terciaria={custoTx} />;
@@ -593,7 +593,7 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
 function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | null; secundaria?: ReactNode | null; terciaria?: ReactNode | null }) {
   return (
     <div className="min-w-0">
-      <div className="text-base font-bold text-foreground mono">{principal ?? <NaoDisponivel className="text-xs" />}</div>
+      <div className="text-base font-bold text-foreground mono">{principal ?? <Zero />}</div>
       {secundaria != null && <div className="text-xs text-muted-foreground mt-0.5">{secundaria}</div>}
       {terciaria != null && <div className="text-xs text-muted-foreground mono mt-0.5">{terciaria}</div>}
     </div>
@@ -649,9 +649,9 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           {it.atribuicao_completa === false && <p className="text-[11px] text-amber-400 mt-1 leading-snug">{mItem}</p>}
         </div>
         <div className="grid grid-cols-3 gap-2 border-t border-border pt-3">
-          <Mini k={aba === 'campanhas' ? 'Investimento' : 'Investimento atribuído'} v={fmtBrlCurto(it.investimento)} motivo="Investimento do item não publicado neste corte." />
+          <Mini k={aba === 'campanhas' ? 'Investimento' : 'Investimento atribuído'} v={fmtBrlCurto(it.investimento)} motivo="Investimento do item não publicado neste corte." tipo="brl" />
           <Mini k="MQL" v={fmtNum(it.mql)} motivo={mItem} />
-          <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} />
+          <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
         </div>
         <table className="w-full text-xs border-t border-border">
           <thead>
@@ -666,9 +666,9 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
               return (
                 <tr key={e.chave} className="border-t border-border/60">
                   <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.curto}</td>
-                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <NaoDisponivel motivo={mItem} />}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <NaoDisponivel motivo={mTaxa} /> : ''}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{v === 0 && e.chave === 'venda' ? <span className="text-red-400">sem venda</span> : fmtBrl(custo) ?? <NaoDisponivel motivo={MOTIVO_CUSTO} />}</td>
+                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <Zero motivo={mItem} />}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} /> : ''}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={v === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</td>
                 </tr>
               );
             })}
@@ -680,11 +680,11 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
   );
 }
 
-function Mini({ k, v, motivo }: { k: string; v: string | null | undefined; motivo?: string }) {
+function Mini({ k, v, motivo, tipo = 'num' }: { k: string; v: string | null | undefined; motivo?: string; tipo?: 'num' | 'pct' | 'brl' }) {
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-muted-foreground">{k}</div>
-      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <NaoDisponivel className="text-xs" motivo={motivo} />}</div>
+      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <Zero tipo={tipo} motivo={motivo} />}</div>
     </div>
   );
 }
@@ -702,7 +702,7 @@ const COMO_LER: [string, string][] = [
   ['Página', 'Endereço de destino sem UTM, somando campanhas e anúncios que levaram tráfego a ele. Formulário nativo do Meta fica em linha própria.'],
   ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
-  ['Não disponível', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período; passe o mouse para ver o motivo. Zero só aparece quando a coleta terminou sem atividade.'],
+  ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
 function ComoLer() {
   return (
@@ -771,14 +771,14 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
         <section className="space-y-2">
           <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Meta</h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Mini k="Investimento" v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." />
+            <Mini k="Investimento" v={fmtBrl(item.investimento)} motivo="Investimento do item não publicado neste corte." tipo="brl" />
             <Mini k="Impressões" v={fmtNum(item.impressoes)} />
-            <Mini k="CTR (link)" v={fmtPct(item.ctr)} />
+            <Mini k="CTR (link)" v={fmtPct(item.ctr)} tipo="pct" />
             <Mini k="Visitas à página" v={fmtNum(item.visualizacoes_lp)} />
             <Mini k="Leads no Meta" v={fmtNum(item.leads_pixel)} motivo="Leads do pixel não coletados para este item." />
-            <Mini k="CPL no Meta" v={fmtBrl(item.cpl_pixel)} motivo="Sem leads do pixel para calcular." />
+            <Mini k="CPL no Meta" v={fmtBrl(item.cpl_pixel)} motivo="Sem leads do pixel para calcular." tipo="brl" />
             <Mini k="Leads no CRM" v={fmtNum(item.leads_crm)} motivo={mItem} />
-            <Mini k="Visita → lead" v={fmtPct(item.conversao_lp)} motivo="Precisa de visitas e leads do CRM no mesmo corte." />
+            <Mini k="Visita → lead" v={fmtPct(item.conversao_lp)} motivo="Precisa de visitas e leads do CRM no mesmo corte." tipo="pct" />
           </div>
         </section>
 
@@ -792,9 +792,9 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
               return <div key={e.chave} className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
                 <span className="text-foreground font-semibold pt-1">{e.rotulo}</span>
                 <div className="space-y-1">
-                  <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{fmtNum(qtd) ?? <NaoDisponivel className="text-xs" motivo={mItem} />}</div>
-                  {e.taxa && <div className="text-muted-foreground">{e.taxa.rotulo} <b className={taxa != null && sit !== 'nd' ? COR[sit] : 'text-foreground'}>{fmtPct(taxa) ?? <NaoDisponivel className="text-xs" motivo={mTaxa} />}</b>{meta != null && <> · meta {fmtPct(meta, 0)}</>}</div>}
-                  <div className="text-muted-foreground">{e.custo.rotulo} <b className="text-foreground">{fmtBrl(custo) ?? <span className="text-primary">sem {e.curto.toLowerCase()}</span>}</b>{ref != null && <> · {aba === 'campanhas' ? 'total' : 'campanha'} {fmtBrl(ref)}</>}</div>
+                  <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{fmtNum(qtd) ?? <Zero motivo={mItem} />}</div>
+                  {e.taxa && <div className="text-muted-foreground">{e.taxa.rotulo} <b className={taxa != null && sit !== 'nd' ? COR[sit] : 'text-foreground'}>{fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} />}</b>{meta != null && <> · meta {fmtPct(meta, 0)}</>}</div>}
+                  <div className="text-muted-foreground">{e.custo.rotulo} <b className="text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={qtd === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</b>{ref != null && <> · {aba === 'campanhas' ? 'total' : 'campanha'} {fmtBrl(ref)}</>}</div>
                 </div>
               </div>;
             })}
