@@ -12,12 +12,14 @@ interface Agendamento {
   ultima_execucao: string | null; ultimo_status: string | null; ultima_msg: string | null; duracao_s: number | null; execucoes_24h: number; falhas_24h: number;
 }
 interface Fonte { fonte: string; entidade: string; escopo: string; modo: string; status: string; registros: number; paginas: number; erro: string | null; atualizado_em: string }
-interface Log { id: number; fonte: string; entidade: string; tipo_carga: string; status: string; linhas_lidas: number | null; janela_inicio: string | null; janela_fim: string | null; iniciado_em: string; finalizado_em: string | null; mensagem_erro: string | null }
+interface Log { id: number | string; fonte: string; entidade: string; tipo_carga: string; status: string; linhas_lidas: number | null; janela_inicio: string | null; janela_fim: string | null; iniciado_em: string; finalizado_em: string | null; mensagem_erro: string | null }
 interface Cobertura { mes: string; transacoes: number; aprovadas: number; ultima_captura: string }
 interface CargaMensal { mes: string; status: string; chamadas: number; lidas: number | null; versoes_novas: number | null; iniciado_em: string | null; finalizado_em: string | null; erro: string | null }
 interface Historico { quando: string; quem: string | null; tipo: string; chave: string; antes: unknown; depois: unknown }
+interface RgvLog { id: string; tool: string; source: string; status: string; start_at: string | null; end_at: string | null; started_at: string | null; finished_at: string | null; rows_processed: number | null; error_type: string | null; error_detail: string | null }
 interface Estado {
   agora: string; banco_mb: number; ultima_captura: string | null; parametros: Parametro[]; agendamentos: Agendamento[];
+  rgv_logs?: RgvLog[]; rgv_config?: { tool: string; rolling_days: number }[];
   fontes: Fonte[]; logs: Log[]; cobertura: Cobertura[]; carga_mensal: CargaMensal[]; historico: Historico[];
 }
 
@@ -25,6 +27,7 @@ const fmt = (d: string | null | undefined) => (d ? new Date(d).toLocaleString('p
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const GRUPO: Record<string, string> = { horarios: 'Horários de atualização', prazos: 'Prazos e timers', geral: 'Geral' };
 const STATUS_COR: Record<string, string> = {
+  success: 'text-emerald-400', error: 'text-red-400', partial: 'text-amber-400', skipped: 'text-muted-foreground', running: 'text-amber-400',
   succeeded: 'text-emerald-400', sucesso: 'text-emerald-400', concluido: 'text-emerald-400',
   failed: 'text-red-400', erro: 'text-red-400', parcial: 'text-amber-400', em_andamento: 'text-amber-400', pendente: 'text-muted-foreground',
 };
@@ -95,7 +98,14 @@ export default function Gerenciador() {
     onError: (e: Error) => { setAviso(null); setErro(e.message); },
   });
 
+  const janela = useMutation({
+    mutationFn: (dias: number) => r1Rpc('gerenciador_janela_rgv', { p_tool: 'meta', p_dias: dias }),
+    onSuccess: () => { setErro(null); setAviso('Janela Meta salva; será usada na próxima coleta.'); invalidar(); },
+    onError: (e: Error) => setErro(e.message),
+  });
+  const [diasMeta, setDiasMeta] = useState<string | null>(null);
   const d = estado.data;
+  const logs: Log[] = [...(d?.logs ?? []), ...(d?.rgv_logs ?? []).map(l => ({ id: l.id, fonte: `rgv-${l.tool}`, entidade: l.tool, tipo_carga: l.source, status: l.status, linhas_lidas: l.rows_processed, janela_inicio: l.start_at, janela_fim: l.end_at, iniciado_em: l.started_at ?? '', finalizado_em: l.finished_at, mensagem_erro: l.error_detail }))].sort((a,b) => Date.parse(b.iniciado_em) - Date.parse(a.iniciado_em));
   const grupos = d ? Array.from(new Set(d.parametros.map((p) => p.grupo))) : [];
 
   return (
@@ -121,8 +131,13 @@ export default function Gerenciador() {
               <div className="text-sm" title={notas.data?.find(n => n.chave === 'hubspot_historico_lote')?.observacoes}>HubSpot · até 50 negócios por lote com histórico</div>
               {observacoes('limite', 'hubspot_historico_lote')}
             </Secao>
+            {d.rgv_config?.some(c => c.tool === 'meta') && <Secao titulo="Releitura do Meta Perpétuo">
+              <label className="text-sm">Número de dias<input aria-label="Dias para reler no Meta" type="number" min={1} max={93} value={diasMeta ?? d.rgv_config.find(c => c.tool === 'meta')?.rolling_days ?? 7} onChange={e => setDiasMeta(e.target.value)} className="input-r1 ml-3 w-24" /></label>
+              <button type="button" disabled={janela.isPending || diasMeta === null || !Number.isInteger(Number(diasMeta)) || Number(diasMeta) < 1 || Number(diasMeta) > 93} onClick={() => janela.mutate(Number(diasMeta))} className="ml-3 text-primary disabled:opacity-40">Salvar janela</button>
+              <p className="text-xs text-muted-foreground mt-2">Relê os dias encerrados e atualiza os valores existentes. Use Sincronizar agora na rotina Meta Perpétuo para iniciar imediatamente.</p>
+            </Secao>}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={d.logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={v => agendamento.mutate(v)} executar={() => executar.mutate(a.jobname)} />)}
+              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={v => agendamento.mutate(v)} executar={() => executar.mutate(a.jobname)} />)}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -184,7 +199,7 @@ export default function Gerenciador() {
             <Secao titulo="Últimas cargas (log de ingestão)">
               <table className="w-full text-xs">
                 <thead><tr className="text-muted-foreground text-left"><th className="pb-2 font-semibold">Início</th><th className="pb-2 font-semibold">Fonte</th><th className="pb-2 font-semibold">Tipo</th><th className="pb-2 font-semibold">Janela</th><th className="pb-2 font-semibold">Status</th><th className="pb-2 font-semibold text-right">Linhas</th><th className="pb-2 font-semibold">Erro</th></tr></thead>
-                <tbody>{d.logs.map((l) => (
+                <tbody>{logs.map((l) => (
                   <tr key={l.id} className="border-t border-border">
                     <td className="py-1.5 mono">{fmt(l.iniciado_em)}</td><td className="py-1.5">{l.fonte} · {l.entidade}</td><td className="py-1.5">{l.tipo_carga}</td>
                     <td className="py-1.5 mono">{l.janela_inicio ?? ''}{l.janela_fim ? ` → ${l.janela_fim}` : ''}</td>

@@ -1,4 +1,5 @@
--- PROPOSTA: não aplicada ao banco. Requer aprovação do conjunto e do limite operacional de 6 GiB.
+-- APLICADA em 09/10/2026 após aprovação explícita. Migração rgv_hourly_publication_and_manager.
+-- Verificação: duas publicações reutilizaram o mesmo batch_id e não aumentaram a quantidade de lotes.
 CREATE OR REPLACE FUNCTION rgv.refresh_front_batch_v1(p_start date, p_end date)
  RETURNS jsonb
  LANGUAGE plpgsql
