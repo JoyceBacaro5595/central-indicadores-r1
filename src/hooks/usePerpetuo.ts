@@ -110,6 +110,7 @@ export function usePerpetuo(de?: string, ate?: string) {
     queryKey: ['perpetuo-funil-v2', de, ate],
     queryFn: () => r1Rpc<PerpetuoFunil>('perpetuo_funil_v2', { p_de: de ?? null, p_ate: ate ?? null }),
     staleTime: 10 * 60 * 1000,
+    refetchInterval: 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     retry: false,
