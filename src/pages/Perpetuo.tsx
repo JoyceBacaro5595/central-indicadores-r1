@@ -609,10 +609,13 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
   return (
     <article className="surface overflow-hidden flex flex-col">
       <div className={`relative ${aba === 'lps' ? 'aspect-[3/4]' : 'aspect-square'} bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground`}>
-        {imagem ? <button type="button" onClick={() => setAmpliada(true)} className="absolute inset-0 w-full h-full focus-visible:outline focus-visible:outline-2" aria-label={`Ampliar imagem de ${it.nome}`}>
-          <img src={imagem} alt={it.nome} className="w-full h-full object-contain" loading="lazy" />
-          <span className="absolute bottom-3 right-3 rounded bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground">Ampliar imagem</span>
-        </button> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
+        {imagem ? <>
+          {/* Clique na imagem abre o painel de detalhes (pedido da Joyce, 09/10); ampliar fica no botão do canto. */}
+          <button type="button" onClick={aoAbrir} className="absolute inset-0 w-full h-full focus-visible:outline focus-visible:outline-2" aria-label={`Ver detalhes de ${it.nome}`} title="Ver detalhes">
+            <img src={imagem} alt={it.nome} className="w-full h-full object-contain" loading="lazy" />
+          </button>
+          <button type="button" onClick={() => setAmpliada(true)} className="absolute bottom-3 right-3 rounded bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-background focus-visible:outline focus-visible:outline-2" aria-label={`Ampliar imagem de ${it.nome}`}>Ampliar imagem</button>
+        </> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
         <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-background/90 border border-border text-xs font-bold flex items-center justify-center">{pos}</span>
         <span className="absolute top-3 right-3 flex items-center gap-1.5">
           {it.tipo && <span className="tag bg-background/90">{it.tipo === 'video' ? 'Vídeo' : it.tipo === 'imagem' ? 'Imagem' : it.tipo}</span>}
