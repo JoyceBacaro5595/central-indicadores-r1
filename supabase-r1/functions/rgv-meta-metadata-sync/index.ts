@@ -12,12 +12,26 @@ try{
  const parts=new Intl.DateTimeFormat("en",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(Date.now()-86400000));
  const datePart=(t:string)=>parts.find(p=>p.type===t)!.value;
  const endDay=datePart("year")+"-"+datePart("month")+"-"+datePart("day");
+ // Modo "preview_links" (Joyce, 09/10/2026: botão "Ver o anúncio" no painel da peça): busca só o link de visualização
+ // compartilhável dos anúncios indicados pelo banco (o anúncio de referência de cada peça que ainda não tem link).
+ if(body.mode==="preview_links"){
+  const want=await sql`select ad_id from rgv.ads_sem_link_visualizacao(50)`;
+  if(!want.length)return json({status:"complete",rows:0});
+  const u=new URL("https://graph.facebook.com/v24.0/");u.searchParams.set("ids",want.map(x=>x.ad_id).join(","));u.searchParams.set("fields","id,preview_shareable_link");
+  const rr=await fetch(u,{headers:{Authorization:"Bearer "+Deno.env.get("META_TOKEN_API")},signal:AbortSignal.timeout(25000)});
+  const dd=await rr.json();if(!rr.ok||dd.error)return json({error:"meta_metadata_error",code:dd.error?.code||rr.status},502);
+  let n=0;
+  for(const w of want){const link=safe(dd[w.ad_id]?.preview_shareable_link);
+   await sql`update rgv.meta_ad_record set payload=payload||jsonb_build_object('preview_shareable_link',${link}::text,'_preview_checked',true) where account_id='696363384474339' and ad_id=${w.ad_id}`;if(link)n++}
+  return json({status:"partial",rows:want.length,links:n});
+ }
  const from=body.date_from||"2026-09-01",to=body.date_to||endDay;
  if(!/^2026-\d{2}-\d{2}$/.test(from)||!/^2026-\d{2}-\d{2}$/.test(to)||from>to||to>endDay)return json({error:"invalid_date_range"},400);
- const ids=await sql`select a.ad_id from rgv.ad a where a.account_id='696363384474339' and strpos(upper(coalesce(a.campaign_name,'')),'[FF]')>0 and exists(select 1 from rgv.ad_daily x where x.account_id=a.account_id and x.ad_id=a.ad_id and x.day between ${from}::date and ${to}::date) and not exists(select 1 from rgv.meta_ad_record r where r.account_id=a.account_id and r.ad_id=a.ad_id and r.collected_at>now()-interval '24 hours') order by a.ad_id limit 50`;
+ // Campanhas de Perpétuo: [FF], [PERP] ou [PER] no nome da campanha (rgv.campanha_perpetuo; Joyce, 09/10/2026).
+ const ids=await sql`select a.ad_id from rgv.ad a where a.account_id='696363384474339' and rgv.campanha_perpetuo(a.campaign_name) and exists(select 1 from rgv.ad_daily x where x.account_id=a.account_id and x.ad_id=a.ad_id and x.day between ${from}::date and ${to}::date) and not exists(select 1 from rgv.meta_ad_record r where r.account_id=a.account_id and r.ad_id=a.ad_id and r.collected_at>now()-interval '24 hours') order by a.ad_id limit 50`;
  if(!ids.length)return json({status:"complete",rows:0});
  // Imagem em alta: image_url (arte original) e, para vídeos, miniatura de 1080px em vez do padrão 64x64.
- const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,campaign{id,effective_status},creative.thumbnail_width(1080).thumbnail_height(1080){id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
+ const url=new URL("https://graph.facebook.com/v24.0/");url.searchParams.set("ids",ids.map(x=>x.ad_id).join(","));url.searchParams.set("fields","id,name,effective_status,preview_shareable_link,campaign{id,effective_status},creative.thumbnail_width(1080).thumbnail_height(1080){id,name,thumbnail_url,image_url,object_story_spec,asset_feed_spec,url_tags}");
  const r=await fetch(url,{headers:{Authorization:"Bearer "+Deno.env.get("META_TOKEN_API")},signal:AbortSignal.timeout(25000)});
  const data=await r.json();if(!r.ok||data.error)return json({error:"meta_metadata_error",code:data.error?.code||r.status},502);
  let saved=0,unavailable=0,ambiguous=0;const changedAds:string[]=[];

@@ -45,6 +45,10 @@ export interface PerpetuoDescritivo {
   diario?: (Partial<PerpetuoMetricas> & { data: string; midia_completa?: boolean | null })[] | null;
   /** IDs dos anúncios somados na peça (abre o Gerenciador de Anúncios já filtrado). */
   anuncio_ids?: string[] | null;
+  /** Link de visualização do anúncio de referência da peça (preview_shareable_link do Meta). */
+  anuncio_link?: string | null;
+  /** Página: campanhas que levam a ela, com o investimento do período (maior primeiro). */
+  campanhas_lista?: { id: string; nome: string | null; investimento: number | null; status?: string | null }[] | null;
   nome_curto?: string | null; thumb?: string | null; tipo?: 'imagem' | 'video' | string | null; status?: 'no_ar' | 'pausado' | string | null;
   arte_em?: string | null; campanhas?: number | null; anuncios?: number | null; pecas?: number | null; inicio?: string | null; fim?: string | null;
   /** Peça criativa: código do anúncio mais recente, todos os códigos somados e quantas variações de nome a peça tem. */
