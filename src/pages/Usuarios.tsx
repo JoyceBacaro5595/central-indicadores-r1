@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { KeyRound, MailCheck, Pencil, Send, Trash2, UserPlus } from 'lucide-react';
 import { r1Function, r1Rpc } from '@/integrations/r1/client';
 import { useAuth, type Papel } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
@@ -220,43 +220,53 @@ export default function Usuarios() {
                     <td className="p-3 text-muted-foreground">{fmt(u.ultimo_login)}</td>
                     <td className="p-3">
                       {emEdicao ? (
-                        <div className="flex flex-wrap gap-3">
-                          <button type="button" disabled={ocupado} onClick={() => salvarLinha.mutate({ u, r: rascunho })}
-                            className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
-                            {salvarLinha.isPending ? 'Salvando…' : 'Salvar'}
-                          </button>
-                          <button type="button" disabled={ocupado} onClick={() => { setEditando(null); setRascunho(null); }} className="text-muted-foreground font-semibold">Cancelar</button>
-                          {!eu && (
-                            <button type="button" disabled={ocupado} onClick={() => confirmarExclusao(u)} className="text-red-400 font-semibold inline-flex items-center gap-1">
-                              <Trash2 className="w-3.5 h-3.5" /> Excluir
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-3">
+                            <button type="button" disabled={ocupado} onClick={() => salvarLinha.mutate({ u, r: rascunho })}
+                              className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
+                              {salvarLinha.isPending ? 'Salvando…' : 'Salvar'}
                             </button>
-                          )}
+                            <button type="button" disabled={ocupado} onClick={() => { setEditando(null); setRascunho(null); setSenhaPara(null); setSenhaNova(''); }} className="text-muted-foreground font-semibold">Cancelar</button>
+                            {!eu && (
+                              <button type="button" disabled={ocupado} onClick={() => confirmarExclusao(u)} className="text-red-400 font-semibold inline-flex items-center gap-1">
+                                <Trash2 className="w-3.5 h-3.5" /> Excluir
+                              </button>
+                            )}
+                          </div>
+                          {/* senha: o administrador define na hora ou envia o link de redefinição por e-mail */}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {senhaPara === u.user_id ? (
+                              <form className="inline-flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); acao.mutate({ op: 'definir_senha', user_id: u.user_id, senha: senhaNova }, { onSuccess: () => { setSenhaPara(null); setSenhaNova(''); } }); }}>
+                                <input type="text" required minLength={8} autoComplete="off" placeholder="Nova senha (mín. 8)" value={senhaNova} onChange={(e) => setSenhaNova(e.target.value)}
+                                  className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 min-w-[160px]" />
+                                <button type="submit" disabled={acao.isPending} className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
+                                  {acao.isPending ? 'Salvando…' : 'Salvar senha'}
+                                </button>
+                                <button type="button" onClick={() => { setSenhaPara(null); setSenhaNova(''); }} className="text-muted-foreground font-semibold">Cancelar</button>
+                              </form>
+                            ) : (
+                              <button type="button" onClick={() => { setSenhaPara(u.user_id); setSenhaNova(''); }} className="text-primary font-semibold inline-flex items-center gap-1">
+                                <KeyRound className="w-3.5 h-3.5" /> Definir senha
+                              </button>
+                            )}
+                            <button type="button" disabled={acao.isPending} onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+                              <MailCheck className="w-3.5 h-3.5" /> Enviar redefinição de senha
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap gap-3">
-                          <button type="button" onClick={() => comecarEdicao(u)} className="text-primary font-semibold inline-flex items-center gap-1">
-                            <Pencil className="w-3.5 h-3.5" /> Editar
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => comecarEdicao(u)} title="Editar" aria-label="Editar" className="p-1.5 rounded-md text-primary hover:bg-secondary">
+                            <Pencil className="w-4 h-4" />
                           </button>
-                          {senhaPara === u.user_id ? (
-                            <form className="inline-flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); acao.mutate({ op: 'definir_senha', user_id: u.user_id, senha: senhaNova }, { onSuccess: () => { setSenhaPara(null); setSenhaNova(''); } }); }}>
-                              <input type="text" required minLength={8} autoComplete="off" placeholder="Nova senha (mín. 8)" value={senhaNova} onChange={(e) => setSenhaNova(e.target.value)}
-                                className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 min-w-[160px]" />
-                              <button type="submit" disabled={acao.isPending} className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
-                                {acao.isPending ? 'Salvando…' : 'Salvar senha'}
-                              </button>
-                              <button type="button" onClick={() => { setSenhaPara(null); setSenhaNova(''); }} className="text-muted-foreground font-semibold">Cancelar</button>
-                            </form>
-                          ) : (
-                            <button type="button" onClick={() => { setSenhaPara(u.user_id); setSenhaNova(''); }} className="text-primary font-semibold">
-                              Definir senha
-                            </button>
-                          )}
-                          <button type="button" onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
-                            Enviar redefinição de senha
+                          <button type="button" disabled={acao.isPending} onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })}
+                            title="Enviar redefinição de senha" aria-label="Enviar redefinição de senha" className="p-1.5 rounded-md text-primary hover:bg-secondary disabled:opacity-50">
+                            <MailCheck className="w-4 h-4" />
                           </button>
                           {!u.confirmado && (
-                            <button type="button" onClick={() => acao.mutate({ op: 'convidar', email: u.email, nome: u.nome, papel: u.papel, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
-                              Reenviar convite
+                            <button type="button" disabled={acao.isPending} onClick={() => acao.mutate({ op: 'convidar', email: u.email, nome: u.nome, papel: u.papel, redirect_to: `${window.location.origin}/redefinir-senha` })}
+                              title="Reenviar convite" aria-label="Reenviar convite" className="p-1.5 rounded-md text-primary hover:bg-secondary disabled:opacity-50">
+                              <Send className="w-4 h-4" />
                             </button>
                           )}
                         </div>
