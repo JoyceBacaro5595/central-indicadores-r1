@@ -2,6 +2,7 @@ import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, ImageOff } from 'lucide-react';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
@@ -21,6 +22,15 @@ function hojeSP() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'A
 function addDias(iso: string, n: number) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); }
 function dataBR(iso?: string | null) { return iso ? iso.split('-').reverse().join('/') : '—'; }
 function dataCurta(iso?: string | null) { return iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '—'; }
+/** Minutos até o próximo carregamento automático. O cron começa na hora cheia (HubSpot e Meta às :00,
+ *  publicação às :05, lote diário às :10); o backend informa a próxima em `verificacao_proxima`. */
+const AVISO_CRON_MIN = 10;
+function minutosParaCron(proxima?: string | null) {
+  const alvo = proxima ? Date.parse(proxima) : NaN;
+  const agora = Date.now();
+  const proximaHora = Number.isFinite(alvo) && alvo > agora ? alvo : (Math.floor(agora / 3600000) + 1) * 3600000;
+  return { minutos: Math.ceil((proximaHora - agora) / 60000), quando: new Date(proximaHora).toISOString() };
+}
 
 type Preset = { chave: string; rotulo: string; de: string; ate: string };
 function presets(): Preset[] {
@@ -148,6 +158,12 @@ export default function Perpetuo() {
   const ontem = addDias(hojeSP(), -1);
   const ateConsulta = ate > ontem ? ontem : ate;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(de, ateConsulta);
+  // Botão atualizar: recarrega o período; faltando até 10 min para o cron, pergunta antes (pedido de Joyce, 09/10).
+  const [confirmarAtualizar, setConfirmarAtualizar] = useState<{ minutos: number; quando: string } | null>(null);
+  const atualizar = () => {
+    const prox = minutosParaCron(data?.fontes_atualizacao?.verificacao_proxima);
+    if (prox.minutos <= AVISO_CRON_MIN) setConfirmarAtualizar(prox); else void refetch();
+  };
   const emAndamento = ate > ontem;
   const diasPeriodo = Math.round((Date.parse(ate + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1;
   const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1);
@@ -170,7 +186,7 @@ export default function Perpetuo() {
       <PageHeader
         titulo={<>Perpétuo RGV · <span className="display text-lg font-normal">Fluxo <span className="italic text-gold">Marketing</span></span></>}
         subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
-        onAtualizar={() => refetch()}
+        onAtualizar={atualizar}
         atualizando={isFetching}
         acoes={
           <div className="hidden lg:flex items-center gap-2">
@@ -189,6 +205,21 @@ export default function Perpetuo() {
           </div>
         }
       />
+      <AlertDialog open={confirmarAtualizar !== null} onOpenChange={(aberto) => { if (!aberto) setConfirmarAtualizar(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atualizar agora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O carregamento automático começa {confirmarAtualizar && confirmarAtualizar.minutos <= 1 ? 'em menos de 1 minuto' : `em ${confirmarAtualizar?.minutos} minutos`} (às {soHoraSP(confirmarAtualizar?.quando)}).
+              Se atualizar agora, os números do período podem mudar logo em seguida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Esperar o cron</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmarAtualizar(null); void refetch(); }}>Atualizar mesmo assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <PageBody className="space-y-5">
         {/* abas + controles (os controles repetem aqui em telas menores) */}
         <div className="flex flex-wrap items-center justify-between gap-3">
