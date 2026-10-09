@@ -1,6 +1,7 @@
 import { ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Search, ImageOff } from 'lucide-react';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
@@ -53,7 +54,7 @@ const MOTIVO_TAXA_PADRAO = 'Taxas entre etapas indisponíveis: as populações a
 const motivoTaxa = (m: PerpetuoMetricas | null | undefined) => m?.taxas_observacao ?? MOTIVO_TAXA_PADRAO;
 const motivoItem = (it: PerpetuoDescritivo | null | undefined, aba: Aba) => it?.motivo_indisponivel ?? MOTIVO_ND[aba];
 /** Imagem do item: `thumb` com as cópias que a RPC também devolve. */
-const imagemDe = (it: PerpetuoDescritivo) => urlSegura(it.thumb) ?? urlSegura(it.imagem_url) ?? urlSegura(it.preview_url) ?? urlSegura(it.thumbnail_url);
+const imagemDe = (it: PerpetuoDescritivo) => urlSegura(it.imagem_url) ?? urlSegura(it.preview_url) ?? urlSegura(it.thumb) ?? urlSegura(it.thumbnail_url);
 const pp = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} pp`;
 
 /* ─── metas: situação de uma taxa frente ao plano do ciclo ─── */
@@ -449,7 +450,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
         </div>
       ) : visao === 'cards' ? (
         visiveis.length === 0 ? <div className="surface px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
             {visiveis.map((it, idx) => <CardItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} aba={aba} metas={metas} referencia={referencia} />)}
           </div>
         )
@@ -545,6 +546,7 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
 
 /* ─── card (peças e páginas) ─── */
 function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () => void; it: Item; pos: number; aba: Aba; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+  const [ampliada, setAmpliada] = useState(false);
   const semImagem = aba === 'lps' ? 'Sem foto da página' : 'Sem imagem do anúncio';
   const rodou = it.campanhas != null || it.anuncios != null || it.pecas != null;
   const imagem = imagemDe(it);
@@ -552,13 +554,28 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
   return (
     <article className="surface overflow-hidden flex flex-col">
       <div className={`relative ${aba === 'lps' ? 'aspect-[3/4]' : 'aspect-square'} bg-secondary/40 flex items-center justify-center text-xs text-muted-foreground`}>
-        {imagem ? <img src={imagem} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" /> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
+        {imagem ? <button type="button" onClick={() => setAmpliada(true)} className="absolute inset-0 w-full h-full focus-visible:outline focus-visible:outline-2" aria-label={`Ampliar imagem de ${it.nome}`}>
+          <img src={imagem} alt={it.nome} className="w-full h-full object-contain" loading="lazy" />
+          <span className="absolute bottom-3 right-3 rounded bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground">Ampliar imagem</span>
+        </button> : <span className="flex items-center gap-2"><ImageOff className="w-4 h-4" />{semImagem}</span>}
         <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-background/90 border border-border text-xs font-bold flex items-center justify-center">{pos}</span>
         <span className="absolute top-3 right-3 flex items-center gap-1.5">
           {it.tipo && <span className="tag bg-background/90">{it.tipo === 'video' ? 'Vídeo' : it.tipo === 'imagem' ? 'Imagem' : it.tipo}</span>}
           <Status valor={it.status} />
         </span>
       </div>
+      {imagem && <Dialog open={ampliada} onOpenChange={setAmpliada}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[95vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{it.nome_curto ?? it.nome}</DialogTitle>
+            <DialogDescription>Imagem completa · role para visualizar toda a página.</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto min-h-0 bg-secondary/40 rounded">
+            <img src={imagem} alt={it.nome} className="block w-auto max-w-full h-auto mx-auto" />
+          </div>
+          <a href={imagem} target="_blank" rel="noopener noreferrer" className="text-sm underline">Abrir imagem em tamanho original</a>
+        </DialogContent>
+      </Dialog>}
       <div className="p-4 space-y-3 flex-1">
         <div>
           <div className="flex items-baseline gap-2 min-w-0">
