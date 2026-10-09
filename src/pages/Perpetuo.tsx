@@ -39,6 +39,8 @@ function presets(): Preset[] {
   const mesIni = hoje.slice(0, 8) + '01';
   const mesPassadoFim = addDias(mesIni, -1); const mesPassadoIni = mesPassadoFim.slice(0, 8) + '01';
   return [
+    { chave: 'hoje', rotulo: 'Hoje', de: hoje, ate: hoje },
+    { chave: 'ontem', rotulo: 'Ontem', de: ontem, ate: ontem },
     { chave: 'todos', rotulo: 'Todo o período', de: '2026-01-01', ate: ontem },
     { chave: 'ano', rotulo: `${hoje.slice(0, 4)} até ontem`, de: `${hoje.slice(0, 4)}-01-01`, ate: ontem },
     { chave: '90', rotulo: 'Últimos 90 dias', de: addDias(ontem, -89), ate: ontem },
@@ -164,7 +166,9 @@ export default function Perpetuo() {
   // disso ("2026 até ontem", ciclos antigos) consulta a partir do início publicado em vez de devolver zeros (Joyce, 09/10).
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
-  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
+  // "Hoje" sozinho não tem dia fechado: o backend só publica até ontem, então não consultamos e avisamos na tela.
+  const semDiaFechado = deConsulta > ateConsulta;
+  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta, !semDiaFechado);
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
   // Botão atualizar: recarrega o período; faltando até 10 min para o cron, pergunta antes (pedido de Joyce, 09/10).
@@ -275,9 +279,10 @@ export default function Perpetuo() {
           </div>
         </div>
 
-        {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
+        {semDiaFechado && <div className="surface p-4 text-sm" role="note">Os indicadores de <b className="text-foreground">hoje</b> ainda não foram publicados: o dia entra na Central depois de fechado, no lote da manhã seguinte (Meta e HubSpot coletados até ontem). Enquanto isso, use <b className="text-foreground">Ontem</b> ou um período que inclua dias fechados.</div>}
+        {error && !semDiaFechado && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {isFetching && data && <div role="status" className="text-sm text-muted-foreground">{isPlaceholderData ? `Atualizando o filtro… Indicadores exibidos de ${dataBR(data.periodo.inicio)} a ${dataBR(data.periodo.fim)} até concluir a consulta.` : 'Atualizando indicadores…'}</div>}
-        {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+        {!data && !error && !semDiaFechado && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
 
         {data?.publicacao && (
           <div className="surface p-4 text-sm space-y-1" role="status">
