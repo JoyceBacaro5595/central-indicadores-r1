@@ -215,7 +215,7 @@ export default function Perpetuo() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo={<>Perpétuo RGV · <span className="display text-lg font-normal">Fluxo <span className="italic text-gold">Marketing</span></span></>}
+        titulo="Perpétuo RGV · Fluxo Marketing"
         subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
         onAtualizar={atualizar}
         atualizando={isFetching}
@@ -279,11 +279,9 @@ export default function Perpetuo() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <div className="eyebrow">{cfg.eyebrow}</div>
-            <h2 className="display text-4xl md:text-[44px] leading-tight mt-1 text-foreground">
-              {cfg.titulo} <span className="italic text-gold">{cfg.destaque}</span>
-            </h2>
+            <h2 className="text-xl md:text-2xl font-semibold leading-tight mt-1 text-foreground">{cfg.secao}</h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}{parcial && <> · <b className="text-gold" title={data?.qualidade?.motivo ?? undefined}>parcial em tempo real</b>: atualizada {soHoraSP(data?.qualidade?.parcial_atualizado_em) ?? '…'} (Meta {soHoraSP(data?.qualidade?.parcial_meta_coletado_em) ?? 'sem coleta de hoje'} · HubSpot {soHoraSP(data?.qualidade?.parcial_hubspot_em) ?? '…'})</>}</span>
+              <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}{parcial && <> · <b className="text-foreground" title={data?.qualidade?.motivo ?? undefined}>parcial em tempo real</b>: atualizada {soHoraSP(data?.qualidade?.parcial_atualizado_em) ?? '…'} (Meta {soHoraSP(data?.qualidade?.parcial_meta_coletado_em) ?? 'sem coleta de hoje'} · HubSpot {soHoraSP(data?.qualidade?.parcial_hubspot_em) ?? '…'})</>}</span>
               <span>{itens === undefined ? '…' : itens === null ? <>Quebra por {cfg.nome}: <NaoDisponivel /></> : <><b className="text-foreground">{itens.length}</b> {itens.length === 1 ? cfg.nome : cfg.plural}</>}</span>
               <span>CRM: HubSpot · base do ETL (Supabase r1-indicadores)</span>
               <span>Meta coletado em {data ? (data.fontes.meta_ate ? dataBR(data.fontes.meta_ate) : <NaoDisponivel />) : '…'}</span>
@@ -291,7 +289,7 @@ export default function Perpetuo() {
           </div>
           <div className="text-right">
             <div className="eyebrow">Investimento no período</div>
-            <div className="display text-4xl md:text-[40px] leading-none mt-1 text-foreground">{r ? fmtBrl(r.investimento, 2) ?? <Zero tipo="brl" /> : '…'}</div>
+            <div className="text-2xl md:text-3xl font-semibold leading-none mt-1 text-foreground">{r ? fmtBrl(r.investimento, 2) ?? <Zero tipo="brl" /> : '…'}</div>
             <div className="text-sm text-muted-foreground mt-1">CAC {r ? (custosValidos(r) ? fmtBrl(r.cac) : null) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} /> : '…'}</div>
           </div>
         </div>
@@ -350,7 +348,6 @@ function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: A
   if (r?.taxas_observacao) avisos.push({ k: 'taxas', texto: r.taxas_observacao });
   if (r && !custosValidos(r)) avisos.push({ k: 'custos', texto: MOTIVO_CUSTO });
   if (ate > ateConsulta) avisos.push({ k: 'andamento', texto: `Período em andamento: os números cobrem ${dataBR(de)} a ${dataBR(ateConsulta)} (hoje, parcial). Os dias seguintes entram conforme acontecem.` });
-  if (q?.parcial && q.motivo) avisos.push({ k: 'parcial', texto: q.motivo });
   if (q?.periodo_completo_inicio && de < q.periodo_completo_inicio) {
     avisos.push({ k: 'periodo', texto: `O histórico publicado começa em ${dataBR(q.periodo_completo_inicio)}: os números mostrados vão de ${dataBR(q.periodo_completo_inicio)} a ${dataBR(ateConsulta)}. Meses anteriores dependem de recoleta do Meta e de espaço no banco.` });
   } else if (!q?.parcial && q?.periodo_completo_fim && ateConsulta > q.periodo_completo_fim) {
