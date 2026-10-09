@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, ImageOff, ExternalLink, Maximize2 } from 'lucide-react';
+import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
@@ -761,6 +761,8 @@ function Status({ valor }: { valor?: string | null }) {
   return <span className={`tag bg-background/90 ${ativo ? 'text-emerald-400' : pausado ? 'text-amber-400' : 'text-muted-foreground'}`}>{ativo ? 'No ar' : pausado ? 'Inativo' : valor || 'Status não disponível'}</span>;
 }
 const linkGerenciador = (ids?: string[] | null) => ids?.length ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${CONTA_META.id}&selected_ad_ids=${ids.slice(0, 50).join(',')}` : null;
+const linkGerenciadorCampanha = (id?: string | null) => id && /^\d+$/.test(id) ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${CONTA_META.id}&selected_campaign_ids=${id}` : null;
+const urlDaPagina = (it?: Item | null) => urlSegura(it?.destino_url) ?? urlSegura(it?.id.startsWith('lp:') ? it.id.slice(3) : null);
 const rotuloTipo = (t?: string | null) => t === 'video' ? 'Vídeo' : t === 'imagem' ? 'Imagem' : t ?? null;
 const rotuloStatus = (v?: string | null) => v === 'no_ar' || v === 'ACTIVE' ? 'No ar' : v === 'pausado' || v === 'PAUSED' || v === 'INACTIVE' ? 'Inativo' : v ?? null;
 
@@ -769,8 +771,11 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
   const [ampliada, setAmpliada] = useState(false);
   const imagem = item ? imagemDe(item) : null;
   const mTaxa = motivoTaxa(item); const mItem = motivoItem(item, aba);
-  const gerenciador = linkGerenciador(item?.anuncio_ids);
-  const destino = urlSegura(item?.destino_url);
+  const gerenciador = aba === 'campanhas' ? linkGerenciadorCampanha(item?.id) : aba === 'criativos' ? linkGerenciador(item?.anuncio_ids) : null;
+  const verAnuncio = aba === 'criativos' ? urlSegura(item?.anuncio_link) : null;
+  const destino = aba === 'lps' ? urlDaPagina(item) : urlSegura(item?.destino_url);
+  const rotuloDestino = aba === 'lps' ? 'Abrir a página' : 'Página de destino';
+  const botao = 'inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary';
   const eyebrow = item ? [rotuloTipo(item.tipo), rotuloStatus(item.status), item.arte_em ? `arte de ${dataBR(item.arte_em)}` : null].filter(Boolean).join(' · ') : '';
   const nomeAba = aba === 'campanhas' ? 'campanha' : aba === 'lps' ? 'página' : 'peça';
   const poucosLeads = item?.leads_crm != null && item.leads_crm < 10;
@@ -787,9 +792,10 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
       </SheetHeader>
       {item && <div className="space-y-5 mt-5">
         <div className="flex flex-wrap gap-2">
-          {gerenciador && <a href={gerenciador} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Abrir no Gerenciador <ExternalLink className="w-3.5 h-3.5" /></a>}
-          {destino && <a href={destino} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Página de destino <ExternalLink className="w-3.5 h-3.5" /></a>}
-          {imagem && <button type="button" onClick={() => setAmpliada(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary">Ampliar imagem <Maximize2 className="w-3.5 h-3.5" /></button>}
+          {/* Modelo da Joyce (09/10/2026): Ver o anúncio, Abrir no Gerenciador e Página de destino; a imagem amplia ao clicar nela. */}
+          {verAnuncio && <a href={verAnuncio} target="_blank" rel="noopener noreferrer" className={botao}>Ver o anúncio <ExternalLink className="w-3.5 h-3.5" /></a>}
+          {gerenciador && <a href={gerenciador} target="_blank" rel="noopener noreferrer" className={botao}>Abrir no Gerenciador <ExternalLink className="w-3.5 h-3.5" /></a>}
+          {destino && <a href={destino} target="_blank" rel="noopener noreferrer" className={botao}>{rotuloDestino} <ExternalLink className="w-3.5 h-3.5" /></a>}
         </div>
         {imagem && <button type="button" onClick={() => setAmpliada(true)} className="block w-full" aria-label={`Ampliar imagem de ${item.nome}`}><img src={imagem} alt={item.nome} className="max-h-72 w-full object-contain rounded-lg bg-secondary" /></button>}
         {imagem && <Dialog open={ampliada} onOpenChange={setAmpliada}>
@@ -799,6 +805,14 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
             <a href={imagem} target="_blank" rel="noopener noreferrer" className="text-sm underline">Abrir imagem em tamanho original</a>
           </DialogContent>
         </Dialog>}
+        {aba === 'lps' && (item.campanhas_lista?.length ?? 0) > 0 && <section className="space-y-2">
+          <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Campanhas ({fmtNum(item.campanhas_lista!.length)})</h4>
+          <div className="flex flex-wrap gap-2">
+            {item.campanhas_lista!.map(c => { const href = linkGerenciadorCampanha(c.id); const txt = <><span className="truncate max-w-[16rem]">{c.nome ?? c.id}</span><span className="mono text-muted-foreground">· {fmtBrl(c.investimento) ?? 'R$ 0'}</span></>;
+              const cls = 'inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground';
+              return href ? <a key={c.id} href={href} target="_blank" rel="noopener noreferrer" title={c.nome ?? c.id} className={`${cls} hover:bg-secondary`}>{txt}</a> : <span key={c.id} className={cls}>{txt}</span>; })}
+          </div>
+        </section>}
         {item.anuncios != null && item.anuncios > 1 && <p className="text-xs text-muted-foreground">Soma {fmtNum(item.anuncios)} anúncios com este nome (a mesma arte em conjuntos ou campanhas diferentes).</p>}
         {(item.variacoes ?? 0) > 1 && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{fmtNum(item.variacoes)} nomes de anúncio diferentes usam esta {nomeAba}. A UTM só grava o nome, então os números somam as variações.{item.codigos?.length ? <> <span className="mono">{item.codigos.join(' · ')}</span></> : null}</p>}
         {item.atribuicao_completa === false && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{mItem}</p>}
