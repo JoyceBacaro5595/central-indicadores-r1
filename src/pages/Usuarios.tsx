@@ -38,6 +38,9 @@ export default function Usuarios() {
   const [rascunho, setRascunho] = useState<{ nome: string; email: string; papel: Papel; ativo: boolean } | null>(null);
   // matriz de permissões em edição — só grava ao clicar em Salvar
   const [matriz, setMatriz] = useState<Record<string, Papel[]> | null>(null);
+  // definir senha de um acesso existente (pedido de Joyce, 09/10): o administrador digita e a pessoa troca depois
+  const [senhaPara, setSenhaPara] = useState<string | null>(null);
+  const [senhaNova, setSenhaNova] = useState('');
 
   const atualizar = useMutation({
     mutationFn: (v: { user_id: string; nome?: string; papel?: Papel; ativo?: boolean }) =>
@@ -106,7 +109,7 @@ export default function Usuarios() {
   const [novoEmail, setNovoEmail] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novoPapel, setNovoPapel] = useState<Papel>('consulta');
-  const [modo, setModo] = useState<'convidar' | 'criar'>('convidar');
+  const [modo, setModo] = useState<'convidar' | 'criar'>('criar');
   const [novaSenha, setNovaSenha] = useState('');
 
   function criar(e: FormEvent) {
@@ -149,14 +152,14 @@ export default function Usuarios() {
             <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
               Como
               <select value={modo} onChange={(e) => setModo(e.target.value as 'convidar' | 'criar')} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 normal-case font-normal">
+                <option value="criar">Criar com senha inicial</option>
                 <option value="convidar">Enviar convite por e-mail</option>
-                <option value="criar">Criar com senha temporária</option>
               </select>
             </label>
             {modo === 'criar' && (
               <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-                Senha temporária
-                <input type="text" required minLength={8} value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 normal-case font-normal min-w-[160px]" />
+                Senha inicial
+                <input type="text" required minLength={8} autoComplete="off" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 normal-case font-normal min-w-[160px]" />
               </label>
             )}
             <button type="submit" disabled={acao.isPending} className="rounded-md bg-primary text-primary-foreground text-xs font-semibold px-4 py-2 disabled:opacity-50">
@@ -164,7 +167,7 @@ export default function Usuarios() {
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            O convite por e-mail depende do remetente configurado no Supabase; se não chegar, use a senha temporária e peça para a pessoa trocar em "Minha conta".
+            A senha inicial vale até a pessoa trocar em "Minha conta". O convite por e-mail depende do remetente configurado no Supabase.
           </p>
         </form>
 
@@ -234,6 +237,20 @@ export default function Usuarios() {
                           <button type="button" onClick={() => comecarEdicao(u)} className="text-primary font-semibold inline-flex items-center gap-1">
                             <Pencil className="w-3.5 h-3.5" /> Editar
                           </button>
+                          {senhaPara === u.user_id ? (
+                            <form className="inline-flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); acao.mutate({ op: 'definir_senha', user_id: u.user_id, senha: senhaNova }, { onSuccess: () => { setSenhaPara(null); setSenhaNova(''); } }); }}>
+                              <input type="text" required minLength={8} autoComplete="off" placeholder="Nova senha (mín. 8)" value={senhaNova} onChange={(e) => setSenhaNova(e.target.value)}
+                                className="bg-secondary text-xs text-foreground rounded-md px-2 py-1.5 min-w-[160px]" />
+                              <button type="submit" disabled={acao.isPending} className="rounded-md bg-primary text-primary-foreground font-semibold px-3 py-1.5 disabled:opacity-50">
+                                {acao.isPending ? 'Salvando…' : 'Salvar senha'}
+                              </button>
+                              <button type="button" onClick={() => { setSenhaPara(null); setSenhaNova(''); }} className="text-muted-foreground font-semibold">Cancelar</button>
+                            </form>
+                          ) : (
+                            <button type="button" onClick={() => { setSenhaPara(u.user_id); setSenhaNova(''); }} className="text-primary font-semibold">
+                              Definir senha
+                            </button>
+                          )}
                           <button type="button" onClick={() => acao.mutate({ op: 'resetar_senha', email: u.email, redirect_to: `${window.location.origin}/redefinir-senha` })} className="text-primary font-semibold">
                             Enviar redefinição de senha
                           </button>
