@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown,
@@ -110,7 +110,9 @@ export default function AppShell() {
       </aside>
 
       <div className="flex-1 min-w-0">
-        <Outlet />
+        <Suspense fallback={<div role="status" className="p-8 text-sm text-muted-foreground">Carregando conteúdo…</div>}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );

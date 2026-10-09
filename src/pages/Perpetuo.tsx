@@ -146,7 +146,7 @@ export default function Perpetuo() {
   // dia fechado (ontem), porque o backend não publica dia aberto; o restante do período aparece como "em andamento".
   const ontem = addDias(hojeSP(), -1);
   const ateConsulta = ate > ontem ? ontem : ate;
-  const { data, error, isFetching, refetch } = usePerpetuo(de, ateConsulta);
+  const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(de, ateConsulta);
   const emAndamento = ate > ontem;
   const diasPeriodo = Math.round((Date.parse(ate + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1;
   const diasDecorridos = Math.max(0, Math.round((Date.parse(ateConsulta + 'T12:00:00') - Date.parse(de + 'T12:00:00')) / 86400000) + 1);
@@ -230,6 +230,7 @@ export default function Perpetuo() {
         </div>
 
         {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
+        {isFetching && data && <div role="status" className="text-sm text-muted-foreground">{isPlaceholderData ? `Atualizando o filtro… Indicadores exibidos de ${dataBR(data.periodo.inicio)} a ${dataBR(data.periodo.fim)} até concluir a consulta.` : 'Atualizando indicadores…'}</div>}
         {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
 
         {data?.publicacao && (
@@ -246,7 +247,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} />}
 
-        {data && <Lista key={aba} aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
+        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
         <ComoLer />
       </PageBody>
@@ -388,14 +389,14 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
     const minimo = filtro === '20' ? 20 : filtro === '100' ? 100 : 0;
     const q = busca.trim().toLowerCase();
     const filtrados = itens.filter((i) => (minimo === 0 || (i.leads_crm ?? 0) >= minimo) && (!q || i.nome.toLowerCase().includes(q) || (i.nome_curto ?? '').toLowerCase().includes(q))
-      && (tipo === 'todas' || i.tipo === tipo) && (status === 'todas' || i.status === status));
+      && (!temTipo || tipo === 'todas' || i.tipo === tipo) && (!temStatus || status === 'todas' || i.status === status));
     const chave = (i: Item) => ordem === 'investimento' ? i.investimento : ordem === 'leads' ? i.leads_crm : ordem === 'mql' ? i.mql : ordem === 'vendas' ? i.vendas : i.cac;
     return [...filtrados].sort((a, b) => {
       const va = chave(a), vb = chave(b);
       if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
       return ordem === 'cac' ? va - vb : vb - va;
     });
-  }, [itens, filtro, busca, ordem, tipo, status]);
+  }, [itens, filtro, busca, ordem, tipo, status, temTipo, temStatus]);
 
   return (
     <section className="space-y-3">
@@ -439,7 +440,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       </div>
 
       <ReguaMetas metas={metas} />
-      <Detalhes item={selecionado} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} />
+      <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} />
 
       {itens === null ? (
         <div className="surface p-5 text-sm text-muted-foreground leading-relaxed">

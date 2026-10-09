@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 
 // Perpétuo RGV · Fluxo de Tráfego: lê a RPC perpetuo_funil_v2 do Supabase r1-indicadores
@@ -107,6 +107,7 @@ export function usePerpetuo(de?: string, ate?: string) {
     queryKey: ['perpetuo-funil-v2', de, ate],
     queryFn: () => r1Rpc<PerpetuoFunil>('perpetuo_funil_v2', { p_de: de ?? null, p_ate: ate ?? null }),
     staleTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     retry: false,
   });
