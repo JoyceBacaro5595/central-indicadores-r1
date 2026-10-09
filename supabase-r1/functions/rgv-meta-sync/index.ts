@@ -37,8 +37,10 @@ const ads:any[]=[],metrics:any[]=[];
 for(const r of b.data){
 if(r.account_id!==ACCOUNT||r.date_start<START||r.date_start>end)throw new Error("meta_scope_mismatch");
 ads.push({account_id:ACCOUNT,ad_id:r.ad_id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,adset_id:r.adset_id,adset_name:r.adset_name,ad_name:r.ad_name,campaign_verified:false,updated_at:new Date().toISOString()});
+// Leads do Meta = "Resultados" do Gerenciador: action_type "lead" (site + formulário do Meta, atribuição unificada).
+// A Meta omite a ação quando não houve nenhuma no dia, então ausência com o campo actions pedido é zero, não nulo (Joyce, 09/10/2026).
 const actions=r.actions||[],action=(key:string)=>actions.find((a:any)=>a.action_type===key)?.value??null;
-metrics.push({account_id:ACCOUNT,ad_id:r.ad_id,day:r.date_start,spend:r.spend??null,impressions:r.impressions??null,link_clicks:r.inline_link_clicks??null,landing_page_views:action("landing_page_view"),pixel_leads:action("offsite_conversion.fb_pixel_lead"),reach_daily:r.reach??null,actions,attribution_setting:"unified_adset",collected_at:new Date().toISOString()});
+metrics.push({account_id:ACCOUNT,ad_id:r.ad_id,day:r.date_start,spend:r.spend??null,impressions:r.impressions??null,link_clicks:r.inline_link_clicks??null,landing_page_views:Number(action("landing_page_view")??0),pixel_leads:Number(action("lead")??0),reach_daily:r.reach??null,actions,attribution_setting:"unified_adset",collected_at:new Date().toISOString()});
 }
 if(ads.length){
 const unique=[...new Map(ads.map(r=>[r.ad_id,r])).values()];
