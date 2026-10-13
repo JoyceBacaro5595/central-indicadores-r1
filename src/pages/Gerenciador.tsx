@@ -4,6 +4,7 @@ import { Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
+import AlertasSaude from '@/components/AlertasSaude';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Parametro { chave: string; valor: number; rotulo: string; descricao: string | null; grupo: string; atualizado_em: string }
@@ -119,6 +120,7 @@ export default function Gerenciador() {
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
+        <AlertasSaude />
         {estado.error && <div className="surface p-4 text-sm text-red-400">{(estado.error as Error).message}</div>}
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
         {aviso && <div className="surface p-3 text-xs text-emerald-400">{aviso}</div>}

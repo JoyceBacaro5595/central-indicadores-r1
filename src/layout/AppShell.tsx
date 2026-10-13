@@ -4,6 +4,7 @@ import {
   LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
+import { useAlertas } from '@/components/AlertasSaude';
 
 type Item = { to: string; rotulo: string; icone: typeof LayoutDashboard; recurso?: string; fim?: boolean; extra?: string[] };
 type Secao = { titulo: string; recurso?: string; itens: Item[] };
@@ -50,6 +51,7 @@ export default function AppShell() {
   const [aberta, setAberta] = useState(false);
   const [compacta, setCompacta] = useState<boolean>(() => lerCompacta());
   const alternarCompacta = () => setCompacta((v) => { const novo = !v; try { localStorage.setItem(CHAVE_COMPACTA, novo ? '1' : '0'); } catch { /* preferência só desta sessão */ } return novo; });
+  const alertas = useAlertas(pode('gerenciador')).data?.alertas ?? [];
   const loc = useLocation();
   const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>(() => Object.fromEntries(SECOES.map(s => [s.titulo, true])));
 
@@ -109,6 +111,7 @@ export default function AppShell() {
                     >
                       <i.icone className="w-4 h-4 shrink-0" />
                       <span className={`truncate ${compacta ? 'md:hidden' : ''}`}>{i.rotulo}</span>
+                      {i.to === '/central/gerenciador' && alertas.length > 0 && <span className={`ml-auto min-w-4 h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white ${alertas.some(a => a.gravidade === 'critico') ? 'bg-red-500' : 'bg-amber-500'} ${compacta ? 'md:hidden' : ''}`} title={`${alertas.length} alerta(s) nas integrações`} aria-label={`${alertas.length} alertas nas integrações`}>{alertas.length}</span>}
                     </NavLink>
                   </li>
                 ))}
