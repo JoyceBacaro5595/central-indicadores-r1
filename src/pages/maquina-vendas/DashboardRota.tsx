@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { HISTORICO, ROTA, mesmoEvento } from './rota';
-import { CalendarClock, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
 
 /* Dashboard da Máquina de Vendas (réplica da aba "Dashboard" do app da Lovable), com dados da Central.
    Onde a Central ainda não coleta o dado (visitas à LP, checkouts, VIP, origem da cortesia) aparece "—", nunca zero. */
@@ -11,7 +11,7 @@ export interface Evento {
 }
 export interface MetaEvento { cidade: string; mes_evento: string; investimento: number; impressoes: number; cliques: number }
 export interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number }
-export interface Presenca { cidade: string; mes_evento: string; esperados: number; presentes: number }
+export interface Presenca { cidade: string; mes_evento: string; esperados: number; presentes: number; presentes_cortesia?: number }
 
 /* Metas padrão por cidade (DEFAULT_CITY_GOALS e FUNNEL_GOALS do original). */
 const META = { investimento: 100000, vendas: 250, cortesias: 100, totalPartic: 350, ticket: 97, receita: 250 * 97, cac: 400, cacQualif: 800, capacidade: 350, cpm: 36, ctr: 1, qualif: 50 };
@@ -47,9 +47,9 @@ function Meta({ rotulo, atual, meta, fmt, menorMelhor, barra = true }: { rotulo:
   );
 }
 
-interface Props { eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; carregando: boolean }
+interface Props { eventosHist: Evento[]; eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; carregando: boolean }
 
-export default function DashboardRota({ eventos, meta, hub, presenca, carregando }: Props) {
+export default function DashboardRota({ eventosHist, eventos, meta, hub, presenca, carregando }: Props) {
   const [histAberto, setHistAberto] = useState(false);
   const hoje = hojeISO();
   const linhas = ROTA.cidades.map((c) => {
@@ -141,12 +141,23 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
             <div className="px-4 pb-4 flex flex-wrap gap-1.5">
               {passadas.map((l) => {
                 const p = presenca.find((x) => mesmoEvento(x, l.c));
+                const ev = eventosHist.find((x) => mesmoEvento(x, l.c));
+                const esp = p?.esperados ?? 0; const pres = p?.presentes ?? 0;
+                const cortTot = ev ? ev.cortesias : null; const cortPres = p?.presentes_cortesia ?? 0;
+                const normTot = cortTot != null ? Math.max(0, esp - cortTot) : null; const normPres = Math.max(0, pres - cortPres);
+                const taxa = (a: number, b: number) => Math.round((100 * a) / b);
                 return (
-                  <div key={`${l.c.cidade}-${l.data}`} className="rounded-lg px-3 py-2 text-center bg-emerald-500/10 border border-emerald-500/20 min-w-[110px]">
+                  <div key={`${l.c.cidade}-${l.data}`} className="rounded-lg px-3 py-2 text-center bg-emerald-500/10 border border-emerald-500/20 min-w-[170px]">
+                    <div className="flex justify-center mb-1"><CheckCircle2 className="h-2.5 w-2.5 text-emerald-400" /></div>
                     <div className="text-[10px] font-bold text-foreground">{l.c.cidade}</div><div className="text-[9px] text-muted-foreground">{dm(l.data)}</div>
-                    <div className="mt-1 pt-1 border-t border-emerald-500/20">
-                      <div className="text-[11px] font-extrabold text-emerald-400">{p ? num(p.presentes) : '—'}</div><div className="text-[8px] text-emerald-400/90 font-semibold">Compareceram</div>
-                      {p && p.esperados > 0 && <><div className="text-[8px] text-muted-foreground">de {num(p.esperados)} ingressos</div><div className="text-[10px] font-bold text-primary">{Math.round((100 * p.presentes) / p.esperados)}% <span className="text-[7px] text-muted-foreground font-semibold">comparecimento</span></div></>}
+                    <div className="mt-1 pt-1 border-t border-emerald-500/20 text-left">
+                      <div className="text-center text-[11px] font-extrabold text-emerald-400">{p ? num(pres) : '—'}</div><div className="text-center text-[8px] text-emerald-400/90 font-semibold">Compareceram</div>
+                      {p && esp > 0 && <>
+                        <div className="text-center text-[8px] text-muted-foreground">de {num(esp)} ingressos vendidos</div>
+                        <div className="mt-1.5 flex items-baseline gap-0.5"><span className={`text-[10px] font-bold ${taxa(pres, esp) >= 80 ? 'text-emerald-400' : 'text-red-500'}`}>{taxa(pres, esp)}%</span><span className="text-[7px] font-semibold text-muted-foreground">comparecimento geral</span></div>
+                        {normTot != null && normTot > 0 && <div className="mt-1.5 pt-1 border-t border-emerald-500/20 flex items-baseline gap-0.5"><span className="text-[10px] font-bold text-foreground">{taxa(normPres, normTot)}%</span><span className="text-[7px] font-semibold text-muted-foreground">comparecimento normais</span><span className="text-[7px] text-muted-foreground ml-auto">{num(normPres)} / {num(normTot)}</span></div>}
+                        {cortTot != null && cortTot > 0 && <div className="mt-0.5 flex items-baseline gap-0.5"><span className="text-[10px] font-bold text-amber-500">{taxa(cortPres, cortTot)}%</span><span className="text-[7px] font-semibold text-amber-500/80">comparecimento cortesias</span><span className="text-[7px] text-muted-foreground ml-auto">{num(cortPres)} / {num(cortTot)}</span></div>}
+                      </>}
                     </div>
                   </div>
                 );
