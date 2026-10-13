@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ROTA, mesmoEvento } from './rota';
 import { CalendarClock, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
 
 /* Dashboard da Máquina de Vendas (réplica da aba "Dashboard" do app da Lovable), com dados da Central.
@@ -12,17 +13,6 @@ export interface MetaEvento { cidade: string; mes_evento: string; investimento: 
 export interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number }
 export interface Presenca { cidade: string; mes_evento: string; esperados: number; presentes: number }
 
-/* Config do app original (fica fixa no código dele). Etapa seguinte: mover para tabela editável. */
-const ROTA = {
-  nome: 'Rota 45',
-  cidades: [
-    { cidade: 'Campina Grande', data: '2026-10-06', inicio: '2026-08-15' }, { cidade: 'João Pessoa', data: '2026-10-07', inicio: '2026-08-15' },
-    { cidade: 'Palmas', data: '2026-10-08', inicio: '2026-08-15' }, { cidade: 'Vitória da Conquista', data: '2026-10-13', inicio: '2026-09-15' },
-    { cidade: 'Brasília', data: '2026-10-14', inicio: '2026-09-15' }, { cidade: 'Manaus', data: '2026-10-26', inicio: '2026-09-15' },
-    { cidade: 'Belém', data: '2026-10-27', inicio: '2026-09-15' }, { cidade: 'Sinop', data: '2026-10-28', inicio: '2026-09-15' },
-    { cidade: 'Cuiabá', data: '2026-10-29', inicio: '2026-09-25' }, { cidade: 'Ribeirão Preto', data: '2026-10-30', inicio: '2026-09-25' },
-  ],
-};
 /* Metas padrão por cidade (DEFAULT_CITY_GOALS e FUNNEL_GOALS do original). */
 const META = { investimento: 100000, vendas: 250, cortesias: 100, totalPartic: 350, ticket: 97, receita: 250 * 97, cac: 400, cacQualif: 800, capacidade: 350, cpm: 36, ctr: 1, qualif: 50 };
 const PLANO = { receitaRota: 218250 };
@@ -63,14 +53,14 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
   const [histAberto, setHistAberto] = useState(false);
   const hoje = hojeISO();
   const linhas = ROTA.cidades.map((c) => {
-    const ev = eventos.find((e) => e.cidade === c.cidade && (e.data_evento ?? e.mes_evento).slice(0, 7) === c.data.slice(0, 7));
-    const m = meta.find((x) => x.cidade === c.cidade && x.mes_evento.slice(0, 7) === c.data.slice(0, 7));
-    const h = hub.find((x) => x.cidade === c.cidade && x.mes_evento.slice(0, 7) === c.data.slice(0, 7));
+    const ev = eventos.find((e) => mesmoEvento(e, c));
+    const m = meta.find((x) => mesmoEvento(x, c));
+    const h = hub.find((x) => mesmoEvento(x, c));
     const inv = m ? Number(m.investimento) : null;
     const vendas = ev ? ev.pagos : null; const cort = ev ? ev.cortesias : null;
     const fat = ev ? Number(ev.faturamento) : null;
     const qual = h ? h.compradores_qualificados : null;
-    return { c, ev, m, h, inv, vendas, cort, fat, ocup: ev ? ev.realizado : null, cap: ev?.capacidade ?? META.capacidade, qual, dias: dias(c.data) };
+    return { c, ev, m, h, inv, vendas, cort, fat, ocup: ev ? ev.realizado : null, cap: ev?.capacidade ?? META.capacidade, qual, dias: dias(ev?.data_evento ?? c.data), data: ev?.data_evento ?? c.data };
   });
   const T = {
     vendas: somaN(linhas.map((l) => l.vendas)), cort: somaN(linhas.map((l) => l.cort)), fat: somaN(linhas.map((l) => l.fat)), inv: somaN(linhas.map((l) => l.inv)),
@@ -131,7 +121,7 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
               <div key={l.c.cidade} className={`relative rounded-lg px-3 py-2 text-center border ${passou ? 'bg-emerald-500/10 border-emerald-500/20' : urg ? 'bg-red-500/15 border-red-500/50' : av ? 'bg-amber-500/15 border-amber-500/40' : 'bg-blue-500/10 border-blue-500/20'}`}>
                 {l.dias >= 0 && <span className={`absolute -top-1.5 -right-1.5 text-[8px] font-bold px-1.5 py-[1px] rounded-full leading-none ${urg ? 'bg-red-500 text-white' : av ? 'bg-amber-500 text-black' : 'bg-blue-500 text-white'}`}>{l.dias === 0 ? 'hoje' : `${l.dias}d`}</span>}
                 <div className="text-[10px] font-bold text-foreground truncate">{l.c.cidade}</div>
-                <div className="text-[9px] text-muted-foreground">{dm(l.c.data)}</div>
+                <div className="text-[9px] text-muted-foreground">{dm(l.data)}</div>
               </div>
             );
           })}
@@ -148,10 +138,10 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
           {histAberto && (
             <div className="px-4 pb-4 flex flex-wrap gap-1.5">
               {passadas.map((l) => {
-                const p = presenca.find((x) => x.cidade === l.c.cidade && x.mes_evento.slice(0, 7) === l.c.data.slice(0, 7));
+                const p = presenca.find((x) => mesmoEvento(x, l.c));
                 return (
                   <div key={l.c.cidade} className="rounded-lg px-3 py-2 text-center bg-emerald-500/10 border border-emerald-500/20 min-w-[110px]">
-                    <div className="text-[10px] font-bold text-foreground">{l.c.cidade}</div><div className="text-[9px] text-muted-foreground">{dm(l.c.data)}</div>
+                    <div className="text-[10px] font-bold text-foreground">{l.c.cidade}</div><div className="text-[9px] text-muted-foreground">{dm(l.data)}</div>
                     <div className="mt-1 pt-1 border-t border-emerald-500/20">
                       <div className="text-[11px] font-extrabold text-emerald-400">{p ? num(p.presentes) : '—'}</div><div className="text-[8px] text-emerald-400/90 font-semibold">Compareceram</div>
                       {p && p.esperados > 0 && <><div className="text-[8px] text-muted-foreground">de {num(p.esperados)} ingressos</div><div className="text-[10px] font-bold text-primary">{Math.round((100 * p.presentes) / p.esperados)}% <span className="text-[7px] text-muted-foreground font-semibold">comparecimento</span></div></>}
@@ -175,7 +165,7 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
             const p = l.ocup == null ? null : (100 * l.ocup) / l.cap; const lot = p != null && p >= 100; const tom: Tom = p == null ? 'neutro' : p >= 100 ? 'ok' : p >= 70 ? 'warn' : p >= 40 ? 'warn' : 'bad';
             return (
               <div key={l.c.cidade} className={`rounded-lg border p-3 flex flex-col gap-1.5 ${lot ? 'border-2 border-red-500 bg-red-500/15' : 'border-border bg-secondary/30'}`}>
-                <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-wider text-foreground">{l.c.cidade}</span><span className="text-[9px] text-muted-foreground">{dm(l.c.data)}</span></div>
+                <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-wider text-foreground">{l.c.cidade}</span><span className="text-[9px] text-muted-foreground">{dm(l.data)}</span></div>
                 <div className="flex items-baseline justify-between"><span className="text-sm font-bold text-foreground">{num(l.ocup)} <span className="text-muted-foreground font-normal">/ {num(l.cap)}</span></span><span className={`text-[11px] font-bold ${COR[tom]}`}>{pct(p)}</span></div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden"><div className={`h-full rounded-full ${BAR[tom]}`} style={{ width: `${Math.min(p ?? 0, 100)}%` }} /></div>
                 <span className="text-[9px] font-semibold text-muted-foreground">{l.ocup == null ? 'sem dado de vendas' : lot ? 'NÃO VENDER · NÃO DAR CORTESIA' : `${num(l.cap - l.ocup)} lugares restantes`}</span>
@@ -210,7 +200,7 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
             return (
               <div key={l.c.cidade} className="rounded-lg border border-border bg-secondary/10 p-4">
                 <div className="flex items-center justify-between mb-3 gap-2">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-foreground">{l.c.cidade} <span className="ml-2 text-muted-foreground font-normal normal-case">· evento {dm(l.c.data)}</span></h4>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-foreground">{l.c.cidade} <span className="ml-2 text-muted-foreground font-normal normal-case">· evento {dm(l.data)}</span></h4>
                   {l.dias > 0 && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${l.dias <= 7 ? 'bg-amber-500/15 text-amber-400 border-amber-500/40' : 'bg-blue-500/15 text-blue-400 border-blue-500/40'}`}>faltam {l.dias} {l.dias === 1 ? 'dia' : 'dias'}</span>}
                   {l.dias === 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/40">hoje!</span>}
                 </div>
@@ -263,7 +253,7 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
             const passos: [string, string][] = [['CPM', cp == null ? '—' : brl(cp)], ['CTR', pct(ct, 2)], ['Cliques ao link', '—'], ['Connect', '—'], ['Visitas LP', '—'], ['Checkouts', '—'], ['Vendas', num(l.vendas)], ['CAC', brl(div(l.inv, l.vendas))]];
             return (
               <div key={l.c.cidade} className="rounded-lg border border-border bg-secondary/10 p-3">
-                <div className="text-xs font-semibold text-foreground mb-2">{l.c.cidade} <span className="text-[10px] text-muted-foreground font-normal">· {dm(l.c.data)}</span></div>
+                <div className="text-xs font-semibold text-foreground mb-2">{l.c.cidade} <span className="text-[10px] text-muted-foreground font-normal">· {dm(l.data)}</span></div>
                 <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">{passos.map(([r, v]) => <div key={r} className="rounded bg-secondary/40 px-2 py-1.5 text-center"><div className="text-[8px] uppercase tracking-wider text-muted-foreground">{r}</div><div className={`text-xs font-bold mono ${v === '—' ? 'text-muted-foreground' : 'text-foreground'}`}>{v}</div></div>)}</div>
               </div>
             );

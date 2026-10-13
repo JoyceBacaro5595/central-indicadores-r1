@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { Abas, PageBody, PageHeader } from '@/components/shared';
 import { useAuth } from '@/auth/AuthProvider';
+import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
 
 /* Réplica da "Máquina de Vendas" da Lovable (pedido da Joyce, 13/10). Etapa 1: Dashboard e Painel de Controle,
@@ -36,7 +37,6 @@ const TOM: Record<Tom, string> = { verde: 'bg-emerald-500/15 text-emerald-400', 
 const tomPct = (v: number | null): Tom => (v == null ? 'neutro' : v >= 100 ? 'verde' : v >= 75 ? 'ambar' : v >= 50 ? 'laranja' : 'vermelho');
 const tomDias = (d: number): Tom => (d <= 7 ? 'vermelho' : d <= 14 ? 'ambar' : 'neutro');
 const Selo = ({ tom, children }: { tom: Tom; children: React.ReactNode }) => <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold mono ${TOM[tom]}`}>{children}</span>;
-const urgencia = (dias: number) => (dias < 0 ? 'text-muted-foreground' : dias <= 7 ? 'text-red-400' : dias <= 14 ? 'text-amber-400' : 'text-primary');
 
 export default function MaquinaVendas() {
   const { pode } = useAuth();
@@ -48,17 +48,6 @@ export default function MaquinaVendas() {
   const presenca = useQuery({ queryKey: ['mv-presenca', de, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: de, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
 
-  const lista = useMemo(() => [...(eventos.data ?? [])].sort((a, b) => (a.data_evento ?? '9999').localeCompare(b.data_evento ?? '9999')), [eventos.data]);
-  const proximas = lista.filter((e) => e.data_evento && e.dias_restantes >= 0);
-  const metaDe = (e: Evento) => (meta.data ?? []).find((m) => m.cidade === e.cidade && m.mes_evento === e.mes_evento);
-  const hubDe = (e: Evento) => (hub.data ?? []).find((h) => h.cidade === e.cidade && h.mes_evento === e.mes_evento);
-
-  const tot = lista.reduce((a, e) => ({ real: a.real + e.realizado, meta: a.meta + (e.meta_ingressos ?? 0), fat: a.fat + e.faturamento, cap: a.cap + (e.capacidade ?? 0) }), { real: 0, meta: 0, fat: 0, cap: 0 });
-  const inv = lista.reduce((a, e) => a + Number(metaDe(e)?.investimento ?? 0), 0);
-
-  const kpi = (label: string, valor: string, sub?: string) => (
-    <div className="kpi-card"><div className="kpi-label">{label}</div><div className="kpi-value mono">{valor}</div>{sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}</div>
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,16 +69,21 @@ export default function MaquinaVendas() {
         {aba === 'dashboard' && <DashboardRota eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
 
         {aba === 'controle' && (() => {
-          const linhas = lista.map((e) => {
-            const meta = e.meta_ingressos ?? PADRAO.meta;
+          const linhas = ROTA.cidades.flatMap((c) => {
+            const ev = (eventos.data ?? []).find((x) => mesmoEvento(x, c));
+            if (!ev) return [];
+            const dataEv = ev.data_evento ?? c.data;
+            const e = { ...ev, cidade: c.cidade, data_evento: dataEv, dias_restantes: Math.round((new Date(`${dataEv}T00:00:00`).getTime() - new Date(new Date().toDateString()).getTime()) / 86400000) };
+            const metaIng = e.meta_ingressos ?? PADRAO.meta;
             const cap = e.capacidade ?? PADRAO.capacidade;
             const dias = Math.max(0, e.dias_restantes);
-            const falta = Math.max(0, meta - e.realizado);
-            const inv = metaDe(e)?.investimento;
+            const falta = Math.max(0, metaIng - e.realizado);
+            const m = (meta.data ?? []).find((x) => mesmoEvento(x, c));
+            const inv = m?.investimento;
             const invN = inv == null ? null : Number(inv);
             const faltaR = invN == null ? null : Math.max(0, PADRAO.investimento - invN);
-            return { e, meta, cap, dias, falta, invN, faltaR, pctMeta: meta ? (100 * e.realizado) / meta : null, pctCap: cap ? (100 * e.realizado) / cap : null,
-              porDia: falta / Math.max(1, dias), pctInv: invN == null ? null : (100 * invN) / PADRAO.investimento, invDia: faltaR == null ? null : faltaR / Math.max(1, dias) };
+            return [{ e, meta: metaIng, cap, dias, falta, invN, faltaR, pctMeta: metaIng ? (100 * e.realizado) / metaIng : null, pctCap: cap ? (100 * e.realizado) / cap : null,
+              porDia: falta / Math.max(1, dias), pctInv: invN == null ? null : (100 * invN) / PADRAO.investimento, invDia: faltaR == null ? null : faltaR / Math.max(1, dias) }];
           });
           const soma = (f: (l: (typeof linhas)[number]) => number) => linhas.reduce((a, l) => a + f(l), 0);
           const comInv = linhas.filter((l) => l.invN != null);
