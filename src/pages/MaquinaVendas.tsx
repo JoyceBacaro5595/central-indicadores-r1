@@ -5,6 +5,8 @@ import { Abas, PageBody, PageHeader } from '@/components/shared';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
+import Captacao from './maquina-vendas/Captacao';
+import Calendario from './maquina-vendas/Calendario';
 import Debriefing from './maquina-vendas/Debriefing';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 
@@ -21,9 +23,9 @@ interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; in
 import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
-type Aba = 'dashboard' | 'debriefing' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
+type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'controle', rotulo: 'Painel de Controle' }, { valor: 'planejamento', rotulo: 'Planejamento' },
+  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' }, { valor: 'planejamento', rotulo: 'Planejamento' },
   { valor: 'criativos', rotulo: 'Painel de criativos' }, { valor: 'briefing', rotulo: 'Briefing & Produção' },
 ];
 
@@ -77,6 +79,9 @@ export default function MaquinaVendas() {
         {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} cadeiras={cadeiras.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
 
         {aba === 'debriefing' && <Debriefing eventos={eventosHist.data ?? []} meta={metaAno.data ?? []} />}
+
+        {aba === 'captacao' && <Captacao eventos={eventosHist.data ?? []} meta={metaAno.data ?? []} />}
+        {aba === 'calendario' && <Calendario eventos={eventosHist.data ?? []} />}
 
         {aba === 'controle' && (() => {
           const linhas = ROTA.cidades.flatMap((c) => {
