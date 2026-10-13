@@ -5,10 +5,15 @@ import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './rota';
 import CadastroEvento from './CadastroEvento';
 import CidadeCard, { type CidadeIng } from './CidadeCard';
+import { TabelaRota, FunilRota } from './VisoesRota';
 import { META, num, brl, pct, dm, dias, type Evento, type MetaEvento, type HubEvento, type Presenca, type Cadeiras } from './DashboardRota';
 
 const INICIO_ANO = '2026-01-01';
 const CHAVE = 'central.cardsPorLinha';
+const CHAVE_VISAO = 'central.visaoEventos';
+type Visao = 'card' | 'tabela' | 'funil';
+const VISOES: [Visao, string][] = [['card', 'Card'], ['tabela', 'Lista / Tabela'], ['funil', 'Funil']];
+const lerVisao = (): Visao => { try { const v = localStorage.getItem(CHAVE_VISAO); return v === 'tabela' || v === 'funil' ? v : 'card'; } catch { return 'card'; } };
 const lerPref = () => { try { const v = Number(localStorage.getItem(CHAVE)); return v >= 1 && v <= 5 ? v : 3; } catch { return 3; } };
 type Situacao = 'todas' | 'abertas' | 'lotadas' | 'proximos7' | 'proximos14' | 'realizadas';
 type Ordem = 'data' | 'ocupacao' | 'vendas' | 'cidade';
@@ -23,6 +28,8 @@ export default function CardsRota() {
   const [busca, setBusca] = useState('');
   const [situacao, setSituacao] = useState<Situacao>('todas');
   const [ordem, setOrdem] = useState<Ordem>('data');
+  const [visao, setVisao] = useState<Visao>(lerVisao);
+  const escolherVisao = (v: Visao) => { setVisao(v); try { localStorage.setItem(CHAVE_VISAO, v); } catch { /* preferência só desta sessão */ } };
   const [porLinha, setPorLinha] = useState<number>(lerPref);
   const escolherPorLinha = (n: number) => { setPorLinha(n); try { localStorage.setItem(CHAVE, String(n)); } catch { /* preferência só desta sessão */ } };
   const de = mesISO(-1); const ate = mesISO(4);
@@ -78,13 +85,18 @@ export default function CardsRota() {
         <label>Cidade<br /><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cidade" className={`${sel} w-40`} /></label>
         <label>Situação<br /><select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className={sel}>{SITUACOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
         <label>Ordenar por<br /><select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={sel}>{ORDENS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
-        <label className="hidden lg:block">Cards por linha<br /><select value={porLinha} onChange={(e) => escolherPorLinha(Number(e.target.value))} className={sel} aria-label="Cards por linha">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
+        <div role="group" aria-label="Formato de visualização" className="flex rounded-lg border border-border overflow-hidden">{VISOES.map(([v, r]) => <button key={v} type="button" aria-pressed={visao === v} onClick={() => escolherVisao(v)} className={`px-3 py-1.5 text-xs font-bold ${visao === v ? 'bg-primary text-primary-foreground' : 'bg-secondary/40 text-foreground hover:bg-secondary'}`}>{r}</button>)}</div>
+        {visao === 'card' && <label className="hidden lg:block">Cards por linha<br /><select value={porLinha} onChange={(e) => escolherPorLinha(Number(e.target.value))} className={sel} aria-label="Cards por linha">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>}
         <span className="pb-2">{visiveis.length} de {linhas.length} cidades</span>
       </div>
       {visiveis.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma cidade com esses filtros.</p>}
-      <div className="grid gap-4 grid-cols-1 lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]" style={{ ['--cols' as string]: porLinha }}>
-        {visiveis.map((l) => <CidadeCard key={l.c.cidade} l={l} det={(detalhe.data ?? []).find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
-      </div>
+      {visao === 'card' && (
+        <div className="grid gap-4 grid-cols-1 lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]" style={{ ['--cols' as string]: porLinha }}>
+          {visiveis.map((l) => <CidadeCard key={l.c.cidade} l={l} det={(detalhe.data ?? []).find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
+        </div>
+      )}
+      {visao === 'tabela' && <TabelaRota linhas={visiveis} detalhe={detalhe.data ?? []} mesmo={mesmoEvento} />}
+      {visao === 'funil' && <FunilRota linhas={visiveis} />}
     </section>
   );
 }
