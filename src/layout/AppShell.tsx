@@ -24,7 +24,7 @@ const SECOES: Secao[] = [
   {
     titulo: 'Perpétuo RGV',
     itens: [
-      { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing', icone: Waypoints, recurso: 'perpetuo' },
+      { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing RGV', icone: Waypoints, recurso: 'perpetuo' },
     ],
   },
   {

@@ -215,7 +215,7 @@ export default function Perpetuo() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo="Perpétuo RGV · Fluxo Marketing"
+        titulo="Perpétuo RGV · Fluxo Marketing RGV"
         subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
         onAtualizar={atualizar}
         atualizando={isFetching}

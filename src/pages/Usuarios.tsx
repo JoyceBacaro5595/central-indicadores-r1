@@ -34,7 +34,7 @@ const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
 /* Rótulos de reserva, usados só se o backend ainda não devolver o catálogo identity.recurso. */
 const RECURSOS: Record<string, string> = {
   painel: 'Visão geral (Central de ingressos)', eventos: 'Eventos e metas', relatorio: 'Relatório', exportar: 'Exportar CSV/PDF', presenca: 'Check-ins',
-  recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing (Perpétuo RGV)', regras: 'Regras de segmentação',
+  recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing RGV (Perpétuo)', regras: 'Regras de segmentação',
   gerenciador: 'Integrações e logs', analista: 'Consulta SQL (analista de dados)', usuarios: 'Usuários e permissões',
 };
 
