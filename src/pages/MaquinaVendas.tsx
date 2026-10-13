@@ -5,6 +5,7 @@ import { Abas, PageBody, PageHeader } from '@/components/shared';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
+import Debriefing from './maquina-vendas/Debriefing';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 
 /* Réplica da "Máquina de Vendas" da Lovable (pedido da Joyce, 13/10). Etapa 1: Dashboard e Painel de Controle,
@@ -20,9 +21,9 @@ interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; in
 import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
-type Aba = 'dashboard' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
+type Aba = 'dashboard' | 'debriefing' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'controle', rotulo: 'Painel de Controle' }, { valor: 'planejamento', rotulo: 'Planejamento' },
+  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'controle', rotulo: 'Painel de Controle' }, { valor: 'planejamento', rotulo: 'Planejamento' },
   { valor: 'criativos', rotulo: 'Painel de criativos' }, { valor: 'briefing', rotulo: 'Briefing & Produção' },
 ];
 
@@ -52,6 +53,7 @@ export default function MaquinaVendas() {
   const cadeiras = useQuery({ queryKey: ['mv-cadeiras', INICIO_ANO, ate], queryFn: () => r1Rpc<Cadeiras[]>('mv_cadeiras_evento', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const presenca = useQuery({ queryKey: ['mv-presenca', INICIO_ANO, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const detalhe = useQuery({ queryKey: ['mv-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000 });
+  const metaAno = useQuery({ queryKey: ['mv-meta-ano', ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
 
 
@@ -73,6 +75,8 @@ export default function MaquinaVendas() {
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
         {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} cadeiras={cadeiras.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
+
+        {aba === 'debriefing' && <Debriefing eventos={eventosHist.data ?? []} meta={metaAno.data ?? []} />}
 
         {aba === 'controle' && (() => {
           const linhas = ROTA.cidades.flatMap((c) => {
