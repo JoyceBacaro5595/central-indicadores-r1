@@ -25,7 +25,7 @@ interface HubEvento { cidade: string; mes_evento: string; compradores: number; c
 
 type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle' | 'criativos' | 'briefing';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
+  { valor: 'dashboard', rotulo: 'Rotas' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
   { valor: 'criativos', rotulo: 'Painel de criativos' }, { valor: 'briefing', rotulo: 'Briefing & Produção' },
 ];
 
