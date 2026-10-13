@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { mesmoEvento } from './rota';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export interface CidadeIng {
   cidade: string; mes_evento: string; ingressos: number; comuns_pagos: number; vip_pagos: number; vip_total: number; cortesias: number;
@@ -16,7 +18,7 @@ void mesmoEvento;
 /* Metas do funil de tráfego (FUNNEL_GOALS do original), por cidade. */
 const FUNIL = { cliques: 13889, connect: 75, visitas: 10417, checkouts: 250, convPagina: 2.4, convCheckout: 40 };
 
-type Linha2 = { rotulo: string; atual: number | null; meta: number | null; f: (v: number | null) => string; menorMelhor?: boolean; nota?: string };
+type Linha2 = { rotulo: string; atual: number | null; meta: number | null; f: (v: number | null) => string; menorMelhor?: boolean; nota?: string; sub?: string; pctTexto?: string };
 const TOM = { ok: 'text-emerald-400', warn: 'text-amber-400', bad: 'text-red-400', neutro: 'text-muted-foreground' } as const;
 
 /** Tom do % atingido: para custos (menor é melhor) a leitura se inverte. */
@@ -26,21 +28,32 @@ function tom(p: number | null, menorMelhor?: boolean): keyof typeof TOM {
   return v >= 100 ? 'ok' : v >= 70 ? 'warn' : 'bad';
 }
 
-type Tom4 = 'ok' | 'warn' | 'bad' | 'neutro';
-const COR4: Record<Tom4, string> = { ok: 'text-emerald-400', warn: 'text-amber-400', bad: 'text-red-400', neutro: 'text-foreground' };
-const BAR4: Record<Tom4, string> = { ok: 'bg-emerald-500', warn: 'bg-amber-500', bad: 'bg-red-500', neutro: 'bg-muted-foreground' };
-
-/** Indicador do card principal: valor, % da meta, barra e a meta (como na Meta Global). */
-function Ind({ rotulo, atual, meta, f, menorMelhor, sub, pctLivre }: { rotulo: string; atual: number | null; meta?: number | null; f: (v: number | null) => string; menorMelhor?: boolean; sub?: string; pctLivre?: string }) {
-  const p = atual == null || !meta ? null : (100 * atual) / meta;
-  const t: Tom4 = p == null ? 'neutro' : menorMelhor ? (p <= 100 ? 'ok' : 'bad') : p >= 100 ? 'ok' : p >= 40 ? 'warn' : 'bad';
+function Tabela({ titulo, linhas, rotuloMeta = 'Previsto' }: { titulo: string; linhas: Linha2[]; rotuloMeta?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-1">
-      <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{rotulo}</span>
-      <div className="flex items-baseline justify-between gap-2"><span className="text-base font-bold text-foreground">{f(atual)}</span><span className={`text-[11px] font-semibold ${COR4[t]}`}>{pctLivre ?? (p == null ? '' : `${p.toFixed(0)}%`)}</span></div>
-      {meta != null && p != null && <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden"><div className={`h-full rounded-full ${BAR4[t]}`} style={{ width: `${Math.min(p, 100)}%` }} /></div>}
-      {(meta != null || sub) && <span className="text-[10px] text-muted-foreground">{sub ?? `Meta: ${f(meta ?? null)}`}</span>}
-    </div>
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+          <th scope="col" className="text-left font-bold py-1.5">{titulo}</th>
+          <th scope="col" className="text-right font-bold py-1.5">Realizado</th>
+          <th scope="col" className="text-right font-bold py-1.5">{rotuloMeta}</th>
+          <th scope="col" className="text-right font-bold py-1.5">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {linhas.map((r) => {
+          const p = r.atual != null && r.meta ? (100 * r.atual) / r.meta : null;
+          const t = tom(p, r.menorMelhor);
+          return (
+            <tr key={r.rotulo} className="border-b border-border/40 last:border-0">
+              <th scope="row" className="text-left font-medium text-foreground py-1.5">{r.rotulo}{r.sub && <span className="block text-[10px] font-normal text-muted-foreground">{r.sub}</span>}</th>
+              <td className="text-right font-bold tabular-nums text-foreground" title={r.atual == null ? r.nota : undefined}>{r.f(r.atual)}</td>
+              <td className="text-right tabular-nums text-muted-foreground">{r.meta == null ? '—' : r.f(r.meta)}</td>
+              <td className={`text-right font-bold tabular-nums ${TOM[t]}`}>{r.pctTexto ?? (p == null ? '—' : `${p.toFixed(0)}%`)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -94,6 +107,24 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
     ] },
   ];
 
+  const geral: Linha2[] = [
+    { rotulo: 'Investimento', atual: l.inv, meta: meta.investimento, f: brl, menorMelhor: true },
+    { rotulo: 'ING - Vendas', atual: l.vendas, meta: meta.vendas, f: n2 },
+    { rotulo: 'ING - VIP', atual: dd('vip_total'), meta: null, f: n2, sub: 'vendidos + cortesia' },
+    { rotulo: 'Cortesias', atual: l.cort, meta: meta.cortesias, f: n2 },
+    { rotulo: 'Total participantes', atual: l.ocup, meta: meta.totalPartic, f: n2 },
+    { rotulo: 'ING - Ticket', atual: ticket, meta: meta.ticket, f: brl },
+    { rotulo: 'ING - Receita', atual: l.fat, meta: meta.receita, f: brl },
+    { rotulo: 'ING - CAC', atual: cac, meta: meta.cac, f: brl, menorMelhor: true },
+    { rotulo: 'CAC qualificado', atual: cacQ, meta: meta.cacQualif, f: brl, menorMelhor: true },
+    { rotulo: 'Qualificação compradores', atual: qualPct, meta: meta.qualif, f: p1 },
+    { rotulo: 'Eficiência da verba', atual: efic, meta: null, f: x2, sub: efic == null ? undefined : `${pct(pp)} da meta com ${pct(pi)} da verba` },
+    { rotulo: 'Cortesia CS', atual: dd('cortesia_cs'), meta: null, f: n2, pctTexto: cortPct(dd('cortesia_cs')) || '—', sub: l.cort != null ? `de ${num(l.cort)} cortesias` : undefined },
+    { rotulo: 'Cortesia Comercial', atual: dd('cortesia_comercial'), meta: null, f: n2, pctTexto: cortPct(dd('cortesia_comercial')) || '—', sub: l.cort != null ? `de ${num(l.cort)} cortesias` : undefined },
+  ];
+  const [aberto, setAberto] = useState<string | null>(null);
+  const g = grupos.find((x) => x.titulo === aberto);
+
   return (
     <div className="rounded-xl border border-border bg-secondary/10 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -108,55 +139,24 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <Ind rotulo="Investimento" atual={l.inv} meta={meta.investimento} f={brl} menorMelhor />
-        <Ind rotulo="ING - Vendas" atual={l.vendas} meta={meta.vendas} f={n2} />
-        <Ind rotulo="ING - VIP" atual={dd('vip_total')} f={n2} sub="vendidos + cortesia" />
-        <Ind rotulo="Cortesias" atual={l.cort} meta={meta.cortesias} f={n2} />
-        <Ind rotulo="Total partic." atual={l.ocup} meta={meta.totalPartic} f={n2} />
-        <Ind rotulo="ING - Ticket" atual={ticket} meta={meta.ticket} f={brl} />
-        <Ind rotulo="ING - Receita" atual={l.fat} meta={meta.receita} f={brl} />
-        <Ind rotulo="ING - CAC" atual={cac} meta={meta.cac} f={brl} menorMelhor />
-        <Ind rotulo="CAC qualif." atual={cacQ} meta={meta.cacQualif} f={brl} menorMelhor />
-        <Ind rotulo="Qualificação compradores" atual={qualPct} f={p1} sub={`Meta: ${meta.qualif}%`} />
-        <Ind rotulo="Eficiência da verba" atual={efic} f={x2} sub={efic == null ? undefined : `${pct(pp)} da meta com ${pct(pi)} da verba`} />
-        <Ind rotulo="Cortesia CS" atual={dd('cortesia_cs')} f={n2} pctLivre={cortPct(dd('cortesia_cs'))} sub={l.cort != null ? `de ${num(l.cort)} cortesias` : undefined} />
-        <Ind rotulo="Cortesia Comercial" atual={dd('cortesia_comercial')} f={n2} pctLivre={cortPct(dd('cortesia_comercial'))} sub={l.cort != null ? `de ${num(l.cort)} cortesias` : undefined} />
+      <Tabela titulo="Visão geral" linhas={geral} />
+
+      <div className="flex flex-wrap gap-2">
+        {grupos.map((x) => (
+          <button key={x.titulo} type="button" onClick={() => setAberto(x.titulo)} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-border bg-secondary/40 text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2">{x.titulo}</button>
+        ))}
       </div>
 
-      <details className="rounded-lg border border-border">
-        <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-foreground">Detalhes</summary>
-        <div className="p-3 space-y-4">
-      {grupos.map((g) => (
-        <table key={g.titulo} className="w-full text-sm">
-          <thead>
-            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
-              <th scope="col" className="text-left font-bold py-1.5">{g.titulo}</th>
-              <th scope="col" className="text-right font-bold py-1.5">Realizado</th>
-              <th scope="col" className="text-right font-bold py-1.5">Meta</th>
-              <th scope="col" className="text-right font-bold py-1.5">% atingido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {g.linhas.map((r) => {
-              const p = r.atual != null && r.meta ? (100 * r.atual) / r.meta : null;
-              const t = tom(p, r.menorMelhor);
-              return (
-                <tr key={r.rotulo} className="border-b border-border/40 last:border-0">
-                  <th scope="row" className="text-left font-medium text-foreground py-1.5">{r.rotulo}</th>
-                  <td className="text-right font-bold tabular-nums text-foreground" title={r.atual == null ? r.nota : undefined}>{r.f(r.atual)}</td>
-                  <td className="text-right tabular-nums text-muted-foreground">{r.meta == null ? '—' : r.f(r.meta)}</td>
-                  <td className={`text-right font-bold tabular-nums ${TOM[t]}`}>{p == null ? '—' : `${p.toFixed(0)}%`}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      ))}
-      {outras != null && outras > 0 && <p className="text-[10px] text-muted-foreground">{num(outras)} cortesias de outras origens (ex.: Comunidade R1, Ricardo R1) ainda sem linha própria.</p>}
-      <p className="text-[10px] text-muted-foreground">"—" = a Central ainda não coleta esse dado. Para custos (investimento, CPM, CAC), abaixo de 100% é melhor.</p>
-        </div>
-      </details>
+      <Dialog open={aberto !== null} onOpenChange={(o) => !o && setAberto(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{l.c.cidade} · {aberto}</DialogTitle>
+            <DialogDescription>Evento {dm(l.data)}. "—" = a Central ainda não coleta esse dado. Para custos (investimento, CPM, CAC), abaixo de 100% é melhor.</DialogDescription>
+          </DialogHeader>
+          {g && <Tabela titulo={g.titulo} linhas={g.linhas} />}
+          {aberto === 'Ingressos' && outras != null && outras > 0 && <p className="text-[10px] text-muted-foreground">{num(outras)} cortesias de outras origens (ex.: Comunidade R1, Ricardo R1) ainda sem linha própria.</p>}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

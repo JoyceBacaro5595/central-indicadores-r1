@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HISTORICO, ROTA, mesmoEvento } from './rota';
+import CadastroEvento from './CadastroEvento';
 import CidadeCard, { type CidadeIng } from './CidadeCard';
 import { CalendarClock, CheckCircle2, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
 
@@ -230,7 +231,7 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
           <Cartao rotulo="Cortesia Seller" valor={num(somaDet("cortesia_seller"))} sub="canal Seller" />
         </div>
         <div className="space-y-3 pt-2 border-t border-border">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cards por Cidade</h4>
+          <div className="flex items-center justify-between gap-3 flex-wrap"><h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cards por Cidade</h4><CadastroEvento eventos={eventosHist} /></div>
           <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={detalhe.find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
           </div>
