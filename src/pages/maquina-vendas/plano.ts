@@ -7,6 +7,8 @@ import { ROTA } from './rota';
 export interface PlanoRota {
   rota: string; investimento: number | null; vendas: number | null; cortesias: number | null; total_partic: number | null; capacidade: number | null;
   ticket: number | null; cac: number | null; cac_qualif: number | null; qualif: number | null; cpm: number | null; ctr: number | null;
+  connect: number | null; conv_pagina: number | null; conv_checkout: number | null; dias_captacao: number | null; dias_producao: number | null;
+  cidades: { cidade: string; data: string; inicio?: string }[];
 }
 
 const n = (v: number | null | undefined) => (v == null ? undefined : Number(v));
