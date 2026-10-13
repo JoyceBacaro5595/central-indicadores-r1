@@ -23,9 +23,9 @@ interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; in
 import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
-type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
+type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle' | 'criativos' | 'briefing';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' }, { valor: 'planejamento', rotulo: 'Planejamento' },
+  { valor: 'dashboard', rotulo: 'Dashboard' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
   { valor: 'criativos', rotulo: 'Painel de criativos' }, { valor: 'briefing', rotulo: 'Briefing & Produção' },
 ];
 
@@ -157,9 +157,9 @@ export default function MaquinaVendas() {
           );
         })()}
 
-        {(aba === 'planejamento' || aba === 'criativos' || aba === 'briefing') && (
+        {(aba === 'criativos' || aba === 'briefing') && (
           <section className="surface p-6 text-sm text-muted-foreground">
-            Esta aba entra nas próximas etapas da réplica: {aba === 'planejamento' ? 'simulador de plano e funil padrão de 40 dias.' : aba === 'criativos' ? 'top criativos e mandala de anúncios.' : 'pedidos de peça e produção.'}
+            Esta aba entra nas próximas etapas da réplica: {aba === 'criativos' ? 'top criativos e mandala de anúncios.' : 'pedidos de peça e produção.'}
           </section>
         )}
       </PageBody>
