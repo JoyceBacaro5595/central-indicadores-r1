@@ -60,7 +60,10 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
     const vendas = ev ? ev.pagos : null; const cort = ev ? ev.cortesias : null;
     const fat = ev ? Number(ev.faturamento) : null;
     const qual = h ? h.compradores_qualificados : null;
-    return { c, ev, m, h, inv, vendas, cort, fat, ocup: ev ? ev.realizado : null, cap: ev?.capacidade ?? META.capacidade, qual, dias: dias(ev?.data_evento ?? c.data), data: ev?.data_evento ?? c.data };
+    const pr = presenca.find((x) => mesmoEvento(x, c));
+    // Ocupação = e-tickets não cancelados (cancelado não é esperado no evento); sem e-ticket, cai para o aprovado na Guru.
+    const ocup = pr && pr.esperados > 0 ? pr.esperados : ev ? ev.realizado : null;
+    return { c, ev, m, h, inv, vendas, cort, fat, ocup, cap: ev?.capacidade ?? META.capacidade, qual, dias: dias(ev?.data_evento ?? c.data), data: ev?.data_evento ?? c.data };
   });
   const T = {
     vendas: somaN(linhas.map((l) => l.vendas)), cort: somaN(linhas.map((l) => l.cort)), fat: somaN(linhas.map((l) => l.fat)), inv: somaN(linhas.map((l) => l.inv)),
@@ -169,7 +172,7 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
 
       {/* Capacidade dos eventos */}
       <Bloco titulo="Capacidade dos Eventos" icone={<Users className="h-4 w-4" />} extra={<span className="text-sm font-bold text-foreground">{num(T.ocup)} / {num(linhas.reduce((a, l) => a + l.cap, 0))}</span>}>
-        <Aviso t="Ocupação = vendas pagas + cortesias · Capacidade contratada do espaço por cidade" />
+        <Aviso t="Ocupação = e-tickets não cancelados (pagos + cortesias + VIP) · Capacidade contratada do espaço por cidade" />
         {linhas.filter((l) => (l.ocup ?? 0) >= l.cap).length > 0 && (
           <div className="rounded-lg border-2 border-red-500 bg-red-500/10 p-3"><p className="text-sm font-black uppercase text-red-400">ATENÇÃO — {linhas.filter((l) => (l.ocup ?? 0) >= l.cap).map((l) => l.c.cidade.toUpperCase()).join(', ')} LOTADO(S)</p><p className="text-[11px] font-bold text-red-300">NÃO vender mais ingressos · NÃO liberar cortesias · Capacidade máxima atingida</p></div>
         )}
