@@ -79,8 +79,9 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
   const cpm = T.impr ? (T.inv! / T.impr) * 1000 : null;
   const ctr = T.impr ? (100 * (T.cliq ?? 0)) / T.impr : null;
 
-  // Como no original: as cidades da rota em andamento ficam em "Próximas" até a rota fechar; só as de rotas anteriores vão ao histórico.
-  const passadas = HISTORICO.map((c) => ({ c, data: c.data }));
+  // Histórico = rotas anteriores + cidades da rota atual cujo evento já passou; "Próximas" só tem hoje e futuras.
+  const passadas = [...HISTORICO.map((c) => ({ c, data: c.data })), ...linhas.filter((l) => l.dias < 0).map((l) => ({ c: l.c, data: l.data }))];
+  const futuras = linhas.filter((l) => l.dias >= 0);
   const totalCid = HISTORICO.length + n;
   const Aviso = ({ t }: { t: string }) => <p className="text-[10px] text-muted-foreground">{t}</p>;
   const Bloco = ({ titulo, icone, children, extra }: { titulo: string; icone?: React.ReactNode; children: React.ReactNode; extra?: React.ReactNode }) => (
@@ -113,10 +114,10 @@ export default function DashboardRota({ eventos, meta, hub, presenca, carregando
       </Bloco>
 
       {/* Próximas cidades */}
-      <Bloco titulo="Próximas Cidades 2026" icone={<CalendarClock className="h-4 w-4" />} extra={<span className="text-[10px] text-muted-foreground">{n} restantes · {passadas.length}/{totalCid} concluídas · <span className="text-red-400">≤ 7 dias</span> · <span className="text-amber-400">≤ 14 dias</span></span>}>
+      <Bloco titulo="Próximas Cidades 2026" icone={<CalendarClock className="h-4 w-4" />} extra={<span className="text-[10px] text-muted-foreground">{futuras.length} restantes · {passadas.length}/{totalCid} concluídas · <span className="text-red-400">≤ 7 dias</span> · <span className="text-amber-400">≤ 14 dias</span></span>}>
         <div className="relative h-1.5 rounded-full bg-secondary overflow-hidden"><div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-500 to-primary" style={{ width: `${Math.round((100 * passadas.length) / totalCid)}%` }} /></div>
         <div className="flex flex-wrap gap-1.5">
-          {linhas.map((l) => {
+          {futuras.map((l) => {
             const urg = l.dias >= 0 && l.dias <= 7; const av = l.dias > 7 && l.dias <= 14; const passou = false;
             return (
               <div key={l.c.cidade} className={`relative rounded-lg px-3 py-2 text-center border ${l.dias === 0 ? 'bg-primary/20 border-primary/60' : passou ? 'bg-emerald-500/10 border-emerald-500/20' : urg ? 'bg-red-500/15 border-red-500/50' : av ? 'bg-amber-500/15 border-amber-500/40' : 'bg-blue-500/10 border-blue-500/20'}`}>
