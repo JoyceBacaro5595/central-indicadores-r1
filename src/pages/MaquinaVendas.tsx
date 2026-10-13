@@ -17,7 +17,7 @@ interface Evento {
   ritmo_necessario: number | null; pct_meta: number | null; pct_capacidade: number | null; situacao: string;
 }
 interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number; faturamento: number; ingressos_pagos: number; roas: number | null; cpa: number | null }
-interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
+interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
 type Aba = 'dashboard' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
 const ABAS: { valor: Aba; rotulo: string }[] = [

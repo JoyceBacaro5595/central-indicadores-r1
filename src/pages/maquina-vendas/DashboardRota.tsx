@@ -206,7 +206,7 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
           <Meta rotulo="ING - Receita" atual={T.fat} meta={n * META.receita} fmt={brl} barra={false} />
           <Meta rotulo="ING - CAC" atual={cacVendas} meta={META.cac} fmt={brl} menorMelhor barra={false} />
           <Meta rotulo="CAC Qualif." atual={cacQual} meta={META.cacQualif} fmt={brl} menorMelhor barra={false} />
-          <Cartao rotulo="Qualificação Compradores" valor={pct(pctQual)} sub={`Meta: ${META.qual}% · ${num(T.qual)} qual. de ${num(T.comp)} com HubSpot`} tom={pctQual == null ? 'neutro' : pctQual >= META.qual ? 'ok' : 'warn'} />
+          <Cartao rotulo="Qualificação Compradores" valor={pct(pctQual)} sub={`Meta: ${META.qualif}% · ${num(T.qual)} qual. de ${num(T.comp)} com HubSpot`} tom={pctQual == null ? 'neutro' : pctQual >= META.qualif ? 'ok' : 'warn'} />
           <Cartao rotulo="Eficiência da Verba" valor={(() => { const pp = div(ingressos, n * META.totalPartic); const pi = div(T.inv, n * META.investimento); return pp != null && pi ? `${(pp / pi).toFixed(2)}x` : '—'; })()} sub={`${pct(div(ingressos, n * META.totalPartic) == null ? null : 100 * div(ingressos, n * META.totalPartic)!)} da meta com ${pct(div(T.inv, n * META.investimento) == null ? null : 100 * div(T.inv, n * META.investimento)!)} da verba`} />
           <Cartao rotulo="Cortesia CS" valor={num(somaDet("cortesia_cs"))} sub="oferta TIME-CS" />
           <Cartao rotulo="Cortesia Comercial" valor={num(somaDet("cortesia_comercial"))} sub="oferta COMERCIAL" />
@@ -215,8 +215,8 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
         </div>
         <div className="space-y-3 pt-2 border-t border-border">
           <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cards por Cidade</h4>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={detalhe.find((x) => mesmoEvento(x, l.c)) ?? null} Meta={Meta} Cartao={Cartao} fmt={{ num, brl, pct, dm }} meta={META} />)}
+          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={detalhe.find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
           </div>
         </div>
       </Bloco>
