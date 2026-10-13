@@ -25,7 +25,7 @@ const ABAS: { valor: Aba; rotulo: string }[] = [
 ];
 
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR'));
-const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }));
+const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v.toFixed(0)}%`);
 const dataBR = (d: string | null) => (d ? d.split('-').reverse().join('/') : '—');
 const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };

@@ -18,7 +18,7 @@ const META = { investimento: 100000, vendas: 250, cortesias: 100, totalPartic: 3
 const PLANO = { receitaRota: 218250 };
 
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
-const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }));
+const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined, c = 0) => (v == null ? '—' : `${v.toFixed(c)}%`);
 const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 const hojeISO = () => new Date().toISOString().slice(0, 10);
