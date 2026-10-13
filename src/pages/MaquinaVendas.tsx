@@ -77,17 +77,18 @@ export default function MaquinaVendas() {
             const metaIng = e.meta_ingressos ?? PADRAO.meta;
             const cap = e.capacidade ?? PADRAO.capacidade;
             const dias = Math.max(0, e.dias_restantes);
-            const falta = Math.max(0, metaIng - e.realizado);
+            const vendidos = e.pagos;
+            const falta = Math.max(0, metaIng - vendidos);
             const m = (meta.data ?? []).find((x) => mesmoEvento(x, c));
             const inv = m?.investimento;
             const invN = inv == null ? null : Number(inv);
             const faltaR = invN == null ? null : Math.max(0, PADRAO.investimento - invN);
-            return [{ e, meta: metaIng, cap, dias, falta, invN, faltaR, pctMeta: metaIng ? (100 * e.realizado) / metaIng : null, pctCap: cap ? (100 * e.realizado) / cap : null,
+            return [{ e, meta: metaIng, cap, dias, falta, invN, faltaR, vendidos, pctMeta: metaIng ? (100 * vendidos) / metaIng : null, pctCap: cap ? (100 * vendidos) / cap : null,
               porDia: falta / Math.max(1, dias), pctInv: invN == null ? null : (100 * invN) / PADRAO.investimento, invDia: faltaR == null ? null : faltaR / Math.max(1, dias) }];
           });
           const soma = (f: (l: (typeof linhas)[number]) => number) => linhas.reduce((a, l) => a + f(l), 0);
           const comInv = linhas.filter((l) => l.invN != null);
-          const t = { real: soma((l) => l.e.realizado), meta: soma((l) => l.meta), cap: soma((l) => l.cap), falta: soma((l) => l.falta), porDia: soma((l) => l.porDia),
+          const t = { real: soma((l) => l.vendidos), meta: soma((l) => l.meta), cap: soma((l) => l.cap), falta: soma((l) => l.falta), porDia: soma((l) => l.porDia),
             inv: comInv.reduce((a, l) => a + (l.invN ?? 0), 0), faltaR: comInv.reduce((a, l) => a + (l.faltaR ?? 0), 0), invDia: comInv.reduce((a, l) => a + (l.invDia ?? 0), 0), metaInv: comInv.length * PADRAO.investimento };
           const th = 'py-2 pr-3 font-semibold whitespace-nowrap uppercase text-[10px] tracking-wide';
           return (
@@ -109,7 +110,7 @@ export default function MaquinaVendas() {
                       <td className="py-2 pr-3 font-semibold text-foreground whitespace-nowrap">{l.e.cidade}</td>
                       <td className="pr-3 mono">{dataBR(l.e.data_evento)}</td>
                       <td className="pr-3">{l.e.data_evento ? <Selo tom={tomDias(l.dias)}>{l.dias}</Selo> : '—'}</td>
-                      <td className="pr-3 mono font-semibold text-foreground">{num(l.e.realizado)}</td>
+                      <td className="pr-3 mono font-semibold text-foreground">{num(l.vendidos)}</td>
                       <td className="pr-3 mono text-muted-foreground">{num(l.falta)}</td>
                       <td className="pr-3"><Selo tom={tomPct(l.pctMeta)}>{pct(l.pctMeta)}</Selo></td>
                       <td className="pr-3 mono">{num(l.cap)}</td>
