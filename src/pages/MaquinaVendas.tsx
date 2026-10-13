@@ -5,6 +5,7 @@ import { Abas, PageBody, PageHeader } from '@/components/shared';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
+import type { CidadeIng } from './maquina-vendas/CidadeCard';
 
 /* Réplica da "Máquina de Vendas" da Lovable (pedido da Joyce, 13/10). Etapa 1: Dashboard e Painel de Controle,
    alimentados pelas RPCs da Central (eventos_listar, meta_eventos, hubspot_eventos), sem depender do back-end da Lovable. */
@@ -48,6 +49,7 @@ export default function MaquinaVendas() {
   const INICIO_ANO = '2026-01-01';
   const eventosHist = useQuery({ queryKey: ['mv-eventos-hist', ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const presenca = useQuery({ queryKey: ['mv-presenca', INICIO_ANO, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
+  const detalhe = useQuery({ queryKey: ['mv-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
 
 
@@ -68,7 +70,7 @@ export default function MaquinaVendas() {
         <Abas<Aba> valor={aba} onChange={setAba} itens={ABAS} />
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
-        {aba === 'dashboard' && <DashboardRota eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
+        {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
 
         {aba === 'controle' && (() => {
           const linhas = ROTA.cidades.flatMap((c) => {

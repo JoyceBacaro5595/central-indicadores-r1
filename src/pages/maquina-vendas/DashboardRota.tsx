@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HISTORICO, ROTA, mesmoEvento } from './rota';
+import CidadeCard, { type CidadeIng } from './CidadeCard';
 import { CalendarClock, CheckCircle2, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
 
 /* Dashboard da Máquina de Vendas (réplica da aba "Dashboard" do app da Lovable), com dados da Central.
@@ -47,9 +48,9 @@ function Meta({ rotulo, atual, meta, fmt, menorMelhor, barra = true }: { rotulo:
   );
 }
 
-interface Props { eventosHist: Evento[]; eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; carregando: boolean }
+interface Props { detalhe: CidadeIng[]; eventosHist: Evento[]; eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; carregando: boolean }
 
-export default function DashboardRota({ eventosHist, eventos, meta, hub, presenca, carregando }: Props) {
+export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub, presenca, carregando }: Props) {
   const [histAberto, setHistAberto] = useState(false);
   const hoje = hojeISO();
   const linhas = ROTA.cidades.map((c) => {
@@ -71,6 +72,7 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
     impr: somaN(linhas.map((l) => (l.m ? Number(l.m.impressoes) : null))), cliq: somaN(linhas.map((l) => (l.m ? Number(l.m.cliques) : null))),
   };
   const n = ROTA.cidades.length;
+  const somaDet = (k: keyof CidadeIng) => somaN(detalhe.filter((d) => linhas.some((l) => mesmoEvento(d, l.c))).map((d) => d[k] as number));
   const ingressos = T.ocup;
   const cpa = div(T.inv, ingressos);
   const ticket = div(T.fat, T.vendas);
@@ -197,7 +199,7 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <Meta rotulo="Investimento" atual={T.inv} meta={n * META.investimento} fmt={brl} menorMelhor barra={false} />
           <Meta rotulo="ING - Vendas" atual={T.vendas} meta={n * META.vendas} fmt={num} barra={false} />
-          <Cartao rotulo="ING - VIP" valor="—" sub="sem dado na Central" />
+          <Cartao rotulo="ING - VIP" valor={num(somaN(detalhe.filter((d) => linhas.some((l) => mesmoEvento(d, l.c))).map((d) => d.vip_total)))} sub="vendidos + cortesia" />
           <Meta rotulo="Cortesias" atual={T.cort} meta={n * META.cortesias} fmt={num} barra={false} />
           <Meta rotulo="Total Partic." atual={T.ocup} meta={n * META.totalPartic} fmt={num} barra={false} />
           <Meta rotulo="ING - Ticket" atual={ticket} meta={META.ticket} fmt={brl} barra={false} />
@@ -206,35 +208,16 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
           <Meta rotulo="CAC Qualif." atual={cacQual} meta={META.cacQualif} fmt={brl} menorMelhor barra={false} />
           <Cartao rotulo="Qualificação Compradores" valor={pct(pctQual)} sub={`Meta: ${META.qual}% · ${num(T.qual)} qual. de ${num(T.comp)} com HubSpot`} tom={pctQual == null ? 'neutro' : pctQual >= META.qual ? 'ok' : 'warn'} />
           <Cartao rotulo="Eficiência da Verba" valor={(() => { const pp = div(ingressos, n * META.totalPartic); const pi = div(T.inv, n * META.investimento); return pp != null && pi ? `${(pp / pi).toFixed(2)}x` : '—'; })()} sub={`${pct(div(ingressos, n * META.totalPartic) == null ? null : 100 * div(ingressos, n * META.totalPartic)!)} da meta com ${pct(div(T.inv, n * META.investimento) == null ? null : 100 * div(T.inv, n * META.investimento)!)} da verba`} />
-          <Cartao rotulo="Cortesia CS" valor="—" sub="origem não coletada" />
-          <Cartao rotulo="Cortesia Comercial" valor="—" sub="origem não coletada" />
+          <Cartao rotulo="Cortesia CS" valor={num(somaDet("cortesia_cs"))} sub="oferta TIME-CS" />
+          <Cartao rotulo="Cortesia Comercial" valor={num(somaDet("cortesia_comercial"))} sub="oferta COMERCIAL" />
+          <Cartao rotulo="Cortesia Grazi / SS" valor={num(somaDet("cortesia_social_selling"))} sub="canal Social Selling" />
+          <Cartao rotulo="Cortesia Seller" valor={num(somaDet("cortesia_seller"))} sub="canal Seller" />
         </div>
         <div className="space-y-3 pt-2 border-t border-border">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Metas por Cidade</h4>
-          {linhas.map((l) => {
-            const pp = l.ocup == null ? null : (100 * l.ocup) / META.totalPartic; const pi = l.inv == null ? null : (100 * l.inv) / META.investimento;
-            return (
-              <div key={l.c.cidade} className="rounded-lg border border-border bg-secondary/10 p-4">
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-foreground">{l.c.cidade} <span className="ml-2 text-muted-foreground font-normal normal-case">· evento {dm(l.data)}</span></h4>
-                  {l.dias > 0 && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${l.dias <= 7 ? 'bg-amber-500/15 text-amber-400 border-amber-500/40' : 'bg-blue-500/15 text-blue-400 border-blue-500/40'}`}>faltam {l.dias} {l.dias === 1 ? 'dia' : 'dias'}</span>}
-                  {l.dias === 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/40">hoje!</span>}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2">
-                  <Meta rotulo="Investimento" atual={l.inv} meta={META.investimento} fmt={brl} menorMelhor barra={false} />
-                  <Meta rotulo="ING - Vendas" atual={l.vendas} meta={META.vendas} fmt={num} barra={false} />
-                  <Meta rotulo="Cortesias" atual={l.cort} meta={META.cortesias} fmt={num} barra={false} />
-                  <Meta rotulo="Total Partic." atual={l.ocup} meta={META.totalPartic} fmt={num} barra={false} />
-                  <Meta rotulo="ING - Ticket" atual={div(l.fat, l.vendas)} meta={META.ticket} fmt={brl} barra={false} />
-                  <Meta rotulo="ING - Receita" atual={l.fat} meta={META.receita} fmt={brl} barra={false} />
-                  <Meta rotulo="ING - CAC" atual={div(l.inv, l.vendas)} meta={META.cac} fmt={brl} menorMelhor barra={false} />
-                  <Meta rotulo="CAC Qualif." atual={div(l.inv, l.qual)} meta={META.cacQualif} fmt={brl} menorMelhor barra={false} />
-                  <Cartao rotulo="Qualificação" valor={pct(div(l.qual, l.h?.compradores_hubspot ?? null) == null ? null : 100 * (l.qual! / l.h!.compradores_hubspot))} sub={`Meta: ${META.qual}%`} />
-                  <Cartao rotulo="Eficiência da Verba" valor={pp != null && pi ? `${(pp / pi).toFixed(2)}x` : '—'} sub={`${pct(pp)} da meta com ${pct(pi)} da verba`} />
-                </div>
-              </div>
-            );
-          })}
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cards por Cidade</h4>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={detalhe.find((x) => mesmoEvento(x, l.c)) ?? null} Meta={Meta} Cartao={Cartao} fmt={{ num, brl, pct, dm }} meta={META} />)}
+          </div>
         </div>
       </Bloco>
 
@@ -260,29 +243,11 @@ export default function DashboardRota({ eventosHist, eventos, meta, hub, presenc
         </div>
       </Bloco>
 
-      <Bloco titulo={`Funil de Tráfego por Cidade — ${ROTA.nome}`}>
-        <Aviso t="CPM, CTR, vendas e CAC vêm da Central. Cliques no link, visitas à LP e checkouts ainda não são coletados para as campanhas de evento (aparecem como “—”)." />
-        <div className="space-y-2">
-          {linhas.map((l) => {
-            const cp = l.m && Number(l.m.impressoes) ? (Number(l.m.investimento) / Number(l.m.impressoes)) * 1000 : null;
-            const ct = l.m && Number(l.m.impressoes) ? (100 * Number(l.m.cliques)) / Number(l.m.impressoes) : null;
-            const passos: [string, string][] = [['CPM', cp == null ? '—' : brl(cp)], ['CTR', pct(ct, 2)], ['Cliques ao link', '—'], ['Connect', '—'], ['Visitas LP', '—'], ['Checkouts', '—'], ['Vendas', num(l.vendas)], ['CAC', brl(div(l.inv, l.vendas))]];
-            return (
-              <div key={l.c.cidade} className="rounded-lg border border-border bg-secondary/10 p-3">
-                <div className="text-xs font-semibold text-foreground mb-2">{l.c.cidade} <span className="text-[10px] text-muted-foreground font-normal">· {dm(l.data)}</span></div>
-                <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">{passos.map(([r, v]) => <div key={r} className="rounded bg-secondary/40 px-2 py-1.5 text-center"><div className="text-[8px] uppercase tracking-wider text-muted-foreground">{r}</div><div className={`text-xs font-bold mono ${v === '—' ? 'text-muted-foreground' : 'text-foreground'}`}>{v}</div></div>)}</div>
-              </div>
-            );
-          })}
-        </div>
-      </Bloco>
-
       <Bloco titulo="Ainda não replicado neste Dashboard">
         <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
           <li>FORM_NATIVO por rota, gráficos de rosca (campanhas, públicos, criativos), Métricas Avançadas e Tabela por cidade: dependem de dados por campanha, público e anúncio das campanhas de evento.</li>
           <li>Funil completo (cliques no link, visitas à LP, checkouts): falta coletar esses campos das campanhas de evento.</li>
-          <li>ING - VIP e origem da cortesia (CS e Comercial): falta a classificação na Guru.</li>
-          <li>Seletor de período e filtro por cidade clicando na linha do tempo.</li>
+                    <li>Seletor de período e filtro por cidade clicando na linha do tempo.</li>
         </ul>
         {carregando && <Aviso t="Carregando dados…" />}
       </Bloco>
