@@ -38,6 +38,7 @@ export default function CardsRota() {
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
   const presenca = useQuery({ queryKey: ['mv-presenca', INICIO_ANO, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
+  const cadeiras = useQuery({ queryKey: ['mv-cadeiras', INICIO_ANO, ate], queryFn: () => r1Rpc<Cadeiras[]>('mv_cadeiras_evento', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const detalhe = useQuery({ queryKey: ['mv-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000 });
 
   const linhas = ROTA.cidades.map((c) => {
@@ -50,6 +51,8 @@ export default function CardsRota() {
       c, ev: ev ?? null, m, h, inv: m ? Number(m.investimento) : null, vendas: ev ? ev.pagos : null, cort: ev ? ev.cortesias : null,
       fat: ev ? Number(ev.faturamento) : null, ocup, cap: ev?.capacidade ?? META.capacidade, qual: h ? h.compradores_qualificados : null,
       dias: dias(ev?.data_evento ?? c.data), data: ev?.data_evento ?? c.data,
+      pres: pr ? pr.presentes : null, esp: pr && pr.esperados > 0 ? pr.esperados : null, metaIng: ev?.meta_ingressos ?? null, metaFat: ev?.meta_faturamento ? Number(ev.meta_faturamento) : null,
+      cad: (cadeiras.data ?? []).find((x) => mesmoEvento(x, c)) ?? null,
     };
   });
 

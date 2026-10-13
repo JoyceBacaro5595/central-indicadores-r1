@@ -7,7 +7,7 @@ import { CalendarClock, CheckCircle2, ChevronDown, History, Target, Users, Zap }
    Onde a Central ainda não coleta o dado (visitas à LP, checkouts, VIP, origem da cortesia) aparece "—", nunca zero. */
 
 export interface Evento {
-  id: number; cidade: string; mes_evento: string; data_evento: string | null; capacidade: number | null; meta_ingressos: number | null;
+  id: number; cidade: string; mes_evento: string; data_evento: string | null; capacidade: number | null; meta_ingressos: number | null; meta_faturamento?: number | null;
   realizado: number; pagos: number; cortesias: number; faturamento: number; primeira_venda: string | null;
 }
 export interface MetaEvento { cidade: string; mes_evento: string; investimento: number; impressoes: number; cliques: number }
