@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const MaquinaVendas = lazy(() => import("./pages/MaquinaVendas.tsx"));
 const Central = lazy(() => import("./pages/Central.tsx"));
 const Relatorio = lazy(() => import("./pages/Relatorio.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
@@ -55,6 +56,9 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="eventos" />}>
             <Route path="/central/eventos" element={<Eventos />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
+            <Route path="/central/maquina-vendas" element={<MaquinaVendas />} />
           </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />

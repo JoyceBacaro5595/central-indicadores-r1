@@ -14,6 +14,7 @@ const SECOES: Secao[] = [
     itens: [
       { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true, extra: ['/central/online'], recurso: 'painel' },
       { to: '/central/eventos', rotulo: 'Eventos e metas', icone: CalendarRange, recurso: 'eventos' },
+      { to: '/central/maquina-vendas', rotulo: 'Máquina de Vendas (réplica)', icone: LayoutDashboard, recurso: 'eventos' },
       { to: '/central/relatorio', rotulo: 'Relatório', icone: FileText, recurso: 'relatorio' },
       { to: '/central/checkins', rotulo: 'Check-ins', icone: UserCheck, recurso: 'presenca' },
       { to: '/central/recuperacao', rotulo: 'Recuperação', icone: ShoppingCart, recurso: 'recuperacao' },
