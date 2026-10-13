@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { useAuth } from '@/auth/AuthProvider';
+import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
 
 /* Réplica da "Máquina de Vendas" da Lovable (pedido da Joyce, 13/10). Etapa 1: Dashboard e Painel de Controle,
    alimentados pelas RPCs da Central (eventos_listar, meta_eventos, hubspot_eventos), sem depender do back-end da Lovable. */
@@ -28,7 +30,7 @@ const dataBR = (d: string | null) => (d ? d.split('-').reverse().join('/') : '�
 const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 /* Urgência da linha do tempo, como no app original: até 7 dias vermelho, até 14 amarelo, depois azul. */
 /* Parâmetros padrão do app original; só valem quando o evento não tem meta/capacidade próprias. */
-const PADRAO = { meta: 250, capacidade: 250, investimento: 100000, cpa: 400 };
+const PADRAO = { meta: 250, capacidade: 350, investimento: 100000, cpa: 400 };
 type Tom = 'verde' | 'ambar' | 'laranja' | 'vermelho' | 'neutro';
 const TOM: Record<Tom, string> = { verde: 'bg-emerald-500/15 text-emerald-400', ambar: 'bg-amber-500/15 text-amber-400', laranja: 'bg-orange-500/15 text-orange-400', vermelho: 'bg-red-500/15 text-red-400', neutro: 'bg-secondary text-muted-foreground' };
 const tomPct = (v: number | null): Tom => (v == null ? 'neutro' : v >= 100 ? 'verde' : v >= 75 ? 'ambar' : v >= 50 ? 'laranja' : 'vermelho');
@@ -37,11 +39,13 @@ const Selo = ({ tom, children }: { tom: Tom; children: React.ReactNode }) => <sp
 const urgencia = (dias: number) => (dias < 0 ? 'text-muted-foreground' : dias <= 7 ? 'text-red-400' : dias <= 14 ? 'text-amber-400' : 'text-primary');
 
 export default function MaquinaVendas() {
+  const { pode } = useAuth();
   const [aba, setAba] = useState<Aba>('dashboard');
   const [de, setDe] = useState(mesISO(-1));
   const [ate, setAte] = useState(mesISO(4));
   const eventos = useQuery({ queryKey: ['mv-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const presenca = useQuery({ queryKey: ['mv-presenca', de, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: de, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
 
   const lista = useMemo(() => [...(eventos.data ?? [])].sort((a, b) => (a.data_evento ?? '9999').localeCompare(b.data_evento ?? '9999')), [eventos.data]);
@@ -73,48 +77,7 @@ export default function MaquinaVendas() {
         <Abas<Aba> valor={aba} onChange={setAba} itens={ABAS} />
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
-        {aba === 'dashboard' && (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {kpi('Eventos no período', num(lista.length))}
-              {kpi('Ingressos realizados', num(tot.real), tot.meta ? `${pct((100 * tot.real) / tot.meta)} da meta de ${num(tot.meta)}` : 'sem meta cadastrada')}
-              {kpi('Capacidade ocupada', tot.cap ? pct((100 * tot.real) / tot.cap) : '—', tot.cap ? `${num(tot.real)} de ${num(tot.cap)}` : 'sem capacidade cadastrada')}
-              {kpi('Faturamento bruto', brl(tot.fat))}
-              {kpi('Investimento Meta', meta.isLoading ? '…' : brl(inv), inv > 0 ? `ROAS ${(tot.fat / inv).toFixed(2)}x` : undefined)}
-            </div>
-
-            <section className="surface p-4">
-              <span className="section-label">Próximas cidades</span>
-              {proximas.length === 0 ? <div className="text-xs text-muted-foreground mt-3">Nenhum evento futuro com data cadastrada no período.</div> : (
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
-                  {proximas.map((e) => (
-                    <div key={e.id} className="rounded-lg bg-secondary/50 p-3">
-                      <div className="text-xs font-semibold text-foreground">{e.cidade}</div>
-                      <div className="text-[10px] text-muted-foreground mono">{dataBR(e.data_evento)}</div>
-                      <div className={`text-lg font-bold mono ${urgencia(e.dias_restantes)}`}>{e.dias_restantes}d</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="surface p-4">
-              <span className="section-label">Capacidade dos eventos</span>
-              <div className="mt-3 space-y-2">
-                {lista.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 text-xs">
-                    <span className="w-40 shrink-0 text-foreground">{e.cidade}</span>
-                    <div className="flex-1 h-2 rounded bg-secondary overflow-hidden">
-                      <div className="h-full bg-primary" style={{ width: `${Math.min(100, e.pct_capacidade ?? 0)}%` }} />
-                    </div>
-                    <span className="mono w-28 text-right text-muted-foreground">{num(e.realizado)} / {e.capacidade ? num(e.capacidade) : '—'}</span>
-                  </div>
-                ))}
-                {lista.length === 0 && !eventos.isLoading && <div className="text-xs text-muted-foreground">Sem eventos no período.</div>}
-              </div>
-            </section>
-          </>
-        )}
+        {aba === 'dashboard' && <DashboardRota eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
 
         {aba === 'controle' && (() => {
           const linhas = lista.map((e) => {
