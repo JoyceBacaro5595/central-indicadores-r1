@@ -26,6 +26,13 @@ const GRUPOS: { titulo: string; campos: { k: string; rotulo: string; padrao: num
     { k: 'dias_captacao', rotulo: 'Dias de captação antes do evento (E-)', padrao: 45 }, { k: 'dias_producao', rotulo: 'Dias de produção antes do evento (E-)', padrao: 52 } ] },
 ];
 const TODOS = GRUPOS.flatMap((g) => g.campos);
+const ROTULO: Record<string, string> = { ...Object.fromEntries(TODOS.map((c) => [c.k, c.rotulo])), cidades: 'Cidades da rota' };
+interface Auditoria { rota: string; em: string; quem: string | null; campo: string; antes: unknown; depois: unknown }
+const fmtVal = (campo: string, x: unknown) => {
+  if (x == null) return '—';
+  if (campo === 'cidades' && Array.isArray(x)) return `${x.length} cidades: ${x.map((c: { cidade: string; data: string }) => `${c.cidade} (${c.data.slice(8)}/${c.data.slice(5, 7)})`).join(', ')}`;
+  return String(x);
+};
 const dMais = (iso: string, d: number) => new Date(new Date(`${iso}T00:00:00`).getTime() - d * 86400000).toISOString().slice(0, 10);
 
 /** Cadastro do planejamento de uma rota: cidades, metas e funil reverso. As metas valem para cards, tabelas e Meta Global e podem ser replicadas nos eventos. */
@@ -34,6 +41,7 @@ export default function PlanoRotaForm() {
   const qc = useQueryClient();
   const planos = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000 });
   const eventos = useQuery({ queryKey: ['plano-eventos'], queryFn: () => r1Rpc<EventoRota[]>('eventos_listar', { p_de: '2026-01-01', p_ate: '2027-12-01' }) });
+  const auditoria = useQuery({ queryKey: ['planejamento-auditoria'], queryFn: () => r1Rpc<Auditoria[]>('planejamento_historico', { p_rota: null }), retry: false });
   const rotas = useMemo(() => Array.from(new Set([ROTA.nome, ...(planos.data ?? []).map((p) => p.rota)])), [planos.data]);
   const [rota, setRota] = useState(ROTA.nome);
   const [nome, setNome] = useState(ROTA.nome);
@@ -91,7 +99,7 @@ export default function PlanoRotaForm() {
       }
       return `Planejamento salvo e replicado em ${ok} eventos${criados ? ` (${criados} criados)` : ''}.`;
     },
-    onSuccess: (m) => { setMsg(m); setRota(nome.trim()); for (const k of ['planejamento-rotas', 'plano-eventos', 'mv-eventos', 'mv-eventos-hist', 'eventos']) qc.invalidateQueries({ queryKey: [k] }); },
+    onSuccess: (m) => { setMsg(m); setRota(nome.trim()); for (const k of ['planejamento-rotas', 'planejamento-auditoria', 'plano-eventos', 'mv-eventos', 'mv-eventos-hist', 'eventos']) qc.invalidateQueries({ queryKey: [k] }); },
     onError: (e: Error) => setMsg(`Não salvou: ${e.message}`),
   });
 
@@ -168,6 +176,22 @@ export default function PlanoRotaForm() {
           {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
         </div>
       ) : <p className="text-[11px] text-muted-foreground">Só administrador e gestor podem alterar as metas.</p>}
+
+      <div className="overflow-x-auto">
+        <div className="text-xs font-semibold text-foreground">Auditoria do planejamento · o que mudou e quem alterou</div>
+        <table className="w-full text-xs mt-2">
+          <thead><tr className="text-left text-muted-foreground uppercase text-[10px]"><th className="py-1.5 pr-3">Quando</th><th className="pr-3">Quem</th><th className="pr-3">Rota</th><th className="pr-3">Campo</th><th className="pr-3">Antes</th><th>Depois</th></tr></thead>
+          <tbody>
+            {(auditoria.data ?? []).map((a, i) => (
+              <tr key={i} className="border-t border-border/50 align-top">
+                <td className="py-1.5 pr-3 mono whitespace-nowrap">{new Date(a.em).toLocaleString('pt-BR')}</td><td className="pr-3">{a.quem ?? '—'}</td><td className="pr-3">{a.rota}</td>
+                <td className="pr-3">{ROTULO[a.campo] ?? a.campo}</td><td className="pr-3 text-muted-foreground">{fmtVal(a.campo, a.antes)}</td><td className="text-foreground">{fmtVal(a.campo, a.depois)}</td>
+              </tr>
+            ))}
+            {!auditoria.data?.length && <tr><td colSpan={6} className="py-2 text-muted-foreground">{auditoria.isError ? 'Auditoria indisponível até o banco receber a tabela do planejamento.' : 'Nenhuma alteração registrada ainda.'}</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
