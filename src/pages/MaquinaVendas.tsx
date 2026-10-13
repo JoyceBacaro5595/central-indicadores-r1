@@ -5,6 +5,7 @@ import { Abas, PageBody, PageHeader } from '@/components/shared';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
+import { usePlanoRota } from './maquina-vendas/plano';
 import Captacao from './maquina-vendas/Captacao';
 import Calendario from './maquina-vendas/Calendario';
 import Debriefing from './maquina-vendas/Debriefing';
@@ -45,6 +46,7 @@ const Selo = ({ tom, children }: { tom: Tom; children: React.ReactNode }) => <sp
 
 export default function MaquinaVendas() {
   const { pode } = useAuth();
+  usePlanoRota();
   const [aba, setAba] = useState<Aba>('dashboard');
   const [de, setDe] = useState(mesISO(-1));
   const [ate, setAte] = useState(mesISO(4));

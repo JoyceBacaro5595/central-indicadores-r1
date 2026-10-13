@@ -6,6 +6,7 @@ import { ROTA, mesmoEvento } from './rota';
 import CadastroEvento from './CadastroEvento';
 import CidadeCard, { type CidadeIng } from './CidadeCard';
 import { TabelaRota, FunilRota } from './VisoesRota';
+import { usePlanoRota } from './plano';
 import { META, num, brl, pct, dm, dias, type Evento, type MetaEvento, type HubEvento, type Presenca, type Cadeiras } from './DashboardRota';
 
 const INICIO_ANO = '2026-01-01';
@@ -25,6 +26,7 @@ const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.se
 /** Cards por cidade da rota (visão geral Realizado, Previsto, %), com cadastro de evento e de meta; usado na página Eventos e metas. */
 export default function CardsRota() {
   const { pode } = useAuth();
+  usePlanoRota();
   const [busca, setBusca] = useState('');
   const [situacao, setSituacao] = useState<Situacao>('todas');
   const [ordem, setOrdem] = useState<Ordem>('data');
