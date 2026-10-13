@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -7,11 +8,23 @@ import CidadeCard, { type CidadeIng } from './CidadeCard';
 import { META, num, brl, pct, dm, dias, type Evento, type MetaEvento, type HubEvento, type Presenca, type Cadeiras } from './DashboardRota';
 
 const INICIO_ANO = '2026-01-01';
+const CHAVE = 'central.cardsPorLinha';
+const lerPref = () => { try { const v = Number(localStorage.getItem(CHAVE)); return v >= 1 && v <= 5 ? v : 3; } catch { return 3; } };
+type Situacao = 'todas' | 'abertas' | 'lotadas' | 'proximos7' | 'proximos14' | 'realizadas';
+type Ordem = 'data' | 'ocupacao' | 'vendas' | 'cidade';
+const SITUACOES: [Situacao, string][] = [['todas', 'Todas'], ['abertas', 'Com vagas'], ['lotadas', 'Lotadas'], ['proximos7', 'Faltam até 7 dias'], ['proximos14', 'Faltam até 14 dias'], ['realizadas', 'Já realizadas']];
+const ORDENS: [Ordem, string][] = [['data', 'Data do evento'], ['ocupacao', 'Maior ocupação'], ['vendas', 'Mais vendas'], ['cidade', 'Cidade (A a Z)']];
+const sel = 'bg-secondary rounded px-2 py-1.5 text-xs text-foreground';
 const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 
 /** Cards por cidade da rota (visão geral Realizado, Previsto, %), com cadastro de evento e de meta; usado na página Eventos e metas. */
 export default function CardsRota() {
   const { pode } = useAuth();
+  const [busca, setBusca] = useState('');
+  const [situacao, setSituacao] = useState<Situacao>('todas');
+  const [ordem, setOrdem] = useState<Ordem>('data');
+  const [porLinha, setPorLinha] = useState<number>(lerPref);
+  const escolherPorLinha = (n: number) => { setPorLinha(n); try { localStorage.setItem(CHAVE, String(n)); } catch { /* preferência só desta sessão */ } };
   const de = mesISO(-1); const ate = mesISO(4);
   const eventos = useQuery({ queryKey: ['mv-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const eventosHist = useQuery({ queryKey: ['mv-eventos-hist', ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000 });
@@ -33,6 +46,25 @@ export default function CardsRota() {
     };
   });
 
+  const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const visiveis = linhas
+    .filter((l) => norm(l.c.cidade).includes(norm(busca.trim())))
+    .filter((l) => {
+      const lotada = l.ocup != null && l.ocup >= l.cap;
+      if (situacao === 'abertas') return !lotada && l.dias >= 0;
+      if (situacao === 'lotadas') return lotada;
+      if (situacao === 'proximos7') return l.dias >= 0 && l.dias <= 7;
+      if (situacao === 'proximos14') return l.dias >= 0 && l.dias <= 14;
+      if (situacao === 'realizadas') return l.dias < 0;
+      return true;
+    })
+    .sort((a, b) => {
+      if (ordem === 'cidade') return a.c.cidade.localeCompare(b.c.cidade, 'pt-BR');
+      if (ordem === 'ocupacao') return (b.ocup ?? -1) / b.cap - (a.ocup ?? -1) / a.cap;
+      if (ordem === 'vendas') return (b.vendas ?? -1) - (a.vendas ?? -1);
+      return a.data.localeCompare(b.data);
+    });
+
   return (
     <section className="surface p-5 space-y-4" aria-label="Cards por cidade">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -42,8 +74,16 @@ export default function CardsRota() {
         </div>
         <CadastroEvento eventos={eventosHist.data ?? []} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-        {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={(detalhe.data ?? []).find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
+      <div className="flex flex-wrap items-end gap-3 text-[10px] text-muted-foreground">
+        <label>Cidade<br /><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cidade" className={`${sel} w-40`} /></label>
+        <label>Situação<br /><select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className={sel}>{SITUACOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
+        <label>Ordenar por<br /><select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={sel}>{ORDENS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
+        <label className="hidden lg:block">Cards por linha<br /><select value={porLinha} onChange={(e) => escolherPorLinha(Number(e.target.value))} className={sel} aria-label="Cards por linha">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
+        <span className="pb-2">{visiveis.length} de {linhas.length} cidades</span>
+      </div>
+      {visiveis.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma cidade com esses filtros.</p>}
+      <div className="grid gap-4 grid-cols-1 lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]" style={{ ['--cols' as string]: porLinha }}>
+        {visiveis.map((l) => <CidadeCard key={l.c.cidade} l={l} det={(detalhe.data ?? []).find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
       </div>
     </section>
   );
