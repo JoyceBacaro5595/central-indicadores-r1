@@ -17,6 +17,7 @@ interface Evento {
   ritmo_necessario: number | null; pct_meta: number | null; pct_capacidade: number | null; situacao: string;
 }
 interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number; faturamento: number; ingressos_pagos: number; roas: number | null; cpa: number | null }
+import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
 type Aba = 'dashboard' | 'controle' | 'planejamento' | 'criativos' | 'briefing';
@@ -48,6 +49,7 @@ export default function MaquinaVendas() {
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const INICIO_ANO = '2026-01-01';
   const eventosHist = useQuery({ queryKey: ['mv-eventos-hist', ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const cadeiras = useQuery({ queryKey: ['mv-cadeiras', INICIO_ANO, ate], queryFn: () => r1Rpc<Cadeiras[]>('mv_cadeiras_evento', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const presenca = useQuery({ queryKey: ['mv-presenca', INICIO_ANO, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const detalhe = useQuery({ queryKey: ['mv-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
@@ -70,7 +72,7 @@ export default function MaquinaVendas() {
         <Abas<Aba> valor={aba} onChange={setAba} itens={ABAS} />
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
-        {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
+        {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} cadeiras={cadeiras.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
 
         {aba === 'controle' && (() => {
           const linhas = ROTA.cidades.flatMap((c) => {

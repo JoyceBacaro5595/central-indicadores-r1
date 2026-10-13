@@ -12,6 +12,7 @@ export interface Evento {
 }
 export interface MetaEvento { cidade: string; mes_evento: string; investimento: number; impressoes: number; cliques: number }
 export interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number }
+export interface Cadeiras { cidade: string; mes_evento: string; total: number; comuns: number; vip: number; cortesias: number; cancelados: number }
 export interface Presenca { cidade: string; mes_evento: string; esperados: number; presentes: number; presentes_cortesia?: number }
 
 /* Metas padrão por cidade (DEFAULT_CITY_GOALS e FUNNEL_GOALS do original). */
@@ -48,9 +49,9 @@ function Meta({ rotulo, atual, meta, fmt, menorMelhor, barra = true }: { rotulo:
   );
 }
 
-interface Props { detalhe: CidadeIng[]; eventosHist: Evento[]; eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; carregando: boolean }
+interface Props { detalhe: CidadeIng[]; eventosHist: Evento[]; eventos: Evento[]; meta: MetaEvento[]; hub: HubEvento[]; presenca: Presenca[]; cadeiras?: Cadeiras[]; carregando: boolean }
 
-export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub, presenca, carregando }: Props) {
+export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub, presenca, cadeiras = [], carregando }: Props) {
   const [histAberto, setHistAberto] = useState(false);
   const hoje = hojeISO();
   const linhas = ROTA.cidades.map((c) => {
@@ -187,6 +188,21 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
                 <div className="flex items-baseline justify-between"><span className="text-sm font-bold text-foreground">{num(l.ocup)} <span className="text-muted-foreground font-normal">/ {num(l.cap)}</span></span><span className={`text-[11px] font-bold ${COR[tom]}`}>{pct(p)}</span></div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden"><div className={`h-full rounded-full ${BAR[tom]}`} style={{ width: `${Math.min(p ?? 0, 100)}%` }} /></div>
                 <span className="text-[9px] font-semibold text-muted-foreground">{l.ocup == null ? 'sem dado de vendas' : lot ? 'NÃO VENDER · NÃO DAR CORTESIA' : `${num(l.cap - l.ocup)} lugares restantes`}</span>
+                {(() => {
+                  const cd = cadeiras.find((x) => mesmoEvento(x, l.c));
+                  return (
+                    <details className="text-[10px] text-muted-foreground">
+                      <summary className="cursor-pointer font-semibold text-foreground">Detalhes</summary>
+                      {cd ? (
+                        <dl className="mt-1.5 space-y-0.5">
+                          {([['Vendidos (total geral)', cd.total], ['Comuns', cd.comuns], ['VIPs', cd.vip], ['Cortesias', cd.cortesias], ['Cancelados', cd.cancelados]] as [string, number][]).map(([r, v]) => (
+                            <div key={r} className="flex justify-between"><dt>{r}</dt><dd className="font-bold tabular-nums text-foreground">{num(v)}</dd></div>
+                          ))}
+                        </dl>
+                      ) : <p className="mt-1.5">sem e-tickets lidos</p>}
+                    </details>
+                  );
+                })()}
               </div>
             );
           })}
