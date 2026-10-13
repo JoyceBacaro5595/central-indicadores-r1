@@ -1,5 +1,5 @@
 -- Máquina de Vendas (réplica): ingressos por cidade/mês separados por tipo e origem.
--- Lê a view viva (não a materializada). Só leitura. Para desfazer: drop function public.mv_cidade_ingressos(date, date);
+-- Lê a materializada marts.mv_ingresso_transacao (a view viva leva mais de 20 s e estoura o tempo da API); ela só fica em dia com o cron central-ingressos-refresh ligado. Só leitura. Para desfazer: drop function public.mv_cidade_ingressos(date, date);
 create or replace function public.mv_cidade_ingressos(p_de date default null, p_ate date default null)
 returns jsonb
 language sql stable security definer
@@ -9,7 +9,7 @@ as $$
   with t as (
     select cidade_evento, mes_evento, tipo_ingresso, canal, qtd_ingressos, valor_bruto, valor_liquido,
       upper(regexp_replace(coalesce(oferta_nome, '') || ' ' || coalesce(produto_nome, ''), '[\s()]+', '', 'g')) as compacto
-    from marts.vw_ingresso_transacao_calc
+    from marts.mv_ingresso_transacao
     where aprovada and cidade_evento is not null and mes_evento is not null
       and (p_de is null or mes_evento >= date_trunc('month', p_de)::date)
       and (p_ate is null or mes_evento <= p_ate)

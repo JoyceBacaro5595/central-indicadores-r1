@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { HISTORICO, ROTA, mesmoEvento } from './rota';
-import CadastroEvento from './CadastroEvento';
-import CidadeCard, { type CidadeIng } from './CidadeCard';
+import { type CidadeIng } from './CidadeCard';
 import { CalendarClock, CheckCircle2, ChevronDown, History, Target, Users, Zap } from 'lucide-react';
 
 /* Dashboard da Máquina de Vendas (réplica da aba "Dashboard" do app da Lovable), com dados da Central.
@@ -17,15 +16,15 @@ export interface Cadeiras { cidade: string; mes_evento: string; total: number; c
 export interface Presenca { cidade: string; mes_evento: string; esperados: number; presentes: number; presentes_cortesia?: number }
 
 /* Metas padrão por cidade (DEFAULT_CITY_GOALS e FUNNEL_GOALS do original). */
-const META = { investimento: 100000, vendas: 250, cortesias: 100, totalPartic: 350, ticket: 97, receita: 250 * 97, cac: 400, cacQualif: 800, capacidade: 350, cpm: 36, ctr: 1, qualif: 50 };
+export const META = { investimento: 100000, vendas: 250, cortesias: 100, totalPartic: 350, ticket: 97, receita: 250 * 97, cac: 400, cacQualif: 800, capacidade: 350, cpm: 36, ctr: 1, qualif: 50 };
 const PLANO = { receitaRota: 218250 };
 
-const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
-const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const pct = (v: number | null | undefined, c = 0) => (v == null ? '—' : `${v.toFixed(c)}%`);
-const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+export const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
+export const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+export const pct = (v: number | null | undefined, c = 0) => (v == null ? '—' : `${v.toFixed(c)}%`);
+export const dm = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 const hojeISO = () => new Date().toISOString().slice(0, 10);
-const dias = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); const h = new Date(); return Math.round((new Date(y, m - 1, d).getTime() - new Date(h.getFullYear(), h.getMonth(), h.getDate()).getTime()) / 86400000); };
+export const dias = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); const h = new Date(); return Math.round((new Date(y, m - 1, d).getTime() - new Date(h.getFullYear(), h.getMonth(), h.getDate()).getTime()) / 86400000); };
 const somaN = (xs: (number | null | undefined)[]) => { const v = xs.filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
 const div = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? null : a / b);
 
@@ -229,12 +228,6 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
           <Cartao rotulo="Cortesia Comercial" valor={num(somaDet("cortesia_comercial"))} sub="oferta COMERCIAL" />
           <Cartao rotulo="Cortesia Grazi / SS" valor={num(somaDet("cortesia_social_selling"))} sub="canal Social Selling" />
           <Cartao rotulo="Cortesia Seller" valor={num(somaDet("cortesia_seller"))} sub="canal Seller" />
-        </div>
-        <div className="space-y-3 pt-2 border-t border-border">
-          <div className="flex items-center justify-between gap-3 flex-wrap"><h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cards por Cidade</h4><CadastroEvento eventos={eventosHist} /></div>
-          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {linhas.map((l) => <CidadeCard key={l.c.cidade} l={l} det={detalhe.find((x) => mesmoEvento(x, l.c)) ?? null} fmt={{ num, brl, pct, dm }} meta={META} />)}
-          </div>
         </div>
       </Bloco>
 
