@@ -1,14 +1,13 @@
 import { PageBody, PageHeader } from '@/components/shared';
+import { Planejamento as Cronograma } from '@/components/Planejamento';
 
 /* Planejamento saiu de dentro de Máquina de Vendas e virou item próprio do menu (pedido da Joyce, 13/10).
-   Conteúdo ainda é o da etapa seguinte da réplica: simulador de plano e funil padrão de 40 dias. */
+   Réplica da aba Planejamento da Lovable: cronograma da campanha, checklist de páginas e de criativos. */
 export default function Planejamento() {
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader titulo="Planejamento" subtitulo="Simulador de plano e funil padrão de 40 dias" />
-      <PageBody>
-        <section className="surface p-6 text-sm text-muted-foreground">Esta área entra nas próximas etapas da réplica: simulador de plano e funil padrão de 40 dias.</section>
-      </PageBody>
+      <PageHeader titulo="Planejamento" subtitulo="Cronograma da campanha, checklist de páginas e de criativos" />
+      <PageBody><Cronograma /></PageBody>
     </div>
   );
 }
