@@ -29,9 +29,22 @@ export interface CentralEvento {
   ultima_venda: string | null;
 }
 
+/** Rota = cidade do evento da turnê. */
+export interface CentralRota { cidade: string; eventos: number; ultima_venda: string | null }
+export interface CentralPorRota {
+  cidade: string; ingressos_pagos: number; vip: number; cortesias: number; compradores: number;
+  faturamento: number; ult_7d: number; eventos: number;
+}
+
 export interface CentralIngressos {
   atualizado_em: string;
   periodo: { inicio: string; fim: string };
+  /** Rota (cidade) filtrada; null = geral. */
+  rota: string | null;
+  /** Rotas com venda aprovada na linha, para o filtro (não depende do período). */
+  rotas: CentralRota[];
+  /** Corte por rota dentro do período e do filtro. */
+  por_rota: CentralPorRota[];
   resumo: {
     ingressos_pagos: number;
     ingressos_comuns: number;
@@ -60,20 +73,20 @@ export interface CentralIngressos {
   qualidade: { sem_cidade: number; sem_mes: number };
 }
 
-async function fetchCentral(inicio: string, fim: string): Promise<CentralIngressos> {
-  const res = await fetch(`${R1_URL}/rest/v1/rpc/central_ingressos`, {
+async function fetchCentral(inicio: string, fim: string, rota: string | null): Promise<CentralIngressos> {
+  const res = await fetch(`${R1_URL}/rest/v1/rpc/central_ingressos_v2`, {
     method: 'POST',
     headers: await r1Headers(),
-    body: JSON.stringify({ p_inicio: inicio, p_fim: fim }),
+    body: JSON.stringify({ p_inicio: inicio, p_fim: fim, p_cidade: rota }),
   });
   if (!res.ok) throw new Error(`Falha ao carregar central: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
-export function useCentralIngressos(inicio: string, fim: string) {
+export function useCentralIngressos(inicio: string, fim: string, rota: string | null = null) {
   return useQuery({
-    queryKey: ['central-ingressos', inicio, fim],
-    queryFn: () => fetchCentral(inicio, fim),
+    queryKey: ['central-ingressos-v2', inicio, fim, rota],
+    queryFn: () => fetchCentral(inicio, fim, rota),
     refetchInterval: 5 * 60 * 1000,
     staleTime: 60 * 1000,
   });
