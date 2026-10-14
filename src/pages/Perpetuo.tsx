@@ -638,16 +638,17 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: 'vendas', rotulo: 'Mais vendas' }, { valor: 'cac', rotulo: 'Menor CAC' },
 ];
 
-/* Peças por linha nos cards: escolha da pessoa, guardada no navegador. Classes completas para o Tailwind enxergar. */
+/* Peças por linha nos cards: escolha da pessoa, guardada no navegador. Classes completas para o Tailwind enxergar.
+ * O espaçamento entre cards (gap-4) é o da visão de 3 por linha em todas; de 4 em diante só a fonte (zoom do card) diminui para caber (Joyce, 14/10). */
 const POR_LINHA = [2, 3, 4, 5, 6] as const;
 type PorLinha = (typeof POR_LINHA)[number];
 const CHAVE_POR_LINHA = 'perpetuo.pecasPorLinha';
 const GRID_POR_LINHA: Record<PorLinha, string> = {
   2: 'md:grid-cols-2',
   3: 'md:grid-cols-2 xl:grid-cols-3',
-  4: 'md:grid-cols-2 xl:grid-cols-4',
-  5: 'md:grid-cols-3 xl:grid-cols-5',
-  6: 'md:grid-cols-3 xl:grid-cols-6',
+  4: 'md:grid-cols-2 xl:grid-cols-4 xl:[&>article]:[zoom:0.92]',
+  5: 'md:grid-cols-3 xl:grid-cols-5 xl:[&>article]:[zoom:0.84]',
+  6: 'md:grid-cols-3 xl:grid-cols-6 xl:[&>article]:[zoom:0.76]',
 };
 function lerPorLinha(): PorLinha {
   try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
