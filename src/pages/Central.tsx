@@ -262,6 +262,7 @@ const GRUPOS_CANAL: { k: LinhaCanalMes['grupo']; r: string }[] = [
 const MESES_NOME = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
+  const [visao, setVisao] = useState<'cidade' | 'canal'>('cidade');
   const ano = hojeISO().slice(0, 4);
   const mesAtual = hojeISO().slice(0, 7);
   const q = useQuery({
@@ -301,6 +302,11 @@ function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
           </div>
           <button onClick={onFechar} className="text-xs px-2 py-1 rounded bg-secondary text-foreground">Fechar</button>
         </div>
+        <div className="mt-3 inline-flex rounded-lg bg-secondary p-0.5 text-xs">
+          {([['cidade', 'Por cidade'], ['canal', 'Por canal']] as const).map(([k, r]) => (
+            <button key={k} onClick={() => setVisao(k)} className={`px-3 py-1 rounded-md ${visao === k ? 'bg-background text-foreground font-semibold' : 'text-muted-foreground'}`}>{r}</button>
+          ))}
+        </div>
         {q.isLoading && <p className="text-sm text-muted-foreground mt-4">Carregando…</p>}
         {q.error && <p className="text-sm text-red-400 mt-4">{(q.error as Error).message}</p>}
         {!q.isLoading && !q.error && meses.length === 0 && <p className="text-sm text-muted-foreground mt-4">Sem vendas no período.</p>}
@@ -314,6 +320,39 @@ function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
                   <span className="text-muted-foreground mono text-xs">{num(tot((l) => l.total))} vendas · {num(tot((l) => l.cortesias))} cortesias · {brl(tot((l) => l.faturamento))}</span>
                 </summary>
                 <div className="overflow-x-auto px-3 pb-3">
+                  {visao === 'canal' ? (
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-muted-foreground">
+                        <th className="pb-2 text-left font-semibold">Canal</th>
+                        {linhas.map((l) => <th key={l.cidade} className="pb-2 text-right font-semibold">{l.cidade}</th>)}
+                        <th className="pb-2 text-right font-semibold">Total</th>
+                      </tr></thead>
+                      <tbody>
+                        {GRUPOS_CANAL.map((g) => (
+                          <tr key={g.k} className="border-t border-border">
+                            <td className="py-1.5 text-left">{g.r}</td>
+                            {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.vendas[g.k] ?? 0)}</td>)}
+                            <td className="py-1.5 text-right mono font-semibold">{num(tot((l) => l.vendas[g.k] ?? 0))}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t border-border font-semibold">
+                          <td className="py-1.5 text-left">Total vendas</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.total)}</td>)}
+                          <td className="py-1.5 text-right mono">{num(tot((l) => l.total))}</td>
+                        </tr>
+                        <tr className="border-t border-border text-muted-foreground">
+                          <td className="py-1.5 text-left">Cortesias</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.cortesias)}</td>)}
+                          <td className="py-1.5 text-right mono">{num(tot((l) => l.cortesias))}</td>
+                        </tr>
+                        <tr className="border-t border-border text-muted-foreground">
+                          <td className="py-1.5 text-left">Faturamento</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{brl(l.faturamento)}</td>)}
+                          <td className="py-1.5 text-right mono">{brl(tot((l) => l.faturamento))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : (
                   <table className="w-full text-xs">
                     <thead><tr className="text-muted-foreground">
                       <th className="pb-2 text-left font-semibold">Cidade</th>
@@ -337,6 +376,7 @@ function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
                       </tr>
                     </tbody>
                   </table>
+                  )}
                 </div>
               </details>
             );
