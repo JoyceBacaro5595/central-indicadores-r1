@@ -761,12 +761,16 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
         {(() => {
           const ct = it.clube != null && it.trator != null;
           const rgv = it.vendas ?? 0; const total = ct ? rgv + (it.clube ?? 0) + (it.trator ?? 0) : null;
-          const cacTotal = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
-          return <>
-            <Celula principal={it.clube != null ? fmtNum(it.clube) : '—'} />
-            <Celula principal={it.trator != null ? fmtNum(it.trator) : '—'} />
-            <Celula principal={total != null ? fmtNum(total) : '—'} terciaria={visao === 'custos' || visao === 'tabela' ? cacTotal : null} />
-          </>;
+          // Custo por venda = investimento do item / vendas da coluna; sem venda mostra R$ 0,00 em cinza (como o RGV).
+          const cac = (n: number | null | undefined) => (n != null && n > 0 && it.investimento != null ? fmtBrl(it.investimento / n) : null);
+          const col = (n: number | null | undefined) => {
+            const qtd = n != null ? fmtNum(n) : '—';
+            const custo = n == null ? '—' : cac(n) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />;
+            if (visao === 'custos') return <Celula principal={custo} secundaria={qtd} />;
+            if (visao === 'taxas') return <Celula principal={qtd} />;
+            return <Celula principal={qtd} terciaria={custo} />;
+          };
+          return <>{col(it.clube)}{col(it.trator)}{col(total)}</>;
         })()}
       </div>
     </div>
@@ -844,6 +848,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           const ct = it.clube != null && it.trator != null;
           const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
           const cac = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
+          const cacDe = (n: number | null | undefined) => (n != null && n > 0 && it.investimento != null ? fmtBrl(it.investimento / n) : null);
           return (
             <div className="border-t border-border pt-3 space-y-2">
               <div className="grid grid-cols-2 gap-2">
@@ -857,9 +862,11 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
                 const roasRgv = it.roas ?? (it.faturamento != null && it.investimento ? it.faturamento / it.investimento : null);
                 const roasTotal = fatTotal != null && it.investimento ? fatTotal / it.investimento : null;
                 return (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Mini k="ROAS RGV" v={fmtRoas(roasRgv)} motivo="Sem faturamento ou investimento no período." />
                     <Mini k="ROAS total" v={fmtRoas(roasTotal)} motivo="Faturamento de RGV, Clube e Trator dividido pelo investimento." />
+                    <Mini k="CAC Clube R1" v={cacDe(it.clube)} motivo="Sem venda de Clube R1 no período." tipo="brl" />
+                    <Mini k="CAC Trator" v={cacDe(it.trator)} motivo="Sem venda de Trator no período." tipo="brl" />
                     <Mini k="CAC total" v={cac} motivo="Sem venda no período." tipo="brl" />
                   </div>
                 );
@@ -1033,6 +1040,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
               const ct = item.clube != null && item.trator != null;
               const total = ct ? (item.vendas ?? 0) + (item.clube ?? 0) + (item.trator ?? 0) : null;
               const cac = total != null && total > 0 && item.investimento != null ? fmtBrl(item.investimento / total) : null;
+              const cacDe = (n: number | null | undefined) => (n != null && n > 0 && item.investimento != null ? fmtBrl(item.investimento / n) : null);
               const linha = (rot: string, v: number | null | undefined, extra?: ReactNode) => (
                 <div className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
                   <span className="text-foreground font-semibold pt-1">{rot}</span>
@@ -1043,9 +1051,9 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                 </div>
               );
               return <>
-                {linha('Vendas Clube R1', item.clube, <div className="text-muted-foreground">Ligadas pela UTM do negócio</div>)}
-                {linha('Vendas Trator', item.trator, <div className="text-muted-foreground">Ligadas pela UTM do negócio</div>)}
-                {linha('Total de vendas', total, <div className="text-muted-foreground">CAC total <b className="text-foreground">{cac ?? '—'}</b></div>)}
+                {linha('Vendas Clube R1', item.clube, <div className="text-muted-foreground">Custo por venda (CAC) <b className="text-foreground">{cacDe(item.clube) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b> · ligadas pela UTM</div>)}
+                {linha('Vendas Trator', item.trator, <div className="text-muted-foreground">Custo por venda (CAC) <b className="text-foreground">{cacDe(item.trator) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b> · ligadas pela UTM</div>)}
+                {linha('Total de vendas', total, <div className="text-muted-foreground">CAC total <b className="text-foreground">{cac ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b></div>)}
               </>;
             })()}
           </div>
