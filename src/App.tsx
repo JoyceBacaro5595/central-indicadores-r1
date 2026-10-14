@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { keepPreviousData, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,7 +26,10 @@ import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 import AppShell from "./layout/AppShell.tsx";
 
-const queryClient = new QueryClient();
+/* Atualização em segundo plano: o dado anterior fica na tela (também ao trocar filtro) até o novo chegar; "Carregando" só na primeira vez. */
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { placeholderData: keepPreviousData, staleTime: 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false } },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
