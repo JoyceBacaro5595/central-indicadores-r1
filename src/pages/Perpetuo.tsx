@@ -116,7 +116,7 @@ const ETAPAS: Etapa[] = [
     taxa: { rotulo: 'Agendamento', v: (m) => m.taxa_agendamento, meta: 'agendamento' }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => m.custo_agendado ?? divide(m.investimento, m.reunioes_agendadas) } },
   { chave: 'realizado', rotulo: 'Agendamento realizado', curto: 'Ag. realizado', sub: 'comparecimento', valor: (m) => m.reunioes_realizadas,
     taxa: { rotulo: 'Comparecimento', v: (m) => m.taxa_comparecimento, meta: 'comparecimento' }, custo: { rotulo: 'Custo por ag. realizado', v: (m) => m.custo_reuniao } },
-  { chave: 'venda', rotulo: 'Venda', curto: 'Venda', sub: 'fechamento', valor: (m) => m.vendas,
+  { chave: 'venda', rotulo: 'Vendas RGV', curto: 'Vendas RGV', sub: 'fechamento', valor: (m) => m.vendas,
     taxa: { rotulo: 'Fechamento', v: (m) => m.taxa_fechamento, meta: 'fechamento' }, custo: { rotulo: 'Custo por venda (CAC)', v: (m) => m.cac } },
 ];
 const metaDe = (metas: PerpetuoMetas | null | undefined, k: keyof PerpetuoMetas) => (metas ? (metas[k] as number | null | undefined) ?? null : null);
@@ -128,7 +128,23 @@ const ABAS: { valor: Aba; rotulo: string; eyebrow: string; titulo: string; desta
   { valor: 'lps', rotulo: 'Fluxo LP', eyebrow: 'Meta Ads · Perpétuo RGV · todas as campanhas', titulo: 'Páginas de destino,', destaque: 'somadas entre campanhas', secao: 'Páginas', nome: 'página', plural: 'páginas' },
 ];
 
-type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string };
+/** Vendas de Clube R1 e Trator ligadas ao item pela UTM; `null` enquanto a consulta não voltou. */
+type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string; clube?: number | null; trator?: number | null };
+function comVendasCT(itens: Item[] | null | undefined, aba: Aba, ct: PerpetuoVendasClubeTrator | null | undefined): Item[] | null | undefined {
+  if (!itens) return itens;
+  if (!ct?.itens) return itens.map((i) => ({ ...i, clube: null, trator: null }));
+  const dim = aba === 'campanhas' ? 'campanha' : aba === 'lps' ? 'lp' : 'peca';
+  const soma = (chaves: (string | null | undefined)[], grupo: 'clube_r1' | 'trator') => {
+    const set = new Set(chaves.filter((c): c is string => !!c));
+    return ct.itens!.filter((x) => x.dim === dim && x.grupo === grupo && set.has(x.chave)).reduce((s, x) => s + x.vendas, 0);
+  };
+  return itens.map((i) => {
+    // Peça: o código do item é o mesmo rgv.peca_chave(nome do anúncio) que o banco usa na UTM.
+    const chaves = dim === 'peca' ? [i.codigo, ...(i.codigos ?? [])] : [i.id];
+    return { ...i, clube: soma(chaves, 'clube_r1'), trator: soma(chaves, 'trator') };
+  });
+}
+
 function itensDaAba(aba: Aba, d: PerpetuoFunil | undefined): Item[] | null | undefined {
   if (!d) return undefined;
   // A RPC pode devolver rótulo nulo (front_daily.label é opcional): mostramos o id como nome.
@@ -206,7 +222,7 @@ export default function Perpetuo() {
   };
   const mudarData = (campo: 'de' | 'ate', v: string) => { setPreset('custom'); if (campo === 'de') setDe(v); else setAte(v); };
 
-  const itens = itensDaAba(aba, data);
+  const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;
   const metas = data?.metas ?? null;
 
@@ -310,7 +326,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
-        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
+        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} />}
 
         {data && <CardSemOrigem d={data} />}
 
@@ -569,7 +585,7 @@ function lerPorLinha(): PorLinha {
   try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
 }
 
-function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
@@ -645,6 +661,11 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
 
       <ReguaMetas metas={metas} />
       <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} />
+      {ct && itens && (() => {
+        const lig = itens.reduce((x, i) => x + (i.clube ?? 0) + (i.trator ?? 0), 0);
+        const tot = ct.clube_r1.vendas + ct.trator.vendas + ct.sem_produto.vendas;
+        return <p className="text-xs text-muted-foreground">Clube R1 e Trator: {fmtNum(lig)} de {fmtNum(tot)} {tot === 1 ? 'venda ligada' : 'vendas ligadas'} {aba === 'criativos' ? 'às peças' : aba === 'campanhas' ? 'às campanhas' : 'às páginas'} pela UTM de campanha e anúncio do negócio. As demais não têm UTM (ou a UTM não existe no Meta) e ficam só no total geral, sem atribuição por palpite.</p>;
+      })()}
       <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
@@ -661,9 +682,9 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       ) : (
         <div className="surface overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[1100px]">
+            <div className="min-w-[1500px]">
               {/* cabeçalho das colunas */}
-              <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 px-5 py-3 border-b border-border bg-secondary/30 text-xs">
+              <div className="grid grid-cols-[1.3fr_repeat(10,1fr)] gap-3 px-5 py-3 border-b border-border bg-secondary/30 text-xs">
                 <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">leads Meta</div></div>
                 {ETAPAS.map((e) => {
                   const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
@@ -674,6 +695,9 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
                     </div>
                   );
                 })}
+                <div><div className="font-bold text-foreground">Vendas Clube R1</div><div className="text-muted-foreground" title="Só vendas com UTM de campanha e anúncio no negócio">por UTM</div></div>
+                <div><div className="font-bold text-foreground">Vendas Trator</div><div className="text-muted-foreground" title="Só vendas com UTM de campanha e anúncio no negócio">por UTM</div></div>
+                <div><div className="font-bold text-foreground">Total de vendas</div><div className="text-muted-foreground">RGV + Clube + Trator</div></div>
               </div>
               {visiveis.length === 0 && <div className="px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div>}
               {visiveis.map((it, idx) => <LinhaItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} aba={aba} />)}
@@ -718,7 +742,7 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
         </span>
       </div>
-      <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 mt-2 pl-8">
+      <div className="grid grid-cols-[1.3fr_repeat(10,1fr)] gap-3 mt-2 pl-8">
         <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
         {ETAPAS.map((e) => {
           const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
@@ -733,6 +757,16 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : qtd} secundaria={e.taxa ? qtd : null} />;
           return <Celula key={e.chave} principal={qtd} secundaria={chip} terciaria={custoTx} />;
         })}
+        {(() => {
+          const ct = it.clube != null && it.trator != null;
+          const rgv = it.vendas ?? 0; const total = ct ? rgv + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const cacTotal = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
+          return <>
+            <Celula principal={it.clube != null ? fmtNum(it.clube) : '—'} />
+            <Celula principal={it.trator != null ? fmtNum(it.trator) : '—'} />
+            <Celula principal={total != null ? fmtNum(total) : '—'} terciaria={visao === 'custos' || visao === 'tabela' ? cacTotal : null} />
+          </>;
+        })()}
       </div>
     </div>
   );
@@ -816,13 +850,21 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
               const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
               return (
                 <tr key={e.chave} className="border-t border-border/60">
-                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.curto}</td>
+                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.chave === 'venda' ? 'Vendas RGV' : e.curto}</td>
                   <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <Zero motivo={mItem} />}</td>
                   <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} /> : ''}</td>
                   <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={v === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</td>
                 </tr>
               );
             })}
+            {(() => {
+              const ct = it.clube != null && it.trator != null;
+              const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+              const linha = (rot: string, v: number | null | undefined, forte = false) => (
+                <tr className="border-t border-border/60"><td className="py-1.5 text-muted-foreground">{rot}</td><td className={`py-1.5 text-right mono font-semibold ${forte ? 'text-foreground' : 'text-foreground'}`}>{v != null ? fmtNum(v) : '—'}</td><td /><td /></tr>
+              );
+              return <>{linha('Vendas Clube R1', it.clube)}{linha('Vendas Trator', it.trator)}{linha('Total de vendas', total, true)}</>;
+            })()}
           </tbody>
         </table>
         <button type="button" onClick={aoAbrir} className="w-full border-t border-border pt-3 text-sm font-semibold text-gold hover:underline">Ver detalhes</button>

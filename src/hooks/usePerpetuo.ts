@@ -129,6 +129,9 @@ export interface VendasGrupo { vendas: number; faturamento: number }
 /** Vendas Clube R1 e Operação Trator (negócios em Ganho do pipeline Clube R1, por data de fechamento). */
 export interface PerpetuoVendasClubeTrator {
   clube_r1: VendasGrupo; trator: VendasGrupo; sem_produto: VendasGrupo; atualizado_em: string | null;
+  /** Vendas ligadas ao Meta pela UTM do próprio negócio (campanha, página, peça). Sem UTM, fica só no total. */
+  atribuidas?: { campanha: number; lp: number; peca: number } | null;
+  itens?: { dim: 'campanha' | 'lp' | 'peca'; chave: string; grupo: 'clube_r1' | 'trator' | 'sem_produto'; vendas: number; faturamento: number }[] | null;
 }
 
 export function usePerpetuoVendasClubeTrator(de?: string, ate?: string, habilitado = true) {
