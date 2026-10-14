@@ -6,6 +6,7 @@ import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
 
+interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
 interface Resumo {
   na_fila: number; valor_na_fila: number; contatados: number; recuperados: number; descartados: number; ja_compraram_depois: number; horas_parametro: number;
   por_cidade: { cidade: string | null; mes_evento: string | null; na_fila: number; valor: number }[] | null;
@@ -28,12 +29,17 @@ const SIT: Record<string, string> = { pendente: 'Na fila', contatado: 'Contatado
 const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Na fila' }, { k: 'contatado', r: 'Contatados' }, { k: 'em_atendimento', r: 'Em atendimento' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
 
 const tel = (t: string | null) => (t ? t.replace(/\D/g, '') : '');
-const whats = (p: Pedido) => {
+const MSG_PADRAO = 'Olá, {nome}! Vi que você iniciou a compra do ingresso {produto} e o pagamento não foi concluído. Posso te ajudar a finalizar?';
+const VARIAVEIS = ['{nome}', '{produto}', '{cidade}', '{valor}'];
+const preencher = (texto: string, p: Pedido) => texto
+  .replace(/\{nome\}/g, (p.nome_contato ?? '').split(' ')[0] || 'tudo bem')
+  .replace(/\{produto\}/g, p.produto_nome ?? '')
+  .replace(/\{cidade\}/g, p.cidade_evento ?? '')
+  .replace(/\{valor\}/g, brl(p.valor_bruto));
+const whats = (p: Pedido, texto: string) => {
   const d = tel(p.telefone); if (!d) return null;
   const n = d.startsWith('55') ? d : `55${d}`;
-  const nome = (p.nome_contato ?? '').split(' ')[0];
-  const msg = `Olá${nome ? `, ${nome}` : ''}! Vi que você iniciou a compra do ingresso ${p.produto_nome} e o pagamento não foi concluído. Posso te ajudar a finalizar?`;
-  return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${n}?text=${encodeURIComponent(preencher(texto, p))}`;
 };
 
 function csv(l: Pedido[]) {
@@ -51,7 +57,12 @@ export default function Recuperacao() {
   const [recomprados, setRecomprados] = useState(false);
   const [busca, setBusca] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
-  const [aba, setAba] = useState<'carrinho' | 'resgate'>('carrinho');
+  const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
+  const [tplId, setTplId] = useState('');
+  const tpls = useQuery({ queryKey: ['recuperacao-templates'], queryFn: () => r1Rpc<Template[]>('recuperacao_templates_listar'), retry: false });
+  const tplAtivos = (tpls.data ?? []).filter((t) => t.ativo);
+  const tplEscolhido = tplAtivos.find((t) => t.id === tplId) ?? tplAtivos.find((t) => t.padrao) ?? tplAtivos[0];
+  const textoMsg = tplEscolhido?.texto ?? MSG_PADRAO;
   const veDados = pode('dados_pessoais');
 
   const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
@@ -77,15 +88,17 @@ export default function Recuperacao() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo={aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
+        titulo={aba === 'templates' ? 'Templates de mensagem' : aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
         subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
-        <Abas valor={aba} onChange={setAba} itens={[{ valor: 'carrinho', rotulo: 'Carrinho' }, { valor: 'resgate', rotulo: 'Resgate MDV' }]} />
-        {aba === 'resgate' ? (
+        <Abas valor={aba} onChange={setAba} itens={[{ valor: 'carrinho', rotulo: 'Carrinho' }, { valor: 'resgate', rotulo: 'Resgate MDV' }, { valor: 'templates', rotulo: 'Templates' }]} />
+        {aba === 'templates' ? (
+          <Templates lista={tpls.data ?? []} erro={tpls.error as Error | null} carregando={tpls.isLoading} />
+        ) : aba === 'resgate' ? (
           <section className="surface p-6 text-sm text-muted-foreground">Resgate MDV: aba criada, o conteúdo será definido em seguida.</section>
         ) : (<>
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
@@ -124,6 +137,7 @@ export default function Recuperacao() {
             </select>
             <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
+            {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
             <button onClick={baixar} disabled={!lista.length} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-secondary text-foreground disabled:opacity-50"><Download className="w-3.5 h-3.5" /> CSV</button>
           </div>
           {!veDados && <p className="text-xs text-muted-foreground mt-3">Seu perfil vê a fila com nome e e-mail mascarados e sem telefone (recurso "dados pessoais").</p>}
@@ -135,7 +149,7 @@ export default function Recuperacao() {
               {fila.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
               {!fila.isLoading && lista.length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum pedido nesta situação.</td></tr>}
               {lista.map((p) => {
-                const w = veDados ? whats(p) : null;
+                const w = veDados ? whats(p, textoMsg) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
                     <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div><div className="text-muted-foreground mono">{p.transacao_id}</div></td>
@@ -163,6 +177,54 @@ export default function Recuperacao() {
         </section>
       </>)}
       </main>
+    </div>
+  );
+}
+
+function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error | null; carregando: boolean }) {
+  const qc = useQueryClient();
+  const vazio = { id: '', nome: '', texto: '', ativo: true, padrao: false };
+  const [f, setF] = useState(vazio);
+  const salvar = useMutation({
+    mutationFn: () => r1Rpc('recuperacao_template_salvar', { p_id: f.id || null, p_nome: f.nome, p_texto: f.texto, p_ativo: f.ativo, p_padrao: f.padrao }),
+    onSuccess: () => { setF(vazio); qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }); },
+  });
+  const excluir = useMutation({
+    mutationFn: (id: string) => r1Rpc('recuperacao_template_excluir', { p_id: id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
+  });
+  const exemplo = f.texto.replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <section className="surface p-4 space-y-3">
+        <span className="section-label">{f.id ? 'Editar template' : 'Novo template'}</span>
+        <input value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} placeholder="Nome (ex.: Pix expirado)" className="w-full bg-secondary rounded px-2 py-1.5 text-sm text-foreground" />
+        <textarea value={f.texto} onChange={(e) => setF({ ...f, texto: e.target.value })} rows={6} placeholder="Texto da mensagem" className="w-full bg-secondary rounded px-2 py-1.5 text-sm text-foreground" />
+        <div className="flex flex-wrap gap-1">
+          {VARIAVEIS.map((v) => <button key={v} type="button" onClick={() => setF({ ...f, texto: `${f.texto}${v}` })} className="px-2 py-0.5 rounded bg-secondary text-[11px] mono text-foreground">{v}</button>)}
+        </div>
+        {f.texto && <div className="text-xs rounded bg-emerald-500/10 text-foreground p-2"><div className="text-[10px] text-muted-foreground mb-1">Prévia</div>{exemplo}</div>}
+        <label className="text-xs text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} /> ativo (aparece para o atendente)</label>
+        <label className="text-xs text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={f.padrao} onChange={(e) => setF({ ...f, padrao: e.target.checked })} /> usar como mensagem padrão</label>
+        {salvar.error && <p className="text-xs text-red-400">{(salvar.error as Error).message}</p>}
+        <div className="flex gap-2">
+          <button onClick={() => salvar.mutate()} disabled={!f.nome.trim() || !f.texto.trim() || salvar.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50">Salvar</button>
+          {f.id && <button onClick={() => setF(vazio)} className="px-3 py-1.5 rounded bg-secondary text-xs text-foreground">Cancelar</button>}
+        </div>
+      </section>
+      <section className="surface p-4 space-y-2">
+        <span className="section-label">Templates</span>
+        {erro && <p className="text-xs text-red-400">Não foi possível ler os templates: {erro.message}</p>}
+        {carregando && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {!carregando && !erro && lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum template ainda.</p>}
+        {lista.map((t) => (
+          <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>
+            <div className="flex items-center gap-2"><span className="font-semibold text-foreground">{t.nome}</span>{t.padrao && <span className="px-1.5 rounded bg-primary/15 text-primary text-[10px]">padrão</span>}{!t.ativo && <span className="text-[10px] text-muted-foreground">inativo</span>}
+              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => { if (confirm(`Excluir o template "${t.nome}"?`)) excluir.mutate(t.id); }} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">Excluir</button></span></div>
+            <p className="mt-1 text-muted-foreground whitespace-pre-wrap">{t.texto}</p>
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
