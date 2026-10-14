@@ -54,13 +54,8 @@ function presets(): Preset[] {
 }
 
 /* ─── formatação ─── */
-const fmtBrlCurto = (v: number | null | undefined) => {
-  if (v == null) return null;
-  const a = Math.abs(v);
-  if (a >= 1e6) return `R$ ${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} mi`;
-  if (a >= 1e4) return `R$ ${(v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} mil`;
-  return fmtBrl(v);
-};
+/** Valores em dinheiro (investimento, faturamento) sempre em reais completos, sem "mil" ou "mi" (Joyce, 14/10). */
+const fmtBrlCurto = (v: number | null | undefined) => fmtBrl(v, 2);
 const divide = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null || b === 0 ? null : a / b);
 /** Custos por etapa só valem quando o backend marcou `cobertura.custos_validos === true`;
  *  fora disso nada é dividido localmente nem exibido, mesmo que a RPC traga cpl/cpmql/cac. */
@@ -983,7 +978,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                   <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" minTickGap={24} />
                   {temLeadsDia && <YAxis yAxisId="leads" allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={28} />}
-                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={56} tickFormatter={(v: number) => fmtBrlCurto(v) ?? ''} />}
+                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={84} tickFormatter={(v: number) => fmtBrl(v, 0) ?? ''} />}
                   <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: number, nome: string) => [nome === 'Investimento por dia' ? fmtBrl(v) ?? '—' : fmtNum(v) ?? '—', nome]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {temLeadsDia && <Bar yAxisId="leads" dataKey="leads" name="Leads no Meta por dia" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />}
