@@ -51,6 +51,7 @@ export default function Recuperacao() {
   const [recomprados, setRecomprados] = useState(false);
   const [busca, setBusca] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
+  const [aba, setAba] = useState<'carrinho' | 'resgate'>('carrinho');
   const veDados = pode('dados_pessoais');
 
   const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
@@ -76,13 +77,17 @@ export default function Recuperacao() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo="Recuperação de carrinho"
+        titulo={aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
         subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
+        <Abas valor={aba} onChange={setAba} itens={[{ valor: 'carrinho', rotulo: 'Carrinho' }, { valor: 'resgate', rotulo: 'Resgate MDV' }]} />
+        {aba === 'resgate' ? (
+          <section className="surface p-6 text-sm text-muted-foreground">Resgate MDV: aba criada, o conteúdo será definido em seguida.</section>
+        ) : (<>
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -157,6 +162,7 @@ export default function Recuperacao() {
           </table>
           <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada, Ag. pagamento e Em recuperação, há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias e eventos já passados não entram. Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
+      </>)}
       </main>
     </div>
   );

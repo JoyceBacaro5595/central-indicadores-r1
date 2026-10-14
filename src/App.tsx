@@ -20,6 +20,7 @@ const Regras = lazy(() => import("./pages/Regras.tsx"));
 const Eventos = lazy(() => import("./pages/Eventos.tsx"));
 const Checkins = lazy(() => import("./pages/Checkins.tsx"));
 const Recuperacao = lazy(() => import("./pages/Recuperacao.tsx"));
+const FluxoMarketingMdv = lazy(() => import("./pages/FluxoMarketingMdv.tsx"));
 const Perpetuo = lazy(() => import("./pages/Perpetuo.tsx"));
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
@@ -67,6 +68,9 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="eventos" />}>
             <Route path="/central/planejamento" element={<Planejamento />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
+            <Route path="/central/fluxo-marketing" element={<FluxoMarketingMdv />} />
           </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />
