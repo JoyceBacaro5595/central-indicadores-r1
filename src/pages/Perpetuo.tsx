@@ -443,20 +443,23 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
 }) {
   const largura = vendas != null && base ? Math.max(2, Math.min(100, (vendas / base) * 100)) : 0;
   const cac = inv != null && vendas != null && vendas > 0 ? fmtBrl(inv / vendas) : null;
+  const ticket = fat != null && vendas != null && vendas > 0 ? fmtBrl(fat / vendas) : null;
+  const roas = fat != null && inv ? fmtRoas(fat / inv) : null;
   return (
     <div className={CARD_FAIXA}>
       <div className={TITULO_FAIXA}>{titulo}</div>
       <div className={NUM_FAIXA}>{vendas == null ? '—' : fmtNum(vendas)}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
       <div className="mt-2 space-y-1.5 text-[10px]">
-        {taxaFech !== undefined ? (
+        <Linha empilhado k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
+        <Linha empilhado k="Ticket médio" v={ticket} motivo="Sem venda no período: ticket médio não calculável." tipo="brl" />
+        {taxaFech !== undefined && (
           <>
             <Linha empilhado k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
             <Linha empilhado k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
           </>
-        ) : (
-          <Linha empilhado k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
         )}
+        <Linha empilhado k="ROAS" v={roas} motivo="Sem faturamento ou investimento no período." />
       </div>
       <div className="mt-3 text-[10px] text-muted-foreground leading-tight">CAC</div>
       <div className={CUSTO_FAIXA}>{cac ?? <span className="text-muted-foreground">—</span>}</div>
@@ -796,6 +799,7 @@ function CelulaVendas({ qtd, fat, inv }: { qtd: number | null | undefined; fat: 
     <div className="min-w-0">
       <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{semDado ? '—' : fmtNum(qtd)}</div>
       <div className={linha} title="Faturamento">{semDado || fat == null ? '—' : fmtBrl(fat)}</div>
+      <div className={linha} title="Ticket médio (faturamento / vendas)">Ticket {semDado || fat == null ? '—' : fmtBrl(qtd > 0 ? fat / qtd : 0)}</div>
       <div className={linha} title="CAC (custo por venda)">CAC {cac ?? '—'}</div>
       <div className={linha} title="ROAS (faturamento / investimento)">ROAS {roas ?? '—'}</div>
     </div>
@@ -871,6 +875,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
                 <td className={`py-1.5 ${forte ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{rot}</td>
                 <td className="py-1.5 text-right mono font-semibold text-foreground">{qtd != null ? fmtNum(qtd) : '—'}</td>
                 <td className="py-1.5 text-right mono text-foreground/80">{qtd != null && fat != null ? fmtBrl(fat) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{qtd != null && fat != null ? (qtd > 0 ? fmtBrl(fat / qtd) : fmtBrl(0)) : '—'}</td>
                 <td className="py-1.5 text-right mono text-foreground/80">{cac ?? '—'}</td>
                 <td className="py-1.5 text-right mono text-foreground/80">{roas ?? '—'}</td>
               </tr>
@@ -879,7 +884,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           return (
             <div className="border-t border-border pt-3">
               <table className="w-full text-[11px]">
-                <thead><tr className="text-muted-foreground"><th className="py-1 text-left font-semibold">Vendas</th><th className="py-1 text-right font-semibold">Qtd</th><th className="py-1 text-right font-semibold">Faturamento</th><th className="py-1 text-right font-semibold">CAC</th><th className="py-1 text-right font-semibold">ROAS</th></tr></thead>
+                <thead><tr className="text-muted-foreground"><th className="py-1 text-left font-semibold">Vendas</th><th className="py-1 text-right font-semibold">Qtd</th><th className="py-1 text-right font-semibold">Faturamento</th><th className="py-1 text-right font-semibold">Ticket</th><th className="py-1 text-right font-semibold">CAC</th><th className="py-1 text-right font-semibold">ROAS</th></tr></thead>
                 <tbody>
                   {linha('RGV', it.vendas, it.faturamento)}
                   {linha('Clube R1', it.clube, it.clubeFat)}
