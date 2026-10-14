@@ -195,8 +195,8 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
     mutationFn: () => r1Rpc('recuperacao_template_salvar', { p_id: f.id || null, p_nome: f.nome, p_texto: f.texto, p_ativo: f.ativo, p_padrao: f.padrao }),
     onSuccess: () => { setF(vazio); qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }); },
   });
-  const excluir = useMutation({
-    mutationFn: (id: string) => r1Rpc('recuperacao_template_excluir', { p_id: id }),
+  const alternar = useMutation({
+    mutationFn: (t: Template) => r1Rpc('recuperacao_template_salvar', { p_id: t.id, p_nome: t.nome, p_texto: t.texto, p_ativo: !t.ativo, p_padrao: t.padrao }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
   });
   const exemplo = f.texto.replace(/\{atendente\}/g, 'Grazi').replace(/\{evento\}/g, 'Belém (10/2026)').replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
@@ -226,7 +226,7 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>
             <div className="flex items-center gap-2"><span className="font-semibold text-foreground">{t.nome}</span>{t.padrao && <span className="px-1.5 rounded bg-primary/15 text-primary text-[10px]">padrão</span>}{!t.ativo && <span className="text-[10px] text-muted-foreground">inativo</span>}
-              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => { if (confirm(`Excluir o template "${t.nome}"?`)) excluir.mutate(t.id); }} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">Excluir</button></span></div>
+              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button></span></div>
             <p className="mt-1 text-muted-foreground whitespace-pre-wrap">{t.texto}</p>
           </div>
         ))}
