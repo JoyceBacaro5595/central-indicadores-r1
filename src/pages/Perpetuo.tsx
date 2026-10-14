@@ -311,9 +311,7 @@ export default function Perpetuo() {
 
         {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
 
-        {r && <FaixaFunil m={r} metas={metas} />}
-
-        {r && <CardsVendasPorProduto m={r} ct={vendasCT ?? null} />}
+        {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
         {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
@@ -379,49 +377,113 @@ function ContaPill() {
   );
 }
 
-/* ─── faixa do funil (7 etapas) ─── */
-function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
+/* ─── faixa do funil: uma linha única, sem quebra (Joyce, 14/10) ───
+ * Investimento | Lead no CRM | Lead no perfil | Contato efetivo | SQL | Ag. marcado | Ag. realizado | Vendas RGV | Vendas Clube R1 | Vendas Trator | Total.
+ * Em telas estreitas a faixa rola na horizontal em vez de quebrar linha. */
+const CARD_FAIXA = 'flex-1 basis-0 min-w-[138px] p-3';
+function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
   const base = m.leads_crm;
+  const v = e.valor(m);
+  const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
+  const taxa = e.taxa?.v(m);
+  const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+  const custo = custoDe(e, m);
+  const mTaxa = motivoTaxa(m);
   return (
-    <div className="surface overflow-hidden">
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-border">
-        {ETAPAS.map((e, i) => {
-          const v = e.valor(m);
-          const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
-          const taxa = e.taxa?.v(m);
-          const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
-          const custo = custoDe(e, m);
-          const mTaxa = motivoTaxa(m);
-          return (
-            <div key={e.chave} className={`p-4 ${i >= 4 ? 'md:border-t md:border-border xl:border-t-0' : ''}`}>
-              <div className="text-sm font-bold text-foreground">{e.rotulo}</div>
-              <div className="display text-[34px] leading-none mt-2 text-foreground">{fmtNum(v) ?? <Zero />}</div>
-              <div className="h-1.5 rounded-full bg-muted mt-3 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
-              <div className="mt-3 space-y-1 text-xs">
-                {e.chave === 'leads' ? (
-                  <>
-                    <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
-                    <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
-                  </>
-                ) : e.chave === 'mql' ? (
-                  <>
-                    <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
-                    {/* MQL → venda vem do backend (rgv.funil_calc). */}
-                    <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
-                  </>
-                ) : (
-                  <>
-                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
-                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
-                  </>
-                )}
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground">{e.custo.rotulo}</div>
-              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
-            </div>
-          );
-        })}
+    <div className={CARD_FAIXA}>
+      <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">{e.rotulo}</div>
+      <div className="display text-[28px] leading-none mt-1.5 text-foreground">{fmtNum(v) ?? <Zero />}</div>
+      <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
+      <div className="mt-2.5 space-y-1 text-[11px]">
+        {e.chave === 'leads' ? (
+          <>
+            <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
+            <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
+          </>
+        ) : e.chave === 'mql' ? (
+          <>
+            <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
+            {/* MQL → venda vem do backend (rgv.funil_calc). */}
+            <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
+          </>
+        ) : (
+          <>
+            <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
+            <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+          </>
+        )}
       </div>
+      <div className="mt-3 text-[11px] text-muted-foreground leading-tight">{e.custo.rotulo}</div>
+      <div className="display text-lg text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
+    </div>
+  );
+}
+
+/** Card de vendas por produto. CAC = investimento de Perpétuo no período / vendas do próprio card; sem venda, "—". */
+function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa }: {
+  titulo: string; vendas: number | null; fat: number | null; inv: number | null | undefined; base: number | null | undefined;
+  taxaFech?: number | null; metaFech?: number | null; mTaxa?: string;
+}) {
+  const largura = vendas != null && base ? Math.max(2, Math.min(100, (vendas / base) * 100)) : 0;
+  const cac = inv != null && vendas != null && vendas > 0 ? fmtBrl(inv / vendas) : null;
+  return (
+    <div className={CARD_FAIXA}>
+      <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">{titulo}</div>
+      <div className="display text-[28px] leading-none mt-1.5 text-foreground">{vendas == null ? '—' : fmtNum(vendas)}</div>
+      <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
+      <div className="mt-2.5 space-y-1 text-[11px]">
+        {taxaFech !== undefined ? (
+          <>
+            <Linha k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
+            <Linha k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+          </>
+        ) : (
+          <Linha k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
+        )}
+      </div>
+      <div className="mt-3 text-[11px] text-muted-foreground leading-tight">CAC</div>
+      <div className="display text-lg text-foreground">{cac ?? <span className="text-muted-foreground">—</span>}</div>
+    </div>
+  );
+}
+
+function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMetas | null; ct: PerpetuoVendasClubeTrator | null }) {
+  const etapas = ETAPAS.filter((e) => e.chave !== 'venda');
+  const venda = ETAPAS.find((e) => e.chave === 'venda')!;
+  const rgv = m.vendas ?? null;
+  const clube = ct ? ct.clube_r1.vendas : null;
+  const trator = ct ? ct.trator.vendas : null;
+  const semProduto = ct?.sem_produto.vendas ?? 0;
+  const total = rgv != null && clube != null && trator != null ? rgv + clube + trator + semProduto : null;
+  const fatTotal = m.faturamento != null && ct ? m.faturamento + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
+  const inv = m.investimento;
+  return (
+    <div className="space-y-1.5">
+      <div className="surface overflow-x-auto">
+        <div className="flex flex-nowrap min-w-max divide-x divide-border" style={{ minWidth: '100%' }}>
+          <div className={CARD_FAIXA}>
+            <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">Investimento</div>
+            <div className="display text-[28px] leading-none mt-1.5 text-foreground">{fmtBrlCurto(inv) ?? <Zero tipo="brl" />}</div>
+            <div className="h-1.5 mt-2.5" />
+            <div className="mt-2.5 space-y-1 text-[11px]">
+              <Linha k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
+              <Linha k="CPC" v={fmtBrl(m.cpc)} motivo="CPC ainda não publicado neste corte." tipo="brl" />
+            </div>
+            <div className="mt-3 text-[11px] text-muted-foreground leading-tight">Meta Ads · Perpétuo</div>
+            <div className="display text-lg text-foreground">&nbsp;</div>
+          </div>
+          {etapas.map((e) => <CardEtapa key={e.chave} e={e} m={m} metas={metas} />)}
+          <CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
+            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaDe(metas, venda.taxa!.meta)} mTaxa={motivoTaxa(m)} />
+          <CardVendas titulo="Vendas Clube R1" vendas={clube} fat={ct ? ct.clube_r1.faturamento : null} inv={inv} base={m.leads_crm} />
+          <CardVendas titulo="Vendas Trator" vendas={trator} fat={ct ? ct.trator.faturamento : null} inv={inv} base={m.leads_crm} />
+          <CardVendas titulo="Total de vendas" vendas={total} fat={fatTotal} inv={inv} base={m.leads_crm} />
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
+      </p>
     </div>
   );
 }
@@ -452,44 +514,6 @@ function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total
           {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
         </span>
       )}
-    </div>
-  );
-}
-
-/** Vendas separadas por produto (RGV, Clube R1, Trator) e o total, cada card com o seu CAC = investimento de Perpétuo / vendas
- *  do card (Joyce, 14/10). Clube R1 e Trator = negócios em Ganho do pipeline Clube R1, datados pelo fechamento. Sem dado: "—". */
-function CardsVendasPorProduto({ m, ct }: { m: PerpetuoMetricas; ct: PerpetuoVendasClubeTrator | null }) {
-  const inv = m.investimento;
-  const rgv = m.vendas;
-  const clube = ct?.clube_r1.vendas ?? null;
-  const trator = ct?.trator.vendas ?? null;
-  const semProduto = ct?.sem_produto.vendas ?? 0;
-  const total = rgv != null && clube != null && trator != null ? rgv + clube + trator + semProduto : null;
-  const fatRgv = m.faturamento;
-  const fatTotal = fatRgv != null && ct ? fatRgv + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
-  const cac = (v: number | null) => (inv != null && v != null && v > 0 ? fmtBrl(inv / v) : '—');
-  const cards: { titulo: string; vendas: number | null; fat: number | null }[] = [
-    { titulo: 'Vendas RGV', vendas: rgv, fat: fatRgv },
-    { titulo: 'Vendas Clube R1', vendas: clube, fat: ct ? ct.clube_r1.faturamento : null },
-    { titulo: 'Vendas Trator', vendas: trator, fat: ct ? ct.trator.faturamento : null },
-    { titulo: 'Total de vendas', vendas: total, fat: fatTotal },
-  ];
-  return (
-    <div className="surface p-4 space-y-3" role="group" aria-label="Vendas por produto">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((c) => (
-          <div key={c.titulo} className="space-y-1">
-            <p className="font-semibold text-foreground text-sm">{c.titulo}</p>
-            <div className="text-3xl font-serif text-foreground">{c.vendas == null ? '—' : fmtNum(c.vendas)}</div>
-            <div className="text-xs text-muted-foreground">Faturamento <span className="mono text-foreground/90">{c.fat == null ? '—' : fmtBrl(c.fat)}</span></div>
-            <div className="text-xs text-muted-foreground">CAC <span className="mono text-foreground/90">{cac(c.vendas)}</span></div>
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        CAC = investimento de Perpétuo no período dividido pelas vendas de cada card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
-        {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
-      </p>
     </div>
   );
 }
