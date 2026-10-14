@@ -245,12 +245,10 @@ export default function VisaoGeral() {
           </div>
         </header>
 
-        <main className="rt-grid" style={ampliado ? { gridTemplateColumns: '1fr' } : undefined}>
-          {!ampliado && (
-            <section className="rt-card rt-ev" style={pode('eventos') ? { cursor: 'pointer' } : undefined} role="button" tabIndex={0}
-              title="Clique para ampliar o detalhamento da Turnê Máquina de Vendas"
-              onClick={() => pode('eventos') && setAmpliado(true)} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && pode('eventos')) setAmpliado(true); }}>
-              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda} · clique para detalhar a Turnê</small></div>
+        <main className="rt-grid" style={ampliado ? { gridTemplateColumns: '17fr 56fr 14fr 14fr' } : undefined}>
+          {(
+            <section className="rt-card rt-ev">
+              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
               {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
                 <>
                   <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
@@ -276,10 +274,11 @@ export default function VisaoGeral() {
             </section>
           )}
 
-          <section className="rt-card rt-mdv">
+          <section className={`rt-card rt-mdv${ampliado ? ' amp' : ''}`} style={!ampliado && pode('eventos') ? { cursor: 'pointer' } : undefined} title={ampliado ? undefined : 'Clique para ver o detalhamento'}
+            onClick={() => { if (!ampliado && pode('eventos')) setAmpliado(true); }}>
             <div className="rt-h">
               <span><i className="dot" style={{ ['--c' as string]: '#FF8A1F' }} />Turnê Máquina de Vendas</span>
-              {ampliado ? <button type="button" className="rt-voltar" onClick={() => setAmpliado(false)}>‹ Voltar à visão geral</button>
+              {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>‹ recolher</button>
                 : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
             {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <div className="rt-empty">Carregando…</div> : (
@@ -307,44 +306,41 @@ export default function VisaoGeral() {
                 )}
 
                 <div className="rt-sub">Ocupação por praça <small>(vendas + cortesias) / capacidade · vendas + cortesias · dias p/ evento</small></div>
-                {ampliado ? (
-                  <div className="rt-cities rt-det">
-                    <div className="cty cty-h"><div className="nm">Praça</div><div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div><div className="dl">Data</div></div>
-                    {praca.map((p) => (
-                      <div key={p.x.c.cidade} className={`cty${p.x.dias < 0 ? ' past' : ''}`}>
-                        <div className="nm">{p.x.c.cidade}</div>
-                        <div className="ct">{n(p.x.meta)}</div>
-                        <div className="ct">{n(p.d ? p.d.comuns_pagos + p.d.vip_pagos : null)}</div>
-                        <div className="ct">{n(p.livres)}</div>
-                        <div className="ct">{brl(p.d ? p.d.faturamento : null)}</div>
-                        <div className="ct">{n(p.d ? p.d.comuns_pagos : null)}</div>
-                        <div className="ct">{n(p.d ? p.d.cortesias : null)}</div>
-                        <div className="ct">{n(p.d ? p.d.vip_total : null)}</div>
-                        <div className="dl">{fmtD(p.x.data)}</div>
+                <div className={`rt-cities${ampliado ? ' rt-ext' : ''}`}>
+                  {ampliado && (
+                    <div className="cty cty-h"><div className="nm">Praça</div><div /><div className="ct">Ocup.</div><div className="rit">Vend.+cort.</div><div className="dl">Prazo</div>
+                      <div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></div>
+                  )}
+                  {cidades.map(({ x, dias }) => {
+                    const p = x.cap ? (x.real / x.cap) * 100 : 0, cor = p >= 60 ? 'var(--green)' : p >= 30 ? 'var(--orange)' : '#ff5c72';
+                    const pr = praca.find((q) => q.x === x), d = pr?.d;
+                    return (
+                      <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
+                        <div className="nm">{titulo(x.c.cidade)}</div>
+                        <div className="br"><i style={{ width: `${Math.min(100, p)}%`, background: cor }} /></div>
+                        <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
+                        <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
+                        <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>
+                        {ampliado && (
+                          <>
+                            <div className="ct">{n(x.meta)}</div>
+                            <div className="ct">{n(d ? d.comuns_pagos + d.vip_pagos : null)}</div>
+                            <div className="ct">{n(pr?.livres)}</div>
+                            <div className="ct">{brl(d ? d.faturamento : null)}</div>
+                            <div className="ct">{n(d ? d.comuns_pagos : null)}</div>
+                            <div className="ct">{n(d ? d.cortesias : null)}</div>
+                            <div className="ct">{n(d ? d.vip_total : null)}</div>
+                          </>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rt-cities">
-                    {cidades.map(({ x, dias }) => {
-                      const p = x.cap ? (x.real / x.cap) * 100 : 0, cor = p >= 60 ? 'var(--green)' : p >= 30 ? 'var(--orange)' : '#ff5c72';
-                      return (
-                        <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
-                          <div className="nm">{titulo(x.c.cidade)}</div>
-                          <div className="br"><i style={{ width: `${Math.min(100, p)}%`, background: cor }} /></div>
-                          <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
-                          <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
-                          <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
               </>
             )}
           </section>
 
-          {!ampliado && (
+          {(
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
