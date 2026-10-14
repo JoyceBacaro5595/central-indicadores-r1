@@ -251,3 +251,5 @@ export async function lerAgendaAoVivo(): Promise<EventoAgenda[]> {
   if (!o.eventos.length) throw new Error('planilha sem eventos');
   return o.eventos;
 }
+
+export const CAT_AGENDA: Record<string, [string, string]> = { rgv: ['#FE0026', 'Método RGV'], mdv: ['#FF8A1F', 'Turnê MDV'], proc: ['#3D8BFF', 'RGV Processos'], clube: ['#C9A84C', 'Clube R1'], frente: ['#FF4FA3', 'De Frente'], china: ['#2DD4BF', 'Missão China'], bf: ['#FFD43B', 'Black Friday'], online: ['#9B6BFF', 'Ao vivo online'], ricardo: ['#33D17A', 'Agenda do Ricardo'], dono: ['#9AA7B8', 'Dono com Dono'], outros: ['#8C8C8C', 'Outros'] };

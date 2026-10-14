@@ -1,18 +1,22 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
+  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useAlertas } from '@/components/AlertasSaude';
 
 type Item = { to: string; rotulo: string; icone: typeof LayoutDashboard; recurso?: string; fim?: boolean; extra?: string[] };
-type Secao = { titulo: string; recurso?: string; itens: Item[] };
+type Secao = { titulo: string; recurso?: string; itens: Item[]; /** link direto, sem menu suspenso (Visão geral fica fora dos produtos) */ semMenu?: boolean };
 
 const SECOES: Secao[] = [
   {
     titulo: 'Visão geral',
-    itens: [{ to: '/visao-geral', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true }],
+    semMenu: true,
+    itens: [
+      { to: '/visao-geral', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true },
+      { to: '/calendario', rotulo: 'Calendário', icone: CalendarDays },
+    ],
   },
   {
     titulo: 'Máquina de Vendas',
@@ -21,6 +25,7 @@ const SECOES: Secao[] = [
       { to: '/central/eventos', rotulo: 'Eventos e metas', icone: CalendarRange, recurso: 'eventos' },
       { to: '/central/maquina-vendas', rotulo: 'Máquina de Vendas (réplica)', icone: LayoutDashboard, recurso: 'eventos' },
       { to: '/central/planejamento', rotulo: 'Planejamento', icone: CalendarRange, recurso: 'eventos' },
+      { to: '/central/fluxo-marketing', rotulo: 'Fluxo Marketing MDV', icone: Waypoints, recurso: 'eventos' },
       { to: '/central/relatorio', rotulo: 'Relatório', icone: FileText, recurso: 'relatorio' },
       { to: '/central/checkins', rotulo: 'Check-ins', icone: UserCheck, recurso: 'presenca' },
       { to: '/central/recuperacao', rotulo: 'Recuperação', icone: ShoppingCart, recurso: 'recuperacao' },
@@ -96,11 +101,11 @@ export default function AppShell() {
         <nav className={`flex-1 overflow-y-auto py-4 ${compacta ? 'px-3 md:px-2 space-y-5 md:space-y-3' : 'px-3 space-y-5'}`}>
           {secoes.map((s) => (
             <div key={s.titulo}>
-              <button type="button" aria-expanded={!recolhidas[s.titulo]} aria-controls={`secao-${SECOES.findIndex(secao => secao.titulo === s.titulo)}`} onClick={() => setRecolhidas(atual => ({ ...atual, [s.titulo]: !atual[s.titulo] }))} className={`w-full flex items-center justify-between gap-2 px-2 py-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 rounded ${compacta ? 'md:hidden' : ''}`}>
+              {!s.semMenu && <button type="button" aria-expanded={!recolhidas[s.titulo]} aria-controls={`secao-${SECOES.findIndex(secao => secao.titulo === s.titulo)}`} onClick={() => setRecolhidas(atual => ({ ...atual, [s.titulo]: !atual[s.titulo] }))} className={`w-full flex items-center justify-between gap-2 px-2 py-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 rounded ${compacta ? 'md:hidden' : ''}`}>
                 <span>{s.titulo}</span><ChevronDown className={`w-3.5 h-3.5 transition-transform ${recolhidas[s.titulo] ? '-rotate-90' : ''}`} aria-hidden="true" />
-              </button>
+              </button>}
               {compacta && <div className="hidden md:block mx-2 mb-2 border-t border-border" aria-hidden="true" />}
-              <ul id={`secao-${SECOES.findIndex(secao => secao.titulo === s.titulo)}`} hidden={!!recolhidas[s.titulo] && !compacta} className="space-y-0.5">
+              <ul id={`secao-${SECOES.findIndex(secao => secao.titulo === s.titulo)}`} hidden={!s.semMenu && !!recolhidas[s.titulo] && !compacta} className="space-y-0.5">
                 {s.itens.map((i) => (
                   <li key={i.to}>
                     <NavLink

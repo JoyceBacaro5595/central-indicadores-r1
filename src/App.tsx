@@ -8,6 +8,7 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const Planejamento = lazy(() => import("./pages/Planejamento.tsx"));
 const MaquinaVendas = lazy(() => import("./pages/MaquinaVendas.tsx"));
 const VisaoGeral = lazy(() => import("./pages/VisaoGeral.tsx"));
+const Calendario = lazy(() => import("./pages/Calendario.tsx"));
 const Central = lazy(() => import("./pages/Central.tsx"));
 const Relatorio = lazy(() => import("./pages/Relatorio.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
@@ -19,6 +20,7 @@ const Regras = lazy(() => import("./pages/Regras.tsx"));
 const Eventos = lazy(() => import("./pages/Eventos.tsx"));
 const Checkins = lazy(() => import("./pages/Checkins.tsx"));
 const Recuperacao = lazy(() => import("./pages/Recuperacao.tsx"));
+const FluxoMarketingMdv = lazy(() => import("./pages/FluxoMarketingMdv.tsx"));
 const Perpetuo = lazy(() => import("./pages/Perpetuo.tsx"));
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
@@ -41,6 +43,7 @@ const App = () => (
           <Route element={<AppShell />}>
             <Route path="/" element={<Navigate to="/visao-geral" replace />} />
             <Route path="/visao-geral" element={<VisaoGeral />} />
+            <Route path="/calendario" element={<Calendario />} />
             <Route path="/central/conta" element={<Conta />} />
           {/* Cada visão tem o próprio recurso na matriz de permissões (identity.recurso). */}
           <Route element={<RequireAuth recurso="painel" />}>
@@ -65,6 +68,9 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="eventos" />}>
             <Route path="/central/planejamento" element={<Planejamento />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
+            <Route path="/central/fluxo-marketing" element={<FluxoMarketingMdv />} />
           </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />

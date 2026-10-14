@@ -125,6 +125,7 @@ export default function VisaoGeral() {
   const [ampliado, setAmpliado] = useState(false);
   const [agenda, setAgenda] = useState<{ eventos: EventoAgenda[]; fonte: string } | null>(null);
 
+  useEffect(() => { const f = (e: KeyboardEvent) => { if (e.key === 'Escape') setAmpliado(false); }; window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, []);
   useEffect(() => { const t = setInterval(() => setAgora(spNow()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => {
     if (document.getElementById('rt-fontes')) return;
@@ -227,58 +228,13 @@ export default function VisaoGeral() {
     </>
   );
 
-  return (
-    <div className="rt-wrap">
-      <div className="rt">
-        <header className="rt-top">
-          <div className="rt-brand">
-            <img src="https://lp.grupor1.com/wp-content/uploads/bbr1-logo-r1.png" alt="Grupo R1" width={44} height={44} />
-            <div>
-              <div className="rt-kick"><span className="rt-live" />Sala R1 · tempo real</div>
-              <div className="rt-date">{ds.charAt(0).toUpperCase() + ds.slice(1)}</div>
-            </div>
-          </div>
-          <div className="rt-clock">{agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-          <div className={`rt-sync${min != null && min > 150 ? ' old' : ''}`}>
-            <div className="rt-sync-l">Dados dos painéis</div>
-            <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
-          </div>
-        </header>
-
-        <main className="rt-grid" style={ampliado ? { gridTemplateColumns: '17fr 56fr 14fr 14fr' } : undefined}>
-          {(
-            <section className="rt-card rt-ev">
-              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
-              {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
-                <>
-                  <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
-                    <div className="tag">Próximo · {(CAT[prox.cat] || CAT.outros)[1]}</div>
-                    <div className="t">{prox.titulo}</div>
-                    <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
-                    <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
-                  </div>
-                  <ol className="rt-list">
-                    {fut.slice(1, 25).map((e, i) => {
-                      const d = dt(e.inicio), c = (CAT[e.cat] || CAT.outros)[0], dd = Math.round((d.getTime() - h0.getTime()) / DAY);
-                      return (
-                        <li key={`${e.inicio}-${e.titulo}-${i}`}>
-                          <div className="d"><b>{String(d.getDate()).padStart(2, '0')}</b><span>{MESC[d.getMonth()]}</span></div>
-                          <div className="n"><b><i className="dot" style={{ ['--c' as string]: c }} />{e.titulo}</b><span>{[SEM[d.getDay()] + (e.fim && e.fim !== e.inicio ? ` a ${fmtD(e.fim)}` : ''), e.local, e.hora].filter(Boolean).join(' · ')}</span></div>
-                          <div className={`q${dd <= 0 ? ' hoje' : ''}`}>{dd <= 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}</div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              )}
-            </section>
-          )}
-
+  const abrir = () => { if (pode('eventos')) setAmpliado(true); };
+  const turne = (ampliado: boolean) => (
           <section className={`rt-card rt-mdv${ampliado ? ' amp' : ''}`} style={!ampliado && pode('eventos') ? { cursor: 'pointer' } : undefined} title={ampliado ? undefined : 'Clique para ver o detalhamento'}
-            onClick={() => { if (!ampliado && pode('eventos')) setAmpliado(true); }}>
+            onClick={() => { if (!ampliado) abrir(); }}>
             <div className="rt-h">
               <span><i className="dot" style={{ ['--c' as string]: '#FF8A1F' }} />Turnê Máquina de Vendas</span>
-              {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>‹ recolher</button>
+              {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
                 : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
             {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <div className="rt-empty">Carregando…</div> : (
@@ -339,6 +295,55 @@ export default function VisaoGeral() {
               </>
             )}
           </section>
+  );
+  return (
+    <div className="rt-wrap">
+      <div className="rt">
+        <header className="rt-top">
+          <div className="rt-brand">
+            <img src="https://lp.grupor1.com/wp-content/uploads/bbr1-logo-r1.png" alt="Grupo R1" width={44} height={44} />
+            <div>
+              <div className="rt-kick"><span className="rt-live" />Sala R1 · tempo real</div>
+              <div className="rt-date">{ds.charAt(0).toUpperCase() + ds.slice(1)}</div>
+            </div>
+          </div>
+          <div className="rt-clock">{agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          <div className={`rt-sync${min != null && min > 150 ? ' old' : ''}`}>
+            <div className="rt-sync-l">Dados dos painéis</div>
+            <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
+          </div>
+        </header>
+
+        <main className="rt-grid">
+          {(
+            <section className="rt-card rt-ev" style={pode('eventos') ? { cursor: 'pointer' } : undefined} role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrir(); }}>
+              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
+              {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
+                <>
+                  <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
+                    <div className="tag">Próximo · {(CAT[prox.cat] || CAT.outros)[1]}</div>
+                    <div className="t">{prox.titulo}</div>
+                    <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
+                    <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
+                  </div>
+                  <ol className="rt-list">
+                    {fut.slice(1, 25).map((e, i) => {
+                      const d = dt(e.inicio), c = (CAT[e.cat] || CAT.outros)[0], dd = Math.round((d.getTime() - h0.getTime()) / DAY);
+                      return (
+                        <li key={`${e.inicio}-${e.titulo}-${i}`}>
+                          <div className="d"><b>{String(d.getDate()).padStart(2, '0')}</b><span>{MESC[d.getMonth()]}</span></div>
+                          <div className="n"><b><i className="dot" style={{ ['--c' as string]: c }} />{e.titulo}</b><span>{[SEM[d.getDay()] + (e.fim && e.fim !== e.inicio ? ` a ${fmtD(e.fim)}` : ''), e.local, e.hora].filter(Boolean).join(' · ')}</span></div>
+                          <div className={`q${dd <= 0 ? ' hoje' : ''}`}>{dd <= 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}</div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </section>
+          )}
+
+          {turne(false)}
 
           {(
             <>
@@ -368,6 +373,11 @@ export default function VisaoGeral() {
             </>
           )}
         </main>
+        {ampliado && (
+          <div className="rt-modal" role="dialog" aria-modal="true" aria-label="Detalhamento da Turnê Máquina de Vendas" onClick={() => setAmpliado(false)}>
+            <div className="rt-modal-box" onClick={(e) => e.stopPropagation()}>{turne(true)}</div>
+          </div>
+        )}
       </div>
     </div>
   );
