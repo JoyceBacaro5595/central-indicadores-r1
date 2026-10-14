@@ -35,7 +35,7 @@ export default function RedefinirSenha() {
     const { error } = await r1.auth.updateUser({ password: senha });
     setSalvando(false);
     if (error) { setErro(error.message); return; }
-    nav('/central', { replace: true });
+    nav('/visao-geral', { replace: true });
   }
 
   return (

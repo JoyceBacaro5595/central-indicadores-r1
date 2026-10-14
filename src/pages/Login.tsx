@@ -7,7 +7,7 @@ export default function Login() {
   const { session, carregando } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  const destino = (loc.state as { de?: string } | null)?.de || '/central';
+  const destino = (loc.state as { de?: string } | null)?.de || '/visao-geral';
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);

@@ -11,6 +11,10 @@ type Secao = { titulo: string; recurso?: string; itens: Item[] };
 
 const SECOES: Secao[] = [
   {
+    titulo: 'Visão geral',
+    itens: [{ to: '/visao-geral', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true }],
+  },
+  {
     titulo: 'Máquina de Vendas',
     itens: [
       { to: '/central', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true, extra: ['/central/online'], recurso: 'painel' },
