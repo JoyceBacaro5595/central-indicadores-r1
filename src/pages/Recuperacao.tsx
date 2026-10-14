@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Download, Check, X, Phone, Undo2 } from 'lucide-react';
+import { Download, Phone } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
@@ -16,7 +16,7 @@ interface Pedido {
   nome_contato: string | null; email: string | null; telefone: string | null; cidade_comprador: string | null; uf_comprador: string | null;
   utm_source: string | null; utm_campaign: string | null; ja_comprou_depois: boolean; situacao: string; observacao: string | null; situacao_em: string | null;
 }
-type Situacao = 'pendente' | 'contatado' | 'recuperado' | 'descartado' | 'todos';
+type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -24,8 +24,8 @@ const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.
 const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
-const SIT: Record<string, string> = { pendente: 'Na fila', contatado: 'Contatado', recuperado: 'Recuperado', descartado: 'Descartado' };
-const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Na fila' }, { k: 'contatado', r: 'Contatados' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
+const SIT: Record<string, string> = { pendente: 'Na fila', contatado: 'Contatado', em_atendimento: 'Em atendimento', sem_resposta: 'Sem resposta', aguardando_retorno: 'Aguardando retorno', recuperado: 'Recuperado', descartado: 'Descartado' };
+const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Na fila' }, { k: 'contatado', r: 'Contatados' }, { k: 'em_atendimento', r: 'Em atendimento' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
 
 const tel = (t: string | null) => (t ? t.replace(/\D/g, '') : '');
 const whats = (p: Pedido) => {
@@ -92,7 +92,7 @@ export default function Recuperacao() {
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="kpi-card"><div className="kpi-label">Na fila</div><div className="kpi-value mono">{r ? num(r.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r ? brl(r.valor_na_fila) : ''} em pedidos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Contatados</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{r ? num(r.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
           <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{r ? num(r.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
           <div className="kpi-card"><div className="kpi-label">Descartados</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
@@ -129,7 +129,7 @@ export default function Recuperacao() {
           {!veDados && <p className="text-xs text-muted-foreground mt-3">Seu perfil vê a fila com nome e e-mail mascarados e sem telefone (recurso "dados pessoais").</p>}
           <table className="w-full mt-3 text-xs">
             <thead><tr className="text-muted-foreground text-left">
-              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Ações</th>
+              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Status e ações</th>
             </tr></thead>
             <tbody>
               {fila.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
@@ -144,14 +144,13 @@ export default function Recuperacao() {
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
                     <td className="py-2">{PAG[p.metodo_pagamento] ?? p.metodo_pagamento}{p.parcelas && p.parcelas > 1 ? ` ${p.parcelas}x` : ''}</td>
                     <td className="py-2 text-muted-foreground">{p.utm_source ?? '—'}{p.utm_campaign && <div className="truncate max-w-[160px]" title={p.utm_campaign}>{p.utm_campaign}</div>}</td>
-                    <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-emerald-500/15 text-emerald-400' : p.situacao === 'contatado' ? 'bg-amber-500/15 text-amber-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-primary/15 text-primary'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && <div className="text-[10px] text-emerald-400 mt-1">comprou depois</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
+                    <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-emerald-500/15 text-emerald-400' : p.situacao === 'contatado' ? 'bg-amber-500/15 text-amber-400' : p.situacao === 'em_atendimento' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'aguardando_retorno' ? 'bg-violet-500/15 text-violet-400' : p.situacao === 'sem_resposta' ? 'bg-orange-500/15 text-orange-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-primary/15 text-primary'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && <div className="text-[10px] text-emerald-400 mt-1">comprou depois</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
                     <td className="py-2">
                       <div className="flex flex-wrap gap-1">
                         {w && <a href={w} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold" title="Abrir WhatsApp"><Phone className="w-3 h-3" /> WhatsApp</a>}
-                        {p.situacao !== 'contatado' && <button onClick={() => marcar.mutate({ id: p.transacao_id, situacao: 'contatado', observacao: obs[p.transacao_id] ?? p.observacao })} className="px-2 py-1 rounded bg-secondary text-[11px] font-semibold text-foreground" title="Marcar como contatado">Contatado</button>}
-                        {p.situacao !== 'recuperado' && <button onClick={() => marcar.mutate({ id: p.transacao_id, situacao: 'recuperado', observacao: obs[p.transacao_id] ?? p.observacao })} className="flex items-center gap-1 px-2 py-1 rounded bg-secondary text-[11px] font-semibold text-foreground" title="Marcar como recuperado"><Check className="w-3 h-3" /> Recuperado</button>}
-                        {p.situacao !== 'descartado' && <button onClick={() => marcar.mutate({ id: p.transacao_id, situacao: 'descartado', observacao: obs[p.transacao_id] ?? p.observacao })} className="flex items-center gap-1 px-2 py-1 rounded bg-secondary text-[11px] font-semibold text-muted-foreground" title="Descartar"><X className="w-3 h-3" /></button>}
-                        {p.situacao !== 'pendente' && <button onClick={() => marcar.mutate({ id: p.transacao_id, situacao: 'pendente', observacao: null })} className="flex items-center gap-1 px-2 py-1 rounded bg-secondary text-[11px] text-muted-foreground" title="Voltar para a fila"><Undo2 className="w-3 h-3" /></button>}
+                        <select value={p.situacao} onChange={(e) => marcar.mutate({ id: p.transacao_id, situacao: e.target.value, observacao: e.target.value === 'pendente' ? null : (obs[p.transacao_id] ?? p.observacao) })} className="bg-secondary rounded px-2 py-1 text-[11px] font-semibold text-foreground" title="Mudar o status do atendimento">
+                          {Object.entries(SIT).map(([k, r]) => <option key={k} value={k}>{r}</option>)}
+                        </select>
                       </div>
                       <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="observação" className="mt-1 bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
                     </td>
