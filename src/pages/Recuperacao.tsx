@@ -101,7 +101,7 @@ export default function Recuperacao() {
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
-        <Abas valor={aba} onChange={setAba} itens={[{ valor: 'carrinho', rotulo: 'Carrinho' }, { valor: 'resgate', rotulo: 'Resgate MDV' }, { valor: 'templates', rotulo: 'Templates' }]} />
+        <Abas<'carrinho' | 'resgate' | 'templates'> valor={aba} onChange={setAba} itens={[{ valor: 'carrinho', rotulo: 'Carrinho' }, { valor: 'resgate', rotulo: 'Resgate MDV' }, { valor: 'templates', rotulo: 'Templates' }]} />
         {aba === 'templates' ? (
           <Templates lista={tpls.data ?? []} erro={tpls.error as Error | null} carregando={tpls.isLoading} />
         ) : aba === 'resgate' ? (
