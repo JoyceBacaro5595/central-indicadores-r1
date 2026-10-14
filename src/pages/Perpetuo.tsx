@@ -432,6 +432,25 @@ function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num' }: { k: string; v
   );
 }
 
+/** Vendas do período são sempre o total do CRM, tenha havido investimento ou não. A lista só traz itens com veiculação
+ *  ou leads no período; a diferença para o total aparece aqui, sem esconder venda (Joyce, 14/10). */
+function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total: number | null | undefined; nome: string }) {
+  if (!itens || total == null) return null;
+  const naLista = itens.reduce((s, i) => s + (i.vendas ?? 0), 0);
+  const fora = total - naLista;
+  return (
+    <div className="surface px-4 py-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1" role="note">
+      <span><span className="text-muted-foreground">Vendas no período (total)</span> <b className="mono text-foreground">{fmtNum(total)}</b></span>
+      <span><span className="text-muted-foreground">Somadas nas {nome === 'página' ? 'páginas' : nome === 'peça' ? 'peças' : 'campanhas'} abaixo</span> <b className="mono text-foreground">{fmtNum(naLista)}</b></span>
+      {fora > 0 && (
+        <span className="text-amber-400">
+          {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
+        </span>
+      )}
+    </div>
+  );
+}
+
 /* ─── lista (campanhas / peças / páginas) ─── */
 type Visao = 'cards' | 'tabela' | 'custos' | 'taxas';
 type Ordem = 'investimento' | 'leads' | 'mql' | 'vendas' | 'cac';
@@ -531,7 +550,8 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       </div>
 
       <ReguaMetas metas={metas} />
-      <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
+      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} />
+      <Detalhesitem={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
         <div className="surface p-5 text-sm text-muted-foreground leading-relaxed">
