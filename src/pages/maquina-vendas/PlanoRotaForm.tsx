@@ -39,9 +39,9 @@ const dMais = (iso: string, d: number) => new Date(new Date(`${iso}T00:00:00`).g
 export default function PlanoRotaForm() {
   const { pode } = useAuth();
   const qc = useQueryClient();
-  const planos = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000 });
-  const eventos = useQuery({ queryKey: ['plano-eventos'], queryFn: () => r1Rpc<EventoRota[]>('eventos_listar', { p_de: '2026-01-01', p_ate: '2027-12-01' }) });
-  const auditoria = useQuery({ queryKey: ['planejamento-auditoria'], queryFn: () => r1Rpc<Auditoria[]>('planejamento_historico', { p_rota: null }), retry: false });
+  const planos = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000, refetchInterval: 60_000 });
+  const eventos = useQuery({ queryKey: ['plano-eventos'], queryFn: () => r1Rpc<EventoRota[]>('eventos_listar', { p_de: '2026-01-01', p_ate: '2027-12-01' }), refetchInterval: 60_000 });
+  const auditoria = useQuery({ queryKey: ['planejamento-auditoria'], queryFn: () => r1Rpc<Auditoria[]>('planejamento_historico', { p_rota: null }), retry: false, refetchInterval: 60_000 });
   const rotas = useMemo(() => Array.from(new Set([ROTA.nome, ...(planos.data ?? []).map((p) => p.rota)])), [planos.data]);
   const [rota, setRota] = useState(ROTA.nome);
   const [nome, setNome] = useState(ROTA.nome);

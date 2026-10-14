@@ -16,7 +16,7 @@ const n = (v: number | null | undefined) => (v == null ? undefined : Number(v));
 /** Carrega o plano e, quando a rota em andamento tem metas cadastradas, sobrescreve os padrões do código (META).
    Sem plano cadastrado (ou antes da tabela existir no banco), valem os padrões. */
 export function usePlanoRota() {
-  const q = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000 });
+  const q = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000, refetchInterval: 60_000 });
   const p = (q.data ?? []).find((x) => x.rota === ROTA.nome);
   if (p) {
     const t = { investimento: n(p.investimento), vendas: n(p.vendas), cortesias: n(p.cortesias), totalPartic: n(p.total_partic), capacidade: n(p.capacidade),

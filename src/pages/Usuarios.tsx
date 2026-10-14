@@ -43,9 +43,9 @@ const fmt = (d: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { tim
 export default function Usuarios() {
   const { perfil, recarregarPerfil } = useAuth();
   const qc = useQueryClient();
-  const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar') });
-  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: async () => normalizarPermissoes(await r1Rpc<unknown>('permissoes_listar')) });
-  const times = useQuery({ queryKey: ['times'], queryFn: () => r1Rpc<Time[]>('times_listar'), retry: false });
+  const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar'), refetchInterval: 60_000 });
+  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: async () => normalizarPermissoes(await r1Rpc<unknown>('permissoes_listar')), refetchInterval: 60_000 });
+  const times = useQuery({ queryKey: ['times'], queryFn: () => r1Rpc<Time[]>('times_listar'), retry: false, refetchInterval: 60_000 });
   const timesAtivos = (times.data ?? []).filter((t) => t.ativo);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);

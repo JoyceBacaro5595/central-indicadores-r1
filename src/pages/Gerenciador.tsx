@@ -74,7 +74,7 @@ function Observacoes({ tipo, chave, texto, aoSalvar }: { tipo: string; chave: st
 
 export default function Gerenciador() {
   const qc = useQueryClient();
-  const notas = useQuery({ queryKey: ['gerenciador-observacoes'], queryFn: () => r1Rpc<Observacao[]>('gerenciador_observacoes') });
+  const notas = useQuery({ queryKey: ['gerenciador-observacoes'], queryFn: () => r1Rpc<Observacao[]>('gerenciador_observacoes'), refetchInterval: 60_000 });
   const observacoes = (tipo: string, chave: string) => <Observacoes tipo={tipo} chave={chave} texto={notas.data?.find(n => n.tipo === tipo && n.chave === chave)?.observacoes ?? ''} aoSalvar={() => { qc.invalidateQueries({ queryKey: ['gerenciador-observacoes'] }); qc.invalidateQueries({ queryKey: ['gerenciador'] }); }} />;
   const estado = useQuery({ queryKey: ['gerenciador'], queryFn: () => r1Rpc<Estado>('gerenciador_estado'), refetchInterval: 60_000 });
   const [erro, setErro] = useState<string | null>(null);
