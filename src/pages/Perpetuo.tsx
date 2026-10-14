@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
+import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
@@ -54,8 +54,10 @@ function presets(): Preset[] {
 }
 
 /* ─── formatação ─── */
+/** Dinheiro sempre em reais com 2 casas decimais (Joyce, 14/10). */
+const fmtBrl = (v: number | null | undefined, casas = 2) => fmtBrlBase(v, casas);
 /** Valores em dinheiro (investimento, faturamento) sempre em reais completos, sem "mil" ou "mi" (Joyce, 14/10). */
-const fmtBrlCurto = (v: number | null | undefined) => fmtBrl(v, 2);
+const fmtBrlCurto = (v: number | null | undefined) => fmtBrl(v);
 const divide = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null || b === 0 ? null : a / b);
 /** Custos por etapa só valem quando o backend marcou `cobertura.custos_validos === true`;
  *  fora disso nada é dividido localmente nem exibido, mesmo que a RPC traga cpl/cpmql/cac. */
@@ -853,7 +855,7 @@ const COMO_LER: [string, string][] = [
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
   ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados de hora em hora, logo depois da recarga do Meta e do HubSpot (minuto 00); a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
   ['MQL', 'Lead no perfil: faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
-  ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
+  ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0,00 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
 function ComoLer() {
   return (
@@ -923,7 +925,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
         {aba === 'lps' && (item.campanhas_lista?.length ?? 0) > 0 && <section className="space-y-2">
           <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Campanhas ({fmtNum(item.campanhas_lista!.length)})</h4>
           <div className="flex flex-wrap gap-2">
-            {item.campanhas_lista!.map(c => { const href = linkGerenciadorCampanha(c.id); const txt = <><span className="truncate max-w-[16rem]">{c.nome ?? c.id}</span><span className="mono text-muted-foreground">· {fmtBrl(c.investimento) ?? 'R$ 0'}</span></>;
+            {item.campanhas_lista!.map(c => { const href = linkGerenciadorCampanha(c.id); const txt = <><span className="truncate max-w-[16rem]">{c.nome ?? c.id}</span><span className="mono text-muted-foreground">· {fmtBrl(c.investimento) ?? 'R$ 0,00'}</span></>;
               const cls = 'inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground';
               return href ? <a key={c.id} href={href} target="_blank" rel="noopener noreferrer" title={c.nome ?? c.id} className={`${cls} hover:bg-secondary`}>{txt}</a> : <span key={c.id} className={cls}>{txt}</span>; })}
           </div>
@@ -978,7 +980,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                   <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" minTickGap={24} />
                   {temLeadsDia && <YAxis yAxisId="leads" allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={28} />}
-                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={84} tickFormatter={(v: number) => fmtBrl(v, 0) ?? ''} />}
+                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={100} tickFormatter={(v: number) => fmtBrl(v) ?? ''} />}
                   <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: number, nome: string) => [nome === 'Investimento por dia' ? fmtBrl(v) ?? '—' : fmtNum(v) ?? '—', nome]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {temLeadsDia && <Bar yAxisId="leads" dataKey="leads" name="Leads no Meta por dia" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />}

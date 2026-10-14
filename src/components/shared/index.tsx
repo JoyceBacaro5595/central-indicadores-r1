@@ -19,7 +19,7 @@ export function NaoDisponivel({ motivo, className = '' }: { motivo?: string; cla
 
 /** Indicador sem valor: mostra o zero do tipo (0, 0,0% ou R$ 0) em cinza, com o motivo no tooltip.
  *  Pedido de Joyce (09/10/2026): os indicadores trazem unicamente números, nunca texto. */
-export const ZERO: Record<'num' | 'pct' | 'brl', string> = { num: '0', pct: '0,0%', brl: 'R$ 0' };
+export const ZERO: Record<'num' | 'pct' | 'brl', string> = { num: '0', pct: '0,0%', brl: 'R$ 0,00' };
 export function Zero({ tipo = 'num', motivo, className = '' }: { tipo?: keyof typeof ZERO; motivo?: string; className?: string }) {
   return <span className={`text-muted-foreground ${className}`} title={motivo}>{ZERO[tipo]}</span>;
 }
