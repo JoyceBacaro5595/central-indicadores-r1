@@ -551,7 +551,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
 
       <ReguaMetas metas={metas} />
       <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} />
-      <Detalhesitem={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
+      <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
         <div className="surface p-5 text-sm text-muted-foreground leading-relaxed">
