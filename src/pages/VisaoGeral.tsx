@@ -21,6 +21,8 @@ const dataCurta = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/'
 const DIAS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MES3 = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+const diasAte = (iso: string, hoje: string) => Math.round((Date.parse(iso + 'T12:00:00') - Date.parse(hoje + 'T12:00:00')) / 86400000);
+const PADRAO = { meta: 250, capacidade: 350 }; /* iguais aos da Máquina de Vendas: valem só quando o evento não tem valor próprio */
 const hhmm = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
 interface Evento { id: number; cidade: string; mes_evento: string; data_evento: string | null; capacidade: number | null; meta_ingressos: number | null; meta_faturamento: number | null; realizado: number; pagos: number; cortesias: number; faturamento: number; dias_restantes: number }
@@ -64,14 +66,18 @@ export default function VisaoGeral() {
 
   const hoje = hojeISO();
   const eventos = eventosQ.data ?? [];
-  const proximos = eventos.filter((e) => e.data_evento && e.data_evento >= hoje).sort((a, b) => (a.data_evento! < b.data_evento! ? -1 : 1)).slice(0, 5);
-  const rota = ROTA.cidades.map((c) => ({ c, e: eventos.find((e) => mesmoEvento(e, c)) })).filter((x) => x.e) as { c: (typeof ROTA.cidades)[number]; e: Evento }[];
-  const evRota = rota.map((x) => x.e);
+  // Cada praça da rota: dados do banco + data (a do evento, ou a da rota quando o evento ainda não tem data cadastrada).
+  const rota = ROTA.cidades.map((c) => {
+    const e = eventos.find((x) => mesmoEvento(x, c));
+    const data = e?.data_evento ?? c.data;
+    return { c, e, data, dias: diasAte(data, hoje), cap: e?.capacidade ?? PADRAO.capacidade, meta: e?.meta_ingressos ?? PADRAO.meta, pagos: e?.pagos ?? 0, cort: e?.cortesias ?? 0, real: e?.realizado ?? 0, fat: e?.faturamento ?? 0, metaFat: e?.meta_faturamento ?? 0 };
+  });
+  const proximos = rota.filter((x) => x.dias >= 0).sort((a, b) => (a.data < b.data ? -1 : 1)).slice(0, 5);
   const metaRota = (metaQ.data ?? []).filter((m) => ROTA.cidades.some((c) => mesmoEvento(m, c)));
-  const vendas = soma(evRota, (e) => e.realizado), pagos = soma(evRota, (e) => e.pagos), receita = soma(evRota, (e) => e.faturamento);
-  const metaIng = soma(evRota, (e) => e.meta_ingressos ?? 0), metaFat = soma(evRota, (e) => e.meta_faturamento ?? 0);
+  const vendas = soma(rota, (x) => x.real), pagos = soma(rota, (x) => x.pagos), receita = soma(rota, (x) => x.fat);
+  const metaIng = soma(rota, (x) => x.meta), metaFat = soma(rota, (x) => x.metaFat);
   const invRota = soma(metaRota, (m) => m.investimento);
-  const capTotal = soma(evRota, (e) => e.capacidade ?? 0);
+  const capTotal = soma(rota, (x) => x.cap);
 
   const r = perp.data?.resumo;
   const diario = (perp.data?.diario ?? []).slice(-14);
@@ -100,18 +106,18 @@ export default function VisaoGeral() {
             <>
               <div className="rounded-xl p-4 border border-orange-500/30" style={{ background: 'linear-gradient(135deg,#7a3d00,#1c1208)' }}>
                 <div className="text-[9px] font-extrabold tracking-widest text-orange-200/80">PRÓXIMO · TURNÊ MDV</div>
-                <div className="text-2xl font-black text-white leading-tight mt-1">{proximos[0].cidade}</div>
-                <div className="text-xs text-white/80">{dataCurta(proximos[0].data_evento!)} · {proximos[0].dias_restantes <= 0 ? 'hoje' : `em ${proximos[0].dias_restantes} dias`}</div>
-                {proximos[0].dias_restantes <= 0 && <div className="mt-2 inline-block rounded-md bg-black/50 px-3 py-1 text-lg font-black text-white">AO VIVO</div>}
+                <div className="text-2xl font-black text-white leading-tight mt-1">{proximos[0].c.cidade}</div>
+                <div className="text-xs text-white/80">{dataCurta(proximos[0].data)} · {proximos[0].dias === 0 ? 'hoje' : `em ${proximos[0].dias} dias`}</div>
+                {proximos[0].dias === 0 && <div className="mt-2 inline-block rounded-md bg-black/50 px-3 py-1 text-lg font-black text-white">AO VIVO</div>}
               </div>
               <ul className="divide-y divide-border">
-                {proximos.slice(1).map((e) => {
-                  const d = new Date(`${e.data_evento}T12:00:00`);
+                {proximos.slice(1).map((x) => {
+                  const d = new Date(`${x.data}T12:00:00`);
                   return (
-                    <li key={e.id} className="flex items-center gap-3 py-2">
+                    <li key={x.c.cidade} className="flex items-center gap-3 py-2">
                       <div className="w-9 text-center leading-none"><div className="text-lg font-black text-foreground">{d.getDate()}</div><div className="text-[9px] font-bold text-muted-foreground">{MES3[d.getMonth()]}</div></div>
-                      <div className="min-w-0 flex-1 text-xs font-bold text-foreground truncate">{e.cidade}</div>
-                      <div className="text-[10px] text-muted-foreground whitespace-nowrap">em {e.dias_restantes} dias</div>
+                      <div className="min-w-0 flex-1 text-xs font-bold text-foreground truncate">{x.c.cidade}</div>
+                      <div className="text-[10px] text-muted-foreground whitespace-nowrap">em {x.dias} dias</div>
                     </li>
                   );
                 })}
@@ -131,11 +137,11 @@ export default function VisaoGeral() {
               </div>
               <div className="text-[11px] font-bold text-foreground">Ocupação por praça <span className="font-normal text-muted-foreground">(vendas + cortesias) / capacidade</span></div>
               <ul className="space-y-1.5">
-                {rota.map(({ c, e }) => (
-                  <li key={c.cidade} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 text-xs">
-                    <span className="truncate font-semibold text-foreground">{e.cidade}</span>
-                    <span className="font-bold text-foreground whitespace-nowrap">{num(e.realizado)} / {num(e.capacidade)}</span>
-                    <span className="text-[10px] text-muted-foreground w-16 text-right">{e.dias_restantes < 0 ? 'realizado' : e.dias_restantes === 0 ? 'hoje' : `${e.dias_restantes} dias`}</span>
+                {rota.map((x) => (
+                  <li key={x.c.cidade} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 text-xs">
+                    <span className="truncate font-semibold text-foreground">{x.c.cidade}</span>
+                    <span className="font-bold text-foreground whitespace-nowrap">{num(x.real)} / {num(x.cap)} <span className="font-normal text-muted-foreground">{num(x.pagos)}+{num(x.cort)}</span></span>
+                    <span className="text-[10px] text-muted-foreground w-16 text-right">{x.dias < 0 ? 'realizado' : x.dias === 0 ? 'hoje' : `${x.dias} dias`}</span>
                   </li>
                 ))}
               </ul>
@@ -143,12 +149,13 @@ export default function VisaoGeral() {
           )}
         </Coluna>
 
-        <Coluna titulo={`Método RGV · ${ciclo?.ciclo ?? 'Ciclo'}`} ponto={VERMELHO} nota={ciclo ? `${dataCurta(ciclo.inicio)} a ${dataCurta(ciclo.fim)}` : undefined}>
+        <Coluna titulo={`Método RGV · ${ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}`} ponto={VERMELHO} nota={ciclo ? `${dataCurta(ciclo.inicio)} a ${dataCurta(ciclo.fim)}` : undefined}>
           {!pode('perpetuo') ? <p className="text-xs text-muted-foreground">Sem permissão para ver o Perpétuo.</p> : (
             <>
               <div className="rounded-xl border border-border bg-secondary/40 p-4">
                 <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Leads no ciclo (HubSpot)</div>
-                <div className="text-4xl font-black text-foreground leading-tight">{num(r?.leads_crm)}</div>
+                <div className="text-4xl font-black text-foreground leading-tight">{perp.error ? '—' : r ? num(r.leads_crm) : 'Carregando…'}</div>
+                {perp.error && <div className="text-[11px] text-red-400">Erro ao ler o funil: {String((perp.error as Error).message ?? perp.error)}</div>}
                 <div className="text-[11px] text-muted-foreground">MQL {num(r?.mql)} · vendas RGV {num(r?.vendas)}</div>
               </div>
               <div className="grid grid-cols-3 gap-2">
