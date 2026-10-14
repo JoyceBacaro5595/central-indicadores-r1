@@ -754,23 +754,21 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           ) : null;
           const qtd = fmtNum(v) ?? <Zero motivo={mItem} />;
           const custoTx = fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />;
+          if (e.chave === 'venda' && visao !== 'taxas') return <CelulaVendas key={e.chave} qtd={it.vendas} fat={it.faturamento} inv={it.investimento} />;
           if (visao === 'custos') return <Celula key={e.chave} principal={custoTx} secundaria={qtd} />;
           if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : qtd} secundaria={e.taxa ? qtd : null} />;
           return <Celula key={e.chave} principal={qtd} secundaria={chip} terciaria={custoTx} />;
         })}
         {(() => {
-          const ct = it.clube != null && it.trator != null;
-          const rgv = it.vendas ?? 0; const total = ct ? rgv + (it.clube ?? 0) + (it.trator ?? 0) : null;
-          // Custo por venda = investimento do item / vendas da coluna; sem venda mostra R$ 0,00 em cinza (como o RGV).
-          const cac = (n: number | null | undefined) => (n != null && n > 0 && it.investimento != null ? fmtBrl(it.investimento / n) : null);
-          const col = (n: number | null | undefined) => {
-            const qtd = n != null ? fmtNum(n) : '—';
-            const custo = n == null ? '—' : cac(n) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />;
-            if (visao === 'custos') return <Celula principal={custo} secundaria={qtd} />;
-            if (visao === 'taxas') return <Celula principal={qtd} />;
-            return <Celula principal={qtd} terciaria={custo} />;
-          };
-          return <>{col(it.clube)}{col(it.trator)}{col(total)}</>;
+          const ct = it.clube != null && it.trator != null && it.clubeFat != null && it.tratorFat != null;
+          const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const fatTotal = ct && it.faturamento != null ? it.faturamento + (it.clubeFat ?? 0) + (it.tratorFat ?? 0) : null;
+          if (visao === 'taxas') return <><Celula principal={it.clube != null ? fmtNum(it.clube) : '—'} /><Celula principal={it.trator != null ? fmtNum(it.trator) : '—'} /><Celula principal={total != null ? fmtNum(total) : '—'} /></>;
+          return <>
+            <CelulaVendas qtd={it.clube} fat={it.clubeFat} inv={it.investimento} />
+            <CelulaVendas qtd={it.trator} fat={it.tratorFat} inv={it.investimento} />
+            <CelulaVendas qtd={total} fat={fatTotal} inv={it.investimento} />
+          </>;
         })()}
       </div>
     </div>
@@ -784,6 +782,22 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
       <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{principal ?? <Zero />}</div>
       {secundaria != null && <div className="text-muted-foreground mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{secundaria}</div>}
       {terciaria != null && <div className="text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{terciaria}</div>}
+    </div>
+  );
+}
+
+/** Coluna de vendas da tabela: quantidade, faturamento, CAC e ROAS (pedido da Joyce, 14/10). Sem venda: 0, R$ 0,00 e 0,00x; sem dado: "—". */
+function CelulaVendas({ qtd, fat, inv }: { qtd: number | null | undefined; fat: number | null | undefined; inv: number | null | undefined }) {
+  const linha = 'text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]';
+  const semDado = qtd == null;
+  const cac = !semDado && inv != null ? (qtd > 0 ? fmtBrl(inv / qtd) : fmtBrl(0)) : null;
+  const roas = !semDado && inv ? fmtRoas((fat ?? 0) / inv) : null;
+  return (
+    <div className="min-w-0">
+      <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{semDado ? '—' : fmtNum(qtd)}</div>
+      <div className={linha} title="Faturamento">{semDado || fat == null ? '—' : fmtBrl(fat)}</div>
+      <div className={linha} title="CAC (custo por venda)">CAC {cac ?? '—'}</div>
+      <div className={linha} title="ROAS (faturamento / investimento)">ROAS {roas ?? '—'}</div>
     </div>
   );
 }
