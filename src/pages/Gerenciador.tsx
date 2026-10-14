@@ -4,6 +4,7 @@ import { Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
+import AlertasSaude from '@/components/AlertasSaude';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Parametro { chave: string; valor: number; rotulo: string; descricao: string | null; grupo: string; atualizado_em: string }
@@ -73,7 +74,7 @@ function Observacoes({ tipo, chave, texto, aoSalvar }: { tipo: string; chave: st
 
 export default function Gerenciador() {
   const qc = useQueryClient();
-  const notas = useQuery({ queryKey: ['gerenciador-observacoes'], queryFn: () => r1Rpc<Observacao[]>('gerenciador_observacoes') });
+  const notas = useQuery({ queryKey: ['gerenciador-observacoes'], queryFn: () => r1Rpc<Observacao[]>('gerenciador_observacoes'), refetchInterval: 60_000 });
   const observacoes = (tipo: string, chave: string) => <Observacoes tipo={tipo} chave={chave} texto={notas.data?.find(n => n.tipo === tipo && n.chave === chave)?.observacoes ?? ''} aoSalvar={() => { qc.invalidateQueries({ queryKey: ['gerenciador-observacoes'] }); qc.invalidateQueries({ queryKey: ['gerenciador'] }); }} />;
   const estado = useQuery({ queryKey: ['gerenciador'], queryFn: () => r1Rpc<Estado>('gerenciador_estado'), refetchInterval: 60_000 });
   const [erro, setErro] = useState<string | null>(null);
@@ -119,6 +120,7 @@ export default function Gerenciador() {
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
+        <AlertasSaude />
         {estado.error && <div className="surface p-4 text-sm text-red-400">{(estado.error as Error).message}</div>}
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
         {aviso && <div className="surface p-3 text-xs text-emerald-400">{aviso}</div>}

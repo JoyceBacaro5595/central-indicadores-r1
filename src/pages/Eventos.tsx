@@ -5,6 +5,7 @@ import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/shared';
+import CardsRota from './maquina-vendas/CardsRota';
 
 interface Evento {
   id: number; linha: string; cidade: string; mes_evento: string; data_evento: string | null; local: string | null;
@@ -121,6 +122,7 @@ export default function Eventos() {
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
+        <CardsRota />
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
 

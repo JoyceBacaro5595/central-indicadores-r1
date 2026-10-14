@@ -1,12 +1,12 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
+import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
+import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
@@ -54,13 +54,10 @@ function presets(): Preset[] {
 }
 
 /* ─── formatação ─── */
-const fmtBrlCurto = (v: number | null | undefined) => {
-  if (v == null) return null;
-  const a = Math.abs(v);
-  if (a >= 1e6) return `R$ ${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} mi`;
-  if (a >= 1e4) return `R$ ${(v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} mil`;
-  return fmtBrl(v);
-};
+/** Dinheiro sempre em reais com 2 casas decimais (Joyce, 14/10). */
+const fmtBrl = (v: number | null | undefined, casas = 2) => fmtBrlBase(v, casas);
+/** Valores em dinheiro (investimento, faturamento) sempre em reais completos, sem "mil" ou "mi" (Joyce, 14/10). */
+const fmtBrlCurto = (v: number | null | undefined) => fmtBrl(v);
 const divide = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null || b === 0 ? null : a / b);
 /** Custos por etapa só valem quando o backend marcou `cobertura.custos_validos === true`;
  *  fora disso nada é dividido localmente nem exibido, mesmo que a RPC traga cpl/cpmql/cac. */
@@ -109,8 +106,8 @@ type Etapa = {
 const custoDe = (e: Etapa, m: PerpetuoMetricas) => (custosValidos(m) ? e.custo.v(m) : null);
 const ETAPAS: Etapa[] = [
   { chave: 'leads', rotulo: 'Lead no CRM', curto: 'Leads', sub: 'CRM', valor: (m) => m.leads_crm, custo: { rotulo: 'Custo por lead', v: (m) => m.cpl } },
-  { chave: 'mql', rotulo: 'Lead no perfil (MQL)', curto: 'No perfil', sub: 'MQL', valor: (m) => m.mql,
-    taxa: { rotulo: 'No perfil', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
+  { chave: 'mql', rotulo: 'MQL', curto: 'MQL', sub: 'perfil', valor: (m) => m.mql,
+    taxa: { rotulo: 'MQL', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
   { chave: 'contato', rotulo: 'Contato efetivo', curto: 'Contato', sub: 'conexão', valor: (m) => m.contato_efetivo,
     taxa: { rotulo: 'Conexão', v: (m) => m.taxa_contato, meta: 'conexao' }, custo: { rotulo: 'Custo por contato', v: (m) => m.custo_contato ?? divide(m.investimento, m.contato_efetivo) } },
   { chave: 'sql', rotulo: 'SQL', curto: 'SQL', sub: 'qualificação', valor: (m) => m.sql,
@@ -119,7 +116,7 @@ const ETAPAS: Etapa[] = [
     taxa: { rotulo: 'Agendamento', v: (m) => m.taxa_agendamento, meta: 'agendamento' }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => m.custo_agendado ?? divide(m.investimento, m.reunioes_agendadas) } },
   { chave: 'realizado', rotulo: 'Agendamento realizado', curto: 'Ag. realizado', sub: 'comparecimento', valor: (m) => m.reunioes_realizadas,
     taxa: { rotulo: 'Comparecimento', v: (m) => m.taxa_comparecimento, meta: 'comparecimento' }, custo: { rotulo: 'Custo por ag. realizado', v: (m) => m.custo_reuniao } },
-  { chave: 'venda', rotulo: 'Venda', curto: 'Venda', sub: 'fechamento', valor: (m) => m.vendas,
+  { chave: 'venda', rotulo: 'Vendas RGV', curto: 'Vendas RGV', sub: 'fechamento', valor: (m) => m.vendas,
     taxa: { rotulo: 'Fechamento', v: (m) => m.taxa_fechamento, meta: 'fechamento' }, custo: { rotulo: 'Custo por venda (CAC)', v: (m) => m.cac } },
 ];
 const metaDe = (metas: PerpetuoMetas | null | undefined, k: keyof PerpetuoMetas) => (metas ? (metas[k] as number | null | undefined) ?? null : null);
@@ -131,7 +128,24 @@ const ABAS: { valor: Aba; rotulo: string; eyebrow: string; titulo: string; desta
   { valor: 'lps', rotulo: 'Fluxo LP', eyebrow: 'Meta Ads · Perpétuo RGV · todas as campanhas', titulo: 'Páginas de destino,', destaque: 'somadas entre campanhas', secao: 'Páginas', nome: 'página', plural: 'páginas' },
 ];
 
-type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string };
+/** Vendas de Clube R1 e Trator ligadas ao item pela UTM; `null` enquanto a consulta não voltou. */
+type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string; clube?: number | null; trator?: number | null; clubeFat?: number | null; tratorFat?: number | null };
+const fmtRoas = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? null : `${v.toFixed(2).replace('.', ',')}x`);
+function comVendasCT(itens: Item[] | null | undefined, aba: Aba, ct: PerpetuoVendasClubeTrator | null | undefined): Item[] | null | undefined {
+  if (!itens) return itens;
+  if (!ct?.itens) return itens.map((i) => ({ ...i, clube: null, trator: null, clubeFat: null, tratorFat: null }));
+  const dim = aba === 'campanhas' ? 'campanha' : aba === 'lps' ? 'lp' : 'peca';
+  const soma = (chaves: (string | null | undefined)[], grupo: 'clube_r1' | 'trator', campo: 'vendas' | 'faturamento' = 'vendas') => {
+    const set = new Set(chaves.filter((c): c is string => !!c));
+    return ct.itens!.filter((x) => x.dim === dim && x.grupo === grupo && set.has(x.chave)).reduce((s, x) => s + Number(x[campo] ?? 0), 0);
+  };
+  return itens.map((i) => {
+    // Peça: o código do item é o mesmo rgv.peca_chave(nome do anúncio) que o banco usa na UTM.
+    const chaves = dim === 'peca' ? [i.codigo, ...(i.codigos ?? [])] : [i.id];
+    return { ...i, clube: soma(chaves, 'clube_r1'), trator: soma(chaves, 'trator'), clubeFat: soma(chaves, 'clube_r1', 'faturamento'), tratorFat: soma(chaves, 'trator', 'faturamento') };
+  });
+}
+
 function itensDaAba(aba: Aba, d: PerpetuoFunil | undefined): Item[] | null | undefined {
   if (!d) return undefined;
   // A RPC pode devolver rótulo nulo (front_daily.label é opcional): mostramos o id como nome.
@@ -185,6 +199,7 @@ export default function Perpetuo() {
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
+  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
   const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
@@ -208,14 +223,14 @@ export default function Perpetuo() {
   };
   const mudarData = (campo: 'de' | 'ate', v: string) => { setPreset('custom'); if (campo === 'de') setDe(v); else setAte(v); };
 
-  const itens = itensDaAba(aba, data);
+  const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;
   const metas = data?.metas ?? null;
 
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
-        titulo="Perpétuo RGV · Fluxo Marketing"
+        titulo="Perpétuo RGV · Fluxo Marketing RGV"
         subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
         onAtualizar={atualizar}
         atualizando={isFetching}
@@ -310,9 +325,11 @@ export default function Perpetuo() {
 
         {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
 
-        {r && <FaixaFunil m={r} metas={metas} />}
+        {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
-        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
+        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} />}
+
+        {data && <CardSemOrigem d={data} />}
 
         <ComoLer />
       </PageBody>
@@ -374,60 +391,240 @@ function ContaPill() {
   );
 }
 
-/* ─── faixa do funil (7 etapas) ─── */
-function FaixaFunil({ m, metas }: { m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
+/* ─── faixa do funil: uma linha única, sem quebra nem rolagem; os cards se ajustam à largura (Joyce, 14/10) ───
+ * Investimento | Lead no CRM | MQL | Contato efetivo | SQL | Ag. marcado | Ag. realizado | Vendas RGV | Vendas Clube R1 | Vendas Trator | Total.
+ * Em telas estreitas a faixa rola na horizontal em vez de quebrar linha. */
+const CARD_FAIXA = 'flex-1 basis-0 min-w-0 p-2';
+const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
+const NUM_FAIXA = 'display leading-none mt-1.5 text-foreground whitespace-nowrap text-[clamp(18px,1.8vw,28px)]';
+const CUSTO_FAIXA = 'display text-foreground whitespace-nowrap text-[clamp(13px,1.25vw,18px)]';
+function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
   const base = m.leads_crm;
+  const v = e.valor(m);
+  const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
+  const taxa = e.taxa?.v(m);
+  const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+  const custo = custoDe(e, m);
+  const mTaxa = motivoTaxa(m);
   return (
-    <div className="surface overflow-hidden">
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-border">
-        {ETAPAS.map((e, i) => {
-          const v = e.valor(m);
-          const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
-          const taxa = e.taxa?.v(m);
-          const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
-          const custo = custoDe(e, m);
-          const mTaxa = motivoTaxa(m);
-          return (
-            <div key={e.chave} className={`p-4 ${i >= 4 ? 'md:border-t md:border-border xl:border-t-0' : ''}`}>
-              <div className="text-sm font-bold text-foreground">{e.rotulo}</div>
-              <div className="display text-[34px] leading-none mt-2 text-foreground">{fmtNum(v) ?? <Zero />}</div>
-              <div className="h-1.5 rounded-full bg-muted mt-3 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
-              <div className="mt-3 space-y-1 text-xs">
-                {e.chave === 'leads' ? (
-                  <>
-                    <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
-                    <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
-                  </>
-                ) : e.chave === 'mql' ? (
-                  <>
-                    <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
-                    {/* MQL → venda vem do backend (rgv.funil_calc). */}
-                    <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
-                  </>
-                ) : (
-                  <>
-                    <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
-                    <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
-                  </>
-                )}
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground">{e.custo.rotulo}</div>
-              <div className="display text-xl text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
-            </div>
-          );
-        })}
+    <div className={CARD_FAIXA}>
+      <div className={TITULO_FAIXA}>{e.rotulo}</div>
+      <div className={NUM_FAIXA}>{fmtNum(v) ?? <Zero />}</div>
+      <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
+      <div className="mt-2 space-y-1.5 text-[10px]">
+        {e.chave === 'leads' ? (
+          <>
+            <Linha empilhado k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
+            <Linha empilhado k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
+          </>
+        ) : e.chave === 'mql' ? (
+          <>
+            <Linha empilhado k="MQL" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
+            {/* MQL → venda vem do backend (rgv.funil_calc). */}
+            <Linha empilhado k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
+          </>
+        ) : (
+          <>
+            <Linha empilhado k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+          </>
+        )}
       </div>
+      <div className="mt-3 text-[10px] text-muted-foreground leading-tight">{e.custo.rotulo}</div>
+      <div className={CUSTO_FAIXA}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
     </div>
   );
 }
 
-function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num' }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string; tipo?: 'num' | 'pct' | 'brl' }) {
+/** Card de vendas por produto. CAC = investimento de Perpétuo no período / vendas do próprio card; sem venda, "—". */
+function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa }: {
+  titulo: string; vendas: number | null; fat: number | null; inv: number | null | undefined; base: number | null | undefined;
+  taxaFech?: number | null; metaFech?: number | null; mTaxa?: string;
+}) {
+  const largura = vendas != null && base ? Math.max(2, Math.min(100, (vendas / base) * 100)) : 0;
+  const cac = inv != null && vendas != null && vendas > 0 ? fmtBrl(inv / vendas) : null;
+  const ticket = fat != null && vendas != null && vendas > 0 ? fmtBrl(fat / vendas) : null;
+  const roas = fat != null && inv ? fmtRoas(fat / inv) : null;
+  return (
+    <div className={CARD_FAIXA}>
+      <div className={TITULO_FAIXA}>{titulo}</div>
+      <div className={NUM_FAIXA}>{vendas == null ? '—' : fmtNum(vendas)}</div>
+      <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
+      <div className="mt-2 space-y-1.5 text-[10px]">
+        <Linha empilhado k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
+        <Linha empilhado k="Ticket médio" v={ticket} motivo="Sem venda no período: ticket médio não calculável." tipo="brl" />
+        {taxaFech !== undefined && (
+          <>
+            <Linha empilhado k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+          </>
+        )}
+        <Linha empilhado k="ROAS" v={roas} motivo="Sem faturamento ou investimento no período." />
+      </div>
+      <div className="mt-3 text-[10px] text-muted-foreground leading-tight">CAC</div>
+      <div className={CUSTO_FAIXA}>{cac ?? <span className="text-muted-foreground">—</span>}</div>
+    </div>
+  );
+}
+
+/* Largura (peso de cada card) e altura da faixa ajustáveis por arraste; ficam salvos neste navegador (Joyce, 14/10). */
+const PESOS_PADRAO = [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+const CHAVE_TAMANHO = 'perpetuo-faixa-tamanho-v1';
+function lerTamanho(): { pesos: number[]; altura: number | null } {
+  try {
+    const j = JSON.parse(localStorage.getItem(CHAVE_TAMANHO) ?? 'null');
+    if (j && Array.isArray(j.pesos) && j.pesos.length === PESOS_PADRAO.length && j.pesos.every((x: unknown) => typeof x === 'number' && x > 0))
+      return { pesos: j.pesos, altura: typeof j.altura === 'number' ? j.altura : null };
+  } catch { /* sem armazenamento: usa o padrão */ }
+  return { pesos: PESOS_PADRAO, altura: null };
+}
+function useTamanhoFaixa() {
+  const linhaRef = useRef<HTMLDivElement>(null);
+  const [ini] = useState(lerTamanho);
+  const [pesos, setPesos] = useState<number[]>(ini.pesos);
+  const [altura, setAltura] = useState<number | null>(ini.altura);
+  useEffect(() => {
+    try { localStorage.setItem(CHAVE_TAMANHO, JSON.stringify({ pesos, altura })); } catch { /* ignora */ }
+  }, [pesos, altura]);
+  const arrastarAltura = (ev: React.PointerEvent) => {
+    const y0 = ev.clientY; const h0 = linhaRef.current?.getBoundingClientRect().height ?? 0;
+    const mv = (e: PointerEvent) => setAltura(Math.max(120, Math.round(h0 + e.clientY - y0)));
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  const Slot = ({ i, ultimo, children }: { i: number; ultimo?: boolean; children: React.ReactNode }) => {
+    const arrastar = (ev: React.PointerEvent) => {
+      ev.preventDefault();
+      const x0 = ev.clientX; const base = pesos; const soma = base.reduce((a, b) => a + b, 0);
+      const larg = linhaRef.current?.getBoundingClientRect().width || 1;
+      const mv = (e: PointerEvent) => {
+        const d = ((e.clientX - x0) / larg) * soma;
+        const prox = ultimo ? null : i + 1;
+        const novo = [...base];
+        novo[i] = Math.max(0.5, base[i] + d);
+        if (prox != null) novo[prox] = Math.max(0.5, base[prox] - (novo[i] - base[i]));
+        setPesos(novo);
+      };
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    };
+    return (
+      <div className="relative min-w-0" style={{ flex: `${pesos[i]} 1 0%` }}>
+        {children}
+        <div onPointerDown={arrastar} onDoubleClick={() => setPesos(PESOS_PADRAO)}
+          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize touch-none hover:bg-violet-400/40 z-10" title="Arraste para ajustar a largura" />
+      </div>
+    );
+  };
+  return { linhaRef, pesos, setPesos, altura, setAltura, arrastarAltura, Slot };
+}
+
+function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMetas | null; ct: PerpetuoVendasClubeTrator | null }) {
+  const etapas = ETAPAS.filter((e) => e.chave !== 'venda');
+  const venda = ETAPAS.find((e) => e.chave === 'venda')!;
+  const rgv = m.vendas ?? null;
+  const clube = ct ? ct.clube_r1.vendas : null;
+  const trator = ct ? ct.trator.vendas : null;
+  const semProduto = ct?.sem_produto.vendas ?? 0;
+  const total = rgv != null && clube != null && trator != null ? rgv + clube + trator + semProduto : null;
+  const fatTotal = m.faturamento != null && ct ? m.faturamento + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
+  const inv = m.investimento;
+  const { linhaRef, pesos, setPesos, altura, setAltura, arrastarAltura, Slot } = useTamanhoFaixa();
+  return (
+    <div className="space-y-1.5">
+      <div className="surface overflow-hidden">
+        <div ref={linhaRef} className="flex flex-nowrap divide-x divide-border" style={altura != null ? { minHeight: altura } : undefined}>
+          <Slot i={0}>
+          <div className="min-w-0 p-2 h-full">
+            <div className={TITULO_FAIXA}>Investimento</div>
+            <div className="display leading-none mt-2 text-foreground whitespace-nowrap text-[clamp(14px,1.45vw,22px)]">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
+            <div className="h-1.5 mt-2.5" />
+            <div className="mt-2 space-y-1.5 text-[10px]">
+              <Linha empilhado k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
+              <Linha empilhado k="CPC" v={fmtBrl(m.cpc)} motivo="CPC ainda não publicado neste corte." tipo="brl" />
+            </div>
+            <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Perpétuo</div>
+            <div className={CUSTO_FAIXA}>&nbsp;</div>
+          </div>
+          </Slot>
+          {etapas.map((e, k) => <Slot key={e.chave} i={k + 1}><CardEtapa e={e} m={m} metas={metas} /></Slot>)}
+          <Slot i={etapas.length + 1}><CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
+            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaDe(metas, venda.taxa!.meta)} mTaxa={motivoTaxa(m)} /></Slot>
+          <Slot i={etapas.length + 2}><CardVendas titulo="Vendas Clube R1" vendas={clube} fat={ct ? ct.clube_r1.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
+          <Slot i={etapas.length + 3}><CardVendas titulo="Vendas Trator" vendas={trator} fat={ct ? ct.trator.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
+          <Slot i={etapas.length + 4} ultimo><CardVendas titulo="Total de vendas" vendas={total} fat={fatTotal} inv={inv} base={m.leads_crm} /></Slot>
+        </div>
+        <div
+          onPointerDown={arrastarAltura} onDoubleClick={() => setAltura(null)}
+          className="h-2 cursor-row-resize touch-none border-t border-border/60 hover:bg-violet-400/30" title="Arraste para ajustar a altura dos cards; duplo clique restaura" />
+      </div>
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span>Arraste a borda direita de um card para a largura e a barra de baixo para a altura.</span>
+        {(altura != null || pesos.some((x, k) => x !== PESOS_PADRAO[k])) && (
+          <button type="button" onClick={() => { setPesos(PESOS_PADRAO); setAltura(null); }} className="underline hover:text-foreground">Restaurar tamanhos</button>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
+      </p>
+    </div>
+  );
+}
+
+function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num', empilhado }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string; tipo?: 'num' | 'pct' | 'brl'; empilhado?: boolean }) {
   const texto = v == null ? <Zero tipo={tipo} motivo={motivo} /> : v;
   const extra = meta != null && taxa != null ? <span className="text-muted-foreground"> · meta {fmtPct(meta, 2)} · {pp(taxa - meta)}</span> : null;
   return (
-    <div className="flex items-baseline justify-between gap-2">
+    <div className={empilhado ? 'flex flex-col leading-tight' : 'flex items-baseline justify-between gap-2'}>
       <span className="text-muted-foreground">{k}</span>
-      <span className={`mono ${forte ? 'font-bold text-foreground' : 'text-foreground/90'}`}>{texto}{extra}</span>
+      <span className={`mono ${empilhado ? 'whitespace-nowrap' : ''} ${forte ? 'font-bold text-foreground' : 'text-foreground/90'}`}>{texto}{extra}</span>
+    </div>
+  );
+}
+
+/** Vendas do período são sempre o total do CRM, tenha havido investimento ou não. A lista só traz itens com veiculação
+ *  ou leads no período; a diferença para o total aparece aqui, sem esconder venda (Joyce, 14/10). */
+function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total: number | null | undefined; nome: string }) {
+  if (!itens || total == null) return null;
+  const naLista = itens.reduce((s, i) => s + (i.vendas ?? 0), 0);
+  const fora = total - naLista;
+  return (
+    <div className="surface px-4 py-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1" role="note">
+      <span><span className="text-muted-foreground">Vendas no período (total)</span> <b className="mono text-foreground">{fmtNum(total)}</b></span>
+      <span><span className="text-muted-foreground">Somadas nas {nome === 'página' ? 'páginas' : nome === 'peça' ? 'peças' : 'campanhas'} abaixo</span> <b className="mono text-foreground">{fmtNum(naLista)}</b></span>
+      {fora > 0 && (
+        <span className="text-amber-400">
+          {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Leads que chegam sem campanha na UTM (origem "Sem Origem"): total de leads no CRM menos os leads somados nas campanhas.
+ *  Calculado no front a partir do que a RPC já devolve; sem campanha na lista, fica "—" (Joyce, 14/10). */
+function CardSemOrigem({ d }: { d: PerpetuoFunil }) {
+  const total = d.resumo?.leads_crm;
+  const camps = d.por_campanha;
+  const ok = total != null && Array.isArray(camps);
+  const comCamp = ok ? camps!.reduce((s, c) => s + (c.leads_crm ?? 0), 0) : null;
+  const sem = ok && comCamp != null ? Math.max(0, total! - comCamp) : null;
+  const pct = sem != null && total! > 0 ? (sem / total!) * 100 : null;
+  return (
+    <div className="surface p-4 space-y-2" role="note" aria-label="Leads sem origem">
+      <p className="font-semibold text-foreground">Leads sem origem</p>
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+        <div>
+          <div className="text-3xl font-serif text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
+          <div className="text-xs text-muted-foreground">leads sem campanha na UTM</div>
+        </div>
+        <div>
+          <div className="text-3xl font-serif text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
+          <div className="text-xs text-muted-foreground">dos leads no CRM{total != null ? ` (${fmtNum(total)})` : ''}</div>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">Leads que entram sem as UTMs e ficam agrupados como Sem Origem. Total de leads no CRM menos os leads somados nas campanhas do período.</p>
     </div>
   );
 }
@@ -441,22 +638,23 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: 'vendas', rotulo: 'Mais vendas' }, { valor: 'cac', rotulo: 'Menor CAC' },
 ];
 
-/* Peças por linha nos cards: escolha da pessoa, guardada no navegador. Classes completas para o Tailwind enxergar. */
+/* Peças por linha nos cards: escolha da pessoa, guardada no navegador. Classes completas para o Tailwind enxergar.
+ * O espaçamento entre cards (gap-4) é o da visão de 3 por linha em todas; de 4 em diante só a fonte (zoom do card) diminui para caber (Joyce, 14/10). */
 const POR_LINHA = [2, 3, 4, 5, 6] as const;
 type PorLinha = (typeof POR_LINHA)[number];
 const CHAVE_POR_LINHA = 'perpetuo.pecasPorLinha';
 const GRID_POR_LINHA: Record<PorLinha, string> = {
   2: 'md:grid-cols-2',
   3: 'md:grid-cols-2 xl:grid-cols-3',
-  4: 'md:grid-cols-2 xl:grid-cols-4',
-  5: 'md:grid-cols-3 xl:grid-cols-5',
-  6: 'md:grid-cols-3 xl:grid-cols-6',
+  4: 'md:grid-cols-2 xl:grid-cols-4 xl:[&>article]:[zoom:0.92]',
+  5: 'md:grid-cols-3 xl:grid-cols-5 xl:[&>article]:[zoom:0.84]',
+  6: 'md:grid-cols-3 xl:grid-cols-6 xl:[&>article]:[zoom:0.76]',
 };
 function lerPorLinha(): PorLinha {
   try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
 }
 
-function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null }) {
+function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
@@ -531,6 +729,12 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
       </div>
 
       <ReguaMetas metas={metas} />
+      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} />
+      {ct && itens && (() => {
+        const lig = itens.reduce((x, i) => x + (i.clube ?? 0) + (i.trator ?? 0), 0);
+        const tot = ct.clube_r1.vendas + ct.trator.vendas + ct.sem_produto.vendas;
+        return <p className="text-xs text-muted-foreground">Clube R1 e Trator: {fmtNum(lig)} de {fmtNum(tot)} {tot === 1 ? 'venda ligada' : 'vendas ligadas'} {aba === 'criativos' ? 'às peças' : aba === 'campanhas' ? 'às campanhas' : 'às páginas'} pela UTM de campanha e anúncio do negócio. As demais não têm UTM (ou a UTM não existe no Meta) e ficam só no total geral, sem atribuição por palpite.</p>;
+      })()}
       <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
@@ -546,10 +750,10 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
         )
       ) : (
         <div className="surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1100px]">
+          <div>
+            <div>
               {/* cabeçalho das colunas */}
-              <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 px-5 py-3 border-b border-border bg-secondary/30 text-xs">
+              <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
                 <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">leads Meta</div></div>
                 {ETAPAS.map((e) => {
                   const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
@@ -560,6 +764,9 @@ function Lista({ aba, secao, nome, itens, metas, referencia }: { aba: Aba; secao
                     </div>
                   );
                 })}
+                <div><div className="font-bold text-foreground">Vendas Clube R1</div><div className="text-muted-foreground" title="Só vendas com UTM de campanha e anúncio no negócio">por UTM</div></div>
+                <div><div className="font-bold text-foreground">Vendas Trator</div><div className="text-muted-foreground" title="Só vendas com UTM de campanha e anúncio no negócio">por UTM</div></div>
+                <div><div className="font-bold text-foreground">Total de vendas</div><div className="text-muted-foreground">RGV + Clube + Trator</div></div>
               </div>
               {visiveis.length === 0 && <div className="px-5 py-6 text-sm text-muted-foreground">Nenhum resultado para esse filtro no período.</div>}
               {visiveis.map((it, idx) => <LinhaItem aoAbrir={() => setSelecionado(it)} key={it.id} it={it} pos={idx + 1} visao={visao} metas={metas} aba={aba} />)}
@@ -595,7 +802,7 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
 function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
   return (
-    <div className="px-5 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
+    <div className="px-3 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
         <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
@@ -604,7 +811,7 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
         </span>
       </div>
-      <div className="grid grid-cols-[1.3fr_repeat(7,1fr)] gap-3 mt-2 pl-8">
+      <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 mt-2 pl-6">
         <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
         {ETAPAS.map((e) => {
           const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
@@ -615,21 +822,51 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           ) : null;
           const qtd = fmtNum(v) ?? <Zero motivo={mItem} />;
           const custoTx = fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />;
+          if (e.chave === 'venda' && visao !== 'taxas') return <CelulaVendas key={e.chave} qtd={it.vendas} fat={it.faturamento} inv={it.investimento} />;
           if (visao === 'custos') return <Celula key={e.chave} principal={custoTx} secundaria={qtd} />;
           if (visao === 'taxas') return <Celula key={e.chave} principal={e.taxa ? chip : qtd} secundaria={e.taxa ? qtd : null} />;
           return <Celula key={e.chave} principal={qtd} secundaria={chip} terciaria={custoTx} />;
         })}
+        {(() => {
+          const ct = it.clube != null && it.trator != null && it.clubeFat != null && it.tratorFat != null;
+          const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const fatTotal = ct && it.faturamento != null ? it.faturamento + (it.clubeFat ?? 0) + (it.tratorFat ?? 0) : null;
+          if (visao === 'taxas') return <><Celula principal={it.clube != null ? fmtNum(it.clube) : '—'} /><Celula principal={it.trator != null ? fmtNum(it.trator) : '—'} /><Celula principal={total != null ? fmtNum(total) : '—'} /></>;
+          return <>
+            <CelulaVendas qtd={it.clube} fat={it.clubeFat} inv={it.investimento} />
+            <CelulaVendas qtd={it.trator} fat={it.tratorFat} inv={it.investimento} />
+            <CelulaVendas qtd={total} fat={fatTotal} inv={it.investimento} />
+          </>;
+        })()}
       </div>
     </div>
   );
 }
 
 function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | null; secundaria?: ReactNode | null; terciaria?: ReactNode | null }) {
+  // Tamanhos acompanham a largura da tela para os 11 grupos caberem sem rolagem lateral.
   return (
     <div className="min-w-0">
-      <div className="text-base font-bold text-foreground mono">{principal ?? <Zero />}</div>
-      {secundaria != null && <div className="text-xs text-muted-foreground mt-0.5">{secundaria}</div>}
-      {terciaria != null && <div className="text-xs text-muted-foreground mono mt-0.5">{terciaria}</div>}
+      <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{principal ?? <Zero />}</div>
+      {secundaria != null && <div className="text-muted-foreground mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{secundaria}</div>}
+      {terciaria != null && <div className="text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{terciaria}</div>}
+    </div>
+  );
+}
+
+/** Coluna de vendas da tabela: quantidade, faturamento, CAC e ROAS (pedido da Joyce, 14/10). Sem venda: 0, R$ 0,00 e 0,00x; sem dado: "—". */
+function CelulaVendas({ qtd, fat, inv }: { qtd: number | null | undefined; fat: number | null | undefined; inv: number | null | undefined }) {
+  const linha = 'text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]';
+  const semDado = qtd == null;
+  const cac = !semDado && inv != null ? (qtd > 0 ? fmtBrl(inv / qtd) : fmtBrl(0)) : null;
+  const roas = !semDado && inv ? fmtRoas((fat ?? 0) / inv) : null;
+  return (
+    <div className="min-w-0">
+      <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{semDado ? '—' : fmtNum(qtd)}</div>
+      <div className={linha} title="Faturamento">{semDado || fat == null ? '—' : fmtBrl(fat)}</div>
+      <div className={linha} title="Ticket médio (faturamento / vendas)">Ticket {semDado || fat == null ? '—' : fmtBrl(qtd > 0 ? fat / qtd : 0)}</div>
+      <div className={linha} title="CAC (custo por venda)">CAC {cac ?? '—'}</div>
+      <div className={linha} title="ROAS (faturamento / investimento)">ROAS {roas ?? '—'}</div>
     </div>
   );
 }
@@ -702,7 +939,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
               const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
               return (
                 <tr key={e.chave} className="border-t border-border/60">
-                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.curto}</td>
+                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.chave === 'venda' ? 'Vendas RGV' : e.curto}</td>
                   <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <Zero motivo={mItem} />}</td>
                   <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} /> : ''}</td>
                   <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={v === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</td>
@@ -711,6 +948,40 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
             })}
           </tbody>
         </table>
+        {(() => {
+          // Vendas por produto: quantidade, faturamento, CAC e ROAS (pedido da Joyce, 14/10). Clube e Trator só com UTM ligada ao item.
+          const ok = it.clube != null && it.trator != null && it.clubeFat != null && it.tratorFat != null;
+          const total = ok ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const fatTotal = ok && it.faturamento != null ? it.faturamento + (it.clubeFat ?? 0) + (it.tratorFat ?? 0) : null;
+          const linha = (rot: string, qtd: number | null | undefined, fat: number | null | undefined, forte = false) => {
+            const cac = qtd != null && it.investimento != null ? fmtBrl(qtd > 0 ? it.investimento / qtd : 0) : null;
+            const roas = qtd != null && it.investimento ? fmtRoas((fat ?? 0) / it.investimento) : null;
+            return (
+              <tr className="border-t border-border/60">
+                <td className={`py-1.5 ${forte ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{rot}</td>
+                <td className="py-1.5 text-right mono font-semibold text-foreground">{qtd != null ? fmtNum(qtd) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{qtd != null && fat != null ? fmtBrl(fat) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{qtd != null && fat != null ? (qtd > 0 ? fmtBrl(fat / qtd) : fmtBrl(0)) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{cac ?? '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{roas ?? '—'}</td>
+              </tr>
+            );
+          };
+          return (
+            <div className="border-t border-border pt-3">
+              <table className="w-full text-[11px]">
+                <thead><tr className="text-muted-foreground"><th className="py-1 text-left font-semibold">Vendas</th><th className="py-1 text-right font-semibold">Qtd</th><th className="py-1 text-right font-semibold">Faturamento</th><th className="py-1 text-right font-semibold">Ticket</th><th className="py-1 text-right font-semibold">CAC</th><th className="py-1 text-right font-semibold">ROAS</th></tr></thead>
+                <tbody>
+                  {linha('RGV', it.vendas, it.faturamento)}
+                  {linha('Clube R1', it.clube, it.clubeFat)}
+                  {linha('Trator', it.trator, it.tratorFat)}
+                  {linha('Total', total, fatTotal, true)}
+                </tbody>
+              </table>
+              <div className="mt-1 text-[11px] text-muted-foreground">Clube e Trator ligados pela UTM do negócio</div>
+            </div>
+          );
+        })()}
         <button type="button" onClick={aoAbrir} className="w-full border-t border-border pt-3 text-sm font-semibold text-gold hover:underline">Ver detalhes</button>
       </div>
     </article>
@@ -721,7 +992,7 @@ function Mini({ k, v, motivo, tipo = 'num' }: { k: string; v: string | null | un
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-muted-foreground">{k}</div>
-      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <Zero tipo={tipo} motivo={motivo} />}</div>
+      <div className="text-sm font-bold text-foreground mono break-words">{v ?? <Zero tipo={tipo} motivo={motivo} />}</div>
     </div>
   );
 }
@@ -730,7 +1001,7 @@ function Mini({ k, v, motivo, tipo = 'num' }: { k: string; v: string | null | un
 const COMO_LER: [string, string][] = [
   ['Investimento', 'Gasto no Meta Ads da conta PERPETUO RGV no período, só das campanhas marcadas [FF] (Perpétuo); campanhas de distribuição e remarketing sem lead ficam de fora.'],
   ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
-  ['Lead no perfil (MQL)', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
+  ['MQL', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo que contém o fim do período (ciclo 45: conexão 33% dos MQLs, qualificação 45%, agendamento 76%, comparecimento 72%, fechamento 32%). Sem plano cadastrado, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
@@ -740,8 +1011,8 @@ const COMO_LER: [string, string][] = [
   ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
   ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados de hora em hora, logo depois da recarga do Meta e do HubSpot (minuto 00); a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
-  ['MQL', 'Lead no perfil: faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
-  ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
+  ['MQL (regra)', 'Faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
+  ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0,00 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
 function ComoLer() {
   return (
@@ -811,7 +1082,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
         {aba === 'lps' && (item.campanhas_lista?.length ?? 0) > 0 && <section className="space-y-2">
           <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Campanhas ({fmtNum(item.campanhas_lista!.length)})</h4>
           <div className="flex flex-wrap gap-2">
-            {item.campanhas_lista!.map(c => { const href = linkGerenciadorCampanha(c.id); const txt = <><span className="truncate max-w-[16rem]">{c.nome ?? c.id}</span><span className="mono text-muted-foreground">· {fmtBrl(c.investimento) ?? 'R$ 0'}</span></>;
+            {item.campanhas_lista!.map(c => { const href = linkGerenciadorCampanha(c.id); const txt = <><span className="truncate max-w-[16rem]">{c.nome ?? c.id}</span><span className="mono text-muted-foreground">· {fmtBrl(c.investimento) ?? 'R$ 0,00'}</span></>;
               const cls = 'inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground';
               return href ? <a key={c.id} href={href} target="_blank" rel="noopener noreferrer" title={c.nome ?? c.id} className={`${cls} hover:bg-secondary`}>{txt}</a> : <span key={c.id} className={cls}>{txt}</span>; })}
           </div>
@@ -851,6 +1122,26 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                 </div>
               </div>;
             })}
+            {(() => {
+              const ct = item.clube != null && item.trator != null;
+              const total = ct ? (item.vendas ?? 0) + (item.clube ?? 0) + (item.trator ?? 0) : null;
+              const cac = total != null && total > 0 && item.investimento != null ? fmtBrl(item.investimento / total) : null;
+              const cacDe = (n: number | null | undefined) => (n != null && n > 0 && item.investimento != null ? fmtBrl(item.investimento / n) : null);
+              const linha = (rot: string, v: number | null | undefined, extra?: ReactNode) => (
+                <div className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
+                  <span className="text-foreground font-semibold pt-1">{rot}</span>
+                  <div className="space-y-1">
+                    <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{v != null ? fmtNum(v) : '—'}</div>
+                    {extra}
+                  </div>
+                </div>
+              );
+              return <>
+                {linha('Vendas Clube R1', item.clube, <div className="text-muted-foreground">Custo por venda (CAC) <b className="text-foreground">{cacDe(item.clube) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b> · ligadas pela UTM</div>)}
+                {linha('Vendas Trator', item.trator, <div className="text-muted-foreground">Custo por venda (CAC) <b className="text-foreground">{cacDe(item.trator) ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b> · ligadas pela UTM</div>)}
+                {linha('Total de vendas', total, <div className="text-muted-foreground">CAC total <b className="text-foreground">{cac ?? <Zero tipo="brl" motivo="Sem venda no período: custo por venda não calculável." />}</b></div>)}
+              </>;
+            })()}
           </div>
           {poucosLeads && <p className="text-[11px] text-muted-foreground">Amostra pequena: menos de 10 leads. Os custos ainda não servem de comparação.</p>}
           {!custosValidos(item) && <p className="text-[11px] text-muted-foreground">{MOTIVO_CUSTO}</p>}
@@ -866,7 +1157,7 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                   <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" minTickGap={24} />
                   {temLeadsDia && <YAxis yAxisId="leads" allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={28} />}
-                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={56} tickFormatter={(v: number) => fmtBrlCurto(v) ?? ''} />}
+                  {temInvestDia && <YAxis yAxisId="invest" orientation="right" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={100} tickFormatter={(v: number) => fmtBrl(v) ?? ''} />}
                   <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: number, nome: string) => [nome === 'Investimento por dia' ? fmtBrl(v) ?? '—' : fmtNum(v) ?? '—', nome]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {temLeadsDia && <Bar yAxisId="leads" dataKey="leads" name="Leads no Meta por dia" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />}

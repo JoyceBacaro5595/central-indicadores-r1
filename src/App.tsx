@@ -5,6 +5,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const Planejamento = lazy(() => import("./pages/Planejamento.tsx"));
+const MaquinaVendas = lazy(() => import("./pages/MaquinaVendas.tsx"));
+const VisaoGeral = lazy(() => import("./pages/VisaoGeral.tsx"));
 const Central = lazy(() => import("./pages/Central.tsx"));
 const Relatorio = lazy(() => import("./pages/Relatorio.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
@@ -36,7 +39,8 @@ const App = () => (
           <Route path="/redefinir-senha" element={<RedefinirSenha />} />
           <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
-            <Route path="/" element={<Navigate to="/central" replace />} />
+            <Route path="/" element={<Navigate to="/visao-geral" replace />} />
+            <Route path="/visao-geral" element={<VisaoGeral />} />
             <Route path="/central/conta" element={<Conta />} />
           {/* Cada visão tem o próprio recurso na matriz de permissões (identity.recurso). */}
           <Route element={<RequireAuth recurso="painel" />}>
@@ -55,6 +59,12 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="eventos" />}>
             <Route path="/central/eventos" element={<Eventos />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
+            <Route path="/central/maquina-vendas" element={<MaquinaVendas />} />
+          </Route>
+          <Route element={<RequireAuth recurso="eventos" />}>
+            <Route path="/central/planejamento" element={<Planejamento />} />
           </Route>
           <Route element={<RequireAuth recurso="presenca" />}>
             <Route path="/central/checkins" element={<Checkins />} />

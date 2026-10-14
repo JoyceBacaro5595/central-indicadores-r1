@@ -34,7 +34,7 @@ const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
 /* Rótulos de reserva, usados só se o backend ainda não devolver o catálogo identity.recurso. */
 const RECURSOS: Record<string, string> = {
   painel: 'Visão geral (Central de ingressos)', eventos: 'Eventos e metas', relatorio: 'Relatório', exportar: 'Exportar CSV/PDF', presenca: 'Check-ins',
-  recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing (Perpétuo RGV)', regras: 'Regras de segmentação',
+  recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing RGV (Perpétuo)', regras: 'Regras de segmentação',
   gerenciador: 'Integrações e logs', analista: 'Consulta SQL (analista de dados)', usuarios: 'Usuários e permissões',
 };
 
@@ -43,9 +43,9 @@ const fmt = (d: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { tim
 export default function Usuarios() {
   const { perfil, recarregarPerfil } = useAuth();
   const qc = useQueryClient();
-  const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar') });
-  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: async () => normalizarPermissoes(await r1Rpc<unknown>('permissoes_listar')) });
-  const times = useQuery({ queryKey: ['times'], queryFn: () => r1Rpc<Time[]>('times_listar'), retry: false });
+  const usuarios = useQuery({ queryKey: ['usuarios'], queryFn: () => r1Rpc<Usuario[]>('usuarios_listar'), refetchInterval: 60_000 });
+  const permissoes = useQuery({ queryKey: ['permissoes'], queryFn: async () => normalizarPermissoes(await r1Rpc<unknown>('permissoes_listar')), refetchInterval: 60_000 });
+  const times = useQuery({ queryKey: ['times'], queryFn: () => r1Rpc<Time[]>('times_listar'), retry: false, refetchInterval: 60_000 });
   const timesAtivos = (times.data ?? []).filter((t) => t.ativo);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -212,21 +212,24 @@ export default function Usuarios() {
           <table className="w-full text-xs">
             <thead className="text-[10px] uppercase tracking-wide text-muted-foreground">
               <tr className="border-b border-border">
+                <th className="text-left p-3" title="Ordem de criação do acesso">Nº</th>
                 <th className="text-left p-3">Usuário</th>
                 <th className="text-left p-3">Perfil</th>
                 <th className="text-left p-3">Time</th>
                 <th className="text-left p-3">Ativo</th>
+                <th className="text-left p-3">Criado em</th>
                 <th className="text-left p-3">Último login</th>
                 <th className="text-left p-3">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {(usuarios.data ?? []).map((u) => {
+              {[...(usuarios.data ?? [])].sort((a, b) => (a.criado_em < b.criado_em ? -1 : a.criado_em > b.criado_em ? 1 : 0)).map((u, i) => {
                 const eu = u.user_id === perfil?.user_id;
                 const emEdicao = editando === u.user_id && rascunho;
                 const ocupado = salvarLinha.isPending || excluir.isPending;
                 return (
                   <tr key={u.user_id} className={`border-b border-border/60 ${u.ativo || emEdicao ? '' : 'opacity-60'}`}>
+                    <td className="p-3 text-muted-foreground tabular-nums" title="Ordem de criação do acesso">{i + 1}</td>
                     <td className="p-3">
                       {emEdicao ? (
                         <div className="space-y-1">
@@ -264,6 +267,7 @@ export default function Usuarios() {
                         <input type="checkbox" checked={rascunho.ativo} disabled={eu} onChange={(e) => setRascunho({ ...rascunho, ativo: e.target.checked })} />
                       ) : <span className={u.ativo ? 'text-emerald-400' : 'text-muted-foreground'}>{u.ativo ? 'Sim' : 'Não'}</span>}
                     </td>
+                    <td className="p-3 text-muted-foreground">{fmt(u.criado_em)}</td>
                     <td className="p-3 text-muted-foreground">{fmt(u.ultimo_login)}</td>
                     <td className="p-3">
                       {emEdicao ? (
@@ -322,7 +326,7 @@ export default function Usuarios() {
                   </tr>
                 );
               })}
-              {usuarios.data?.length === 0 && <tr><td className="p-3 text-muted-foreground" colSpan={6}>Nenhum usuário ainda.</td></tr>}
+              {usuarios.data?.length === 0 && <tr><td className="p-3 text-muted-foreground" colSpan={8}>Nenhum usuário ainda.</td></tr>}
             </tbody>
           </table>
         </div>

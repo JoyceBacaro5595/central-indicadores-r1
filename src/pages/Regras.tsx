@@ -41,8 +41,8 @@ function LinhaRegra({ r, aoSalvar, salvando }: { r: Omit<Regra, 'id' | 'atualiza
 
 export default function Regras() {
   const qc = useQueryClient();
-  const lista = useQuery({ queryKey: ['regras'], queryFn: () => r1Rpc<Lista>('segmentacao_regras_listar') });
-  const conflitos = useQuery({ queryKey: ['conflitos'], queryFn: () => r1Rpc<Conflito[]>('segmentacao_conflitos'), staleTime: 5 * 60_000 });
+  const lista = useQuery({ queryKey: ['regras'], queryFn: () => r1Rpc<Lista>('segmentacao_regras_listar'), refetchInterval: 60_000 });
+  const conflitos = useQuery({ queryKey: ['conflitos'], queryFn: () => r1Rpc<Conflito[]>('segmentacao_conflitos'), staleTime: 5 * 60_000, refetchInterval: 5 * 60_000 });
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [novas, setNovas] = useState<Record<string, boolean>>({});
