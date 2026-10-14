@@ -22,7 +22,7 @@ const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.split('-'); return `${m}/${y}`; };
 const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
-const STATUS: Record<string, string> = { waiting_payment: 'Aguardando pagamento', expired: 'Expirado', unpaid: 'Não pago' };
+const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
 const SIT: Record<string, string> = { pendente: 'Na fila', contatado: 'Contatado', recuperado: 'Recuperado', descartado: 'Descartado' };
 const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Na fila' }, { k: 'contatado', r: 'Contatados' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
@@ -77,7 +77,7 @@ export default function Recuperacao() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo="Recuperação de carrinho"
-        subtitulo={`Pedidos expirados ou aguardando pagamento há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
+        subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
@@ -155,7 +155,7 @@ export default function Recuperacao() {
               })}
             </tbody>
           </table>
-          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento que expiraram ou seguem aguardando há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Eventos já passados não entram. Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
+          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada, Ag. pagamento e Em recuperação, há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias e eventos já passados não entram. Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
       </main>
     </div>
