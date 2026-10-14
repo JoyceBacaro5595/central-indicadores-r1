@@ -377,10 +377,13 @@ function ContaPill() {
   );
 }
 
-/* ─── faixa do funil: uma linha única, sem quebra (Joyce, 14/10) ───
+/* ─── faixa do funil: uma linha única, sem quebra nem rolagem; os cards se ajustam à largura (Joyce, 14/10) ───
  * Investimento | Lead no CRM | Lead no perfil | Contato efetivo | SQL | Ag. marcado | Ag. realizado | Vendas RGV | Vendas Clube R1 | Vendas Trator | Total.
  * Em telas estreitas a faixa rola na horizontal em vez de quebrar linha. */
-const CARD_FAIXA = 'flex-1 basis-0 min-w-[138px] p-3';
+const CARD_FAIXA = 'flex-1 basis-0 min-w-0 p-2';
+const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
+const NUM_FAIXA = 'display leading-none mt-1.5 text-foreground whitespace-nowrap text-[clamp(18px,1.8vw,28px)]';
+const CUSTO_FAIXA = 'display text-foreground whitespace-nowrap text-[clamp(13px,1.25vw,18px)]';
 function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
   const base = m.leads_crm;
   const v = e.valor(m);
@@ -391,30 +394,30 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
   const mTaxa = motivoTaxa(m);
   return (
     <div className={CARD_FAIXA}>
-      <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">{e.rotulo}</div>
-      <div className="display text-[28px] leading-none mt-1.5 text-foreground">{fmtNum(v) ?? <Zero />}</div>
+      <div className={TITULO_FAIXA}>{e.rotulo}</div>
+      <div className={NUM_FAIXA}>{fmtNum(v) ?? <Zero />}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
-      <div className="mt-2.5 space-y-1 text-[11px]">
+      <div className="mt-2 space-y-1.5 text-[10px]">
         {e.chave === 'leads' ? (
           <>
-            <Linha k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
-            <Linha k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
+            <Linha empilhado k="Leads no Meta" v={fmtNum(m.leads_pixel)} motivo="Leads do pixel/formulário do Meta ainda não publicados neste corte." />
+            <Linha empilhado k="CPL no Meta" v={custosValidos(m) ? fmtBrl(m.cpl_pixel) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
           </>
         ) : e.chave === 'mql' ? (
           <>
-            <Linha k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
             {/* MQL → venda vem do backend (rgv.funil_calc). */}
-            <Linha k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
           </>
         ) : (
           <>
-            <Linha k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
-            <Linha k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+            <Linha empilhado k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
           </>
         )}
       </div>
-      <div className="mt-3 text-[11px] text-muted-foreground leading-tight">{e.custo.rotulo}</div>
-      <div className="display text-lg text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
+      <div className="mt-3 text-[10px] text-muted-foreground leading-tight">{e.custo.rotulo}</div>
+      <div className={CUSTO_FAIXA}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={MOTIVO_CUSTO} />}</div>
     </div>
   );
 }
@@ -428,21 +431,21 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
   const cac = inv != null && vendas != null && vendas > 0 ? fmtBrl(inv / vendas) : null;
   return (
     <div className={CARD_FAIXA}>
-      <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">{titulo}</div>
-      <div className="display text-[28px] leading-none mt-1.5 text-foreground">{vendas == null ? '—' : fmtNum(vendas)}</div>
+      <div className={TITULO_FAIXA}>{titulo}</div>
+      <div className={NUM_FAIXA}>{vendas == null ? '—' : fmtNum(vendas)}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-violet-400/80" style={{ width: `${largura}%` }} /></div>
-      <div className="mt-2.5 space-y-1 text-[11px]">
+      <div className="mt-2 space-y-1.5 text-[10px]">
         {taxaFech !== undefined ? (
           <>
-            <Linha k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
-            <Linha k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+            <Linha empilhado k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
           </>
         ) : (
-          <Linha k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
+          <Linha empilhado k="Faturamento" v={fat == null ? null : fmtBrlCurto(fat)} motivo="Sem dado de faturamento neste corte." tipo="brl" />
         )}
       </div>
-      <div className="mt-3 text-[11px] text-muted-foreground leading-tight">CAC</div>
-      <div className="display text-lg text-foreground">{cac ?? <span className="text-muted-foreground">—</span>}</div>
+      <div className="mt-3 text-[10px] text-muted-foreground leading-tight">CAC</div>
+      <div className={CUSTO_FAIXA}>{cac ?? <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }
@@ -459,18 +462,18 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
   const inv = m.investimento;
   return (
     <div className="space-y-1.5">
-      <div className="surface overflow-x-auto">
-        <div className="flex flex-nowrap min-w-max divide-x divide-border" style={{ minWidth: '100%' }}>
-          <div className="flex-1 basis-0 min-w-[168px] p-3">
-            <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">Investimento</div>
-            <div className="display text-[22px] leading-none mt-3 text-foreground whitespace-nowrap">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
+      <div className="surface overflow-hidden">
+        <div className="flex flex-nowrap divide-x divide-border">
+          <div className="flex-[1.5] basis-0 min-w-0 p-2">
+            <div className={TITULO_FAIXA}>Investimento</div>
+            <div className="display leading-none mt-2 text-foreground whitespace-nowrap text-[clamp(14px,1.45vw,22px)]">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
             <div className="h-1.5 mt-2.5" />
-            <div className="mt-2.5 space-y-1 text-[11px]">
-              <Linha k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
-              <Linha k="CPC" v={fmtBrl(m.cpc)} motivo="CPC ainda não publicado neste corte." tipo="brl" />
+            <div className="mt-2 space-y-1.5 text-[10px]">
+              <Linha empilhado k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
+              <Linha empilhado k="CPC" v={fmtBrl(m.cpc)} motivo="CPC ainda não publicado neste corte." tipo="brl" />
             </div>
-            <div className="mt-3 text-[11px] text-muted-foreground leading-tight">Meta Ads · Perpétuo</div>
-            <div className="display text-lg text-foreground">&nbsp;</div>
+            <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Perpétuo</div>
+            <div className={CUSTO_FAIXA}>&nbsp;</div>
           </div>
           {etapas.map((e) => <CardEtapa key={e.chave} e={e} m={m} metas={metas} />)}
           <CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
@@ -488,13 +491,13 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
   );
 }
 
-function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num' }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string; tipo?: 'num' | 'pct' | 'brl' }) {
+function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num', empilhado }: { k: string; v: string | null | undefined; forte?: boolean; meta?: number | null; taxa?: number | null; motivo?: string; tipo?: 'num' | 'pct' | 'brl'; empilhado?: boolean }) {
   const texto = v == null ? <Zero tipo={tipo} motivo={motivo} /> : v;
   const extra = meta != null && taxa != null ? <span className="text-muted-foreground"> · meta {fmtPct(meta, 2)} · {pp(taxa - meta)}</span> : null;
   return (
-    <div className="flex items-baseline justify-between gap-2">
+    <div className={empilhado ? 'flex flex-col leading-tight' : 'flex items-baseline justify-between gap-2'}>
       <span className="text-muted-foreground">{k}</span>
-      <span className={`mono ${forte ? 'font-bold text-foreground' : 'text-foreground/90'}`}>{texto}{extra}</span>
+      <span className={`mono ${empilhado ? 'whitespace-nowrap' : ''} ${forte ? 'font-bold text-foreground' : 'text-foreground/90'}`}>{texto}{extra}</span>
     </div>
   );
 }
