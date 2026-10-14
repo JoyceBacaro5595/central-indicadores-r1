@@ -859,33 +859,35 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
         </div>
         {(() => {
-          const ct = it.clube != null && it.trator != null;
-          const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
-          const cac = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
-          const cacDe = (n: number | null | undefined) => (n != null && n > 0 && it.investimento != null ? fmtBrl(it.investimento / n) : null);
+          // Vendas por produto: quantidade, faturamento, CAC e ROAS (pedido da Joyce, 14/10). Clube e Trator só com UTM ligada ao item.
+          const ok = it.clube != null && it.trator != null && it.clubeFat != null && it.tratorFat != null;
+          const total = ok ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const fatTotal = ok && it.faturamento != null ? it.faturamento + (it.clubeFat ?? 0) + (it.tratorFat ?? 0) : null;
+          const linha = (rot: string, qtd: number | null | undefined, fat: number | null | undefined, forte = false) => {
+            const cac = qtd != null && it.investimento != null ? fmtBrl(qtd > 0 ? it.investimento / qtd : 0) : null;
+            const roas = qtd != null && it.investimento ? fmtRoas((fat ?? 0) / it.investimento) : null;
+            return (
+              <tr className="border-t border-border/60">
+                <td className={`py-1.5 ${forte ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{rot}</td>
+                <td className="py-1.5 text-right mono font-semibold text-foreground">{qtd != null ? fmtNum(qtd) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{qtd != null && fat != null ? fmtBrl(fat) : '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{cac ?? '—'}</td>
+                <td className="py-1.5 text-right mono text-foreground/80">{roas ?? '—'}</td>
+              </tr>
+            );
+          };
           return (
-            <div className="border-t border-border pt-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <Mini k="Vendas RGV" v={fmtNum(it.vendas)} motivo={mItem} />
-                <Mini k="Vendas Clube R1" v={it.clube != null ? fmtNum(it.clube) : '—'} />
-                <Mini k="Vendas Trator" v={it.trator != null ? fmtNum(it.trator) : '—'} />
-                <Mini k="Total de vendas" v={total != null ? fmtNum(total) : '—'} />
-              </div>
-              {(() => {
-                const fatTotal = it.faturamento != null && it.clubeFat != null && it.tratorFat != null ? it.faturamento + it.clubeFat + it.tratorFat : null;
-                const roasRgv = it.roas ?? (it.faturamento != null && it.investimento ? it.faturamento / it.investimento : null);
-                const roasTotal = fatTotal != null && it.investimento ? fatTotal / it.investimento : null;
-                return (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Mini k="ROAS RGV" v={fmtRoas(roasRgv)} motivo="Sem faturamento ou investimento no período." />
-                    <Mini k="ROAS total" v={fmtRoas(roasTotal)} motivo="Faturamento de RGV, Clube e Trator dividido pelo investimento." />
-                    <Mini k="CAC Clube R1" v={cacDe(it.clube)} motivo="Sem venda de Clube R1 no período." tipo="brl" />
-                    <Mini k="CAC Trator" v={cacDe(it.trator)} motivo="Sem venda de Trator no período." tipo="brl" />
-                    <Mini k="CAC total" v={cac} motivo="Sem venda no período." tipo="brl" />
-                  </div>
-                );
-              })()}
-              <div className="text-[11px] text-muted-foreground">Clube e Trator ligados pela UTM do negócio</div>
+            <div className="border-t border-border pt-3">
+              <table className="w-full text-[11px]">
+                <thead><tr className="text-muted-foreground"><th className="py-1 text-left font-semibold">Vendas</th><th className="py-1 text-right font-semibold">Qtd</th><th className="py-1 text-right font-semibold">Faturamento</th><th className="py-1 text-right font-semibold">CAC</th><th className="py-1 text-right font-semibold">ROAS</th></tr></thead>
+                <tbody>
+                  {linha('RGV', it.vendas, it.faturamento)}
+                  {linha('Clube R1', it.clube, it.clubeFat)}
+                  {linha('Trator', it.trator, it.tratorFat)}
+                  {linha('Total', total, fatTotal, true)}
+                </tbody>
+              </table>
+              <div className="mt-1 text-[11px] text-muted-foreground">Clube e Trator ligados pela UTM do negócio</div>
             </div>
           );
         })()}
