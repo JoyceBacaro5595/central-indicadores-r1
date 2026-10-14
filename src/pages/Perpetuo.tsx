@@ -231,7 +231,7 @@ export default function Perpetuo() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo="Perpétuo RGV · Fluxo Marketing RGV"
-        subtitulo={<>Funil por campanha, criativo e página · <FontesLinha d={data} /></>}
+        subtitulo={<AtualizacaoTopo d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
         onAtualizar={atualizar}
         atualizando={isFetching}
         acoes={
@@ -298,8 +298,6 @@ export default function Perpetuo() {
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
               <span>{dataBR(de)} a {dataBR(ate)}{recortado && <> · <b className="text-foreground">histórico publicado desde {dataBR(deConsulta)}</b>: números de {dataBR(deConsulta)} a {dataBR(ateConsulta)}</>}{emAndamento && <> · <b className="text-foreground">em andamento</b>: dados até {dataBR(ateConsulta)}, dia {diasDecorridos} de {diasPeriodo}</>}{parcial && <> · <b className="text-foreground" title={data?.qualidade?.motivo ?? undefined}>parcial em tempo real</b>: atualizada {soHoraSP(data?.qualidade?.parcial_atualizado_em) ?? '…'} (Meta {soHoraSP(data?.qualidade?.parcial_meta_coletado_em) ?? 'sem coleta de hoje'} · HubSpot {soHoraSP(data?.qualidade?.parcial_hubspot_em) ?? '…'})</>}</span>
               <span>{itens === undefined ? '…' : itens === null ? <>Quebra por {cfg.nome}: <NaoDisponivel /></> : <><b className="text-foreground">{itens.length}</b> {itens.length === 1 ? cfg.nome : cfg.plural}</>}</span>
-              <span>CRM: HubSpot · base do ETL (Supabase r1-indicadores)</span>
-              <span>Meta coletado em {data ? (data.fontes.meta_ate ? dataBR(data.fontes.meta_ate) : <NaoDisponivel />) : '…'}</span>
             </div>
           </div>
           <div className="text-right">
@@ -312,18 +310,6 @@ export default function Perpetuo() {
         {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {isFetching && data && <div role="status" className="text-sm text-muted-foreground">{isPlaceholderData ? `Atualizando o filtro… Indicadores exibidos de ${dataBR(data.periodo.inicio)} a ${dataBR(data.periodo.fim)} até concluir a consulta.` : 'Atualizando indicadores…'}</div>}
         {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
-
-        {data?.publicacao && (
-          <div className="surface p-4 text-sm space-y-1" role="status">
-            <p className="font-semibold text-foreground">Atualização conjunta · HubSpot e Meta</p>
-            <p className="text-muted-foreground">{data.publicacao.corte_publicado ? `Dias fechados publicados até ${dataBR(data.publicacao.corte_publicado)}; depois disso a Central mostra a parcial em tempo real, recalculada de hora em hora.` : 'Aguardando a primeira carga completa das duas fontes.'}</p>
-            {data.publicacao.motivo && <p className="text-amber-400">{data.publicacao.motivo}</p>}
-            {data.publicacao.solucao && <p className="text-muted-foreground">{data.publicacao.solucao}</p>}
-            {data.publicacao.publicado_em && <p className="text-xs text-muted-foreground">Última liberação: {new Date(data.publicacao.publicado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>}
-          </div>
-        )}
-
-        {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
 
         {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
@@ -339,25 +325,31 @@ export default function Perpetuo() {
 
 const horaSP = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null);
 const soHoraSP = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : null);
-/** Hora de cada fonte, do último lote publicado e da verificação horária (cron no minuto 00). */
-function FontesLinha({ d }: { d: PerpetuoFunil | undefined }) {
+/** Linha única no topo: última atualização; o detalhe das fontes e as limitações do corte ficam no ⓘ. */
+function AtualizacaoTopo({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil | undefined; aba: Aba; de: string; ate: string; ateConsulta: string }) {
   if (!d) return <>carregando…</>;
   const f = d.fontes_atualizacao;
   const lote = horaSP(f?.lote_publicado_em ?? d.atualizado_em);
+  const detalhes = [
+    `Lote publicado ${lote ?? 'ainda sem lote'}${f?.lote_corte ? ` (corte ${dataBR(f.lote_corte)})` : ''}`,
+    `HubSpot ${horaSP(f?.hubspot_atualizado_em) ?? 'sem carga'}`,
+    `Meta ${horaSP(f?.meta_coletado_em) ?? 'sem carga'}${f?.meta_ultimo_dia ? ` (até ${dataBR(f.meta_ultimo_dia)})` : ''}`,
+    f?.verificacao_ultima ? `Verificado ${horaSP(f.verificacao_ultima)}${f.verificacao_proxima ? `, próxima ${soHoraSP(f.verificacao_proxima)}` : ''}` : null,
+    d.publicacao?.corte_publicado ? `Dias fechados até ${dataBR(d.publicacao.corte_publicado)}; depois, parcial em tempo real, de hora em hora` : null,
+    ...avisosDoCorte(d, aba, de, ate, ateConsulta),
+  ].filter(Boolean) as string[];
+  const problema = d.publicacao?.motivo ?? (f?.lote_proximo?.status === 'skipped' ? f.lote_proximo.motivo : null) ?? (f?.capacidade && f.capacidade.ok === false ? 'banco no limite: novos lotes bloqueados' : null);
   return (
     <>
-      <span title="Último lote dos indicadores publicado; é o que o painel mostra">lote publicado {lote ?? 'ainda sem lote'}{f?.lote_corte ? ` (corte ${dataBR(f.lote_corte)})` : ''}</span>
-      <span> · HubSpot {horaSP(f?.hubspot_atualizado_em) ?? 'sem carga'}</span>
-      <span> · Meta {horaSP(f?.meta_coletado_em) ?? 'sem carga'}{f?.meta_ultimo_dia ? ` (até ${dataBR(f.meta_ultimo_dia)})` : ''}</span>
-      {f?.verificacao_ultima && <span title="O cron verifica a cada hora cheia se há corte novo fechado nas duas fontes e gera o lote"> · verificado {horaSP(f.verificacao_ultima)}{f.verificacao_proxima ? `, próxima ${soHoraSP(f.verificacao_proxima)}` : ''}</span>}
-      {f?.lote_proximo?.status === 'skipped' && f.lote_proximo.motivo && <span className="text-amber-400"> · próximo lote: {f.lote_proximo.motivo}</span>}
-      {f?.capacidade && f.capacidade.ok === false && <span className="text-red-400"> · banco no limite: novos lotes bloqueados</span>}
+      <span>Última atualização {lote ?? 'ainda sem lote'}</span>
+      <span title={detalhes.join('\n')} className="ml-1 cursor-help text-muted-foreground" aria-label="Detalhes das fontes e do corte">ⓘ</span>
+      {problema && <span className="text-amber-400"> · {problema}</span>}
     </>
   );
 }
 
 /** Avisos de limitação vindos do backend: atribuição, taxas, custos e período completo. */
-function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: Aba; de: string; ate: string; ateConsulta: string }) {
+function avisosDoCorte(d: PerpetuoFunil, aba: Aba, de: string, ate: string, ateConsulta: string) {
   const q = d.qualidade; const r = d.resumo;
   const avisos: { k: string; texto: string }[] = [];
   if (q?.atribuicao_completa === false && aba !== 'campanhas') avisos.push({ k: 'atrib', texto: q.motivo ?? MOTIVO_ND[aba] });
@@ -370,15 +362,7 @@ function Limitacoes({ d, aba, de, ate, ateConsulta }: { d: PerpetuoFunil; aba: A
   } else if (!q?.parcial && q?.periodo_completo_fim && ateConsulta > q.periodo_completo_fim) {
     avisos.push({ k: 'periodo', texto: `O período escolhido vai além do último lote publicado (${dataBR(q.periodo_completo_fim)}) e a parcial em tempo real ainda não cobre esses dias; os números vão até ${dataBR(q.periodo_completo_fim)}.` });
   }
-  if (avisos.length === 0) return null;
-  return (
-    <div className="surface p-4 text-sm" role="note">
-      <p className="font-semibold text-foreground">O que ainda não está disponível neste corte</p>
-      <ul className="mt-1 space-y-1 text-muted-foreground list-disc pl-5">
-        {avisos.map((a) => <li key={a.k}>{a.texto}</li>)}
-      </ul>
-    </div>
-  );
+  return avisos;
 }
 
 function ContaPill() {
@@ -1016,12 +1000,12 @@ const COMO_LER: [string, string][] = [
 ];
 function ComoLer() {
   return (
-    <section className="surface p-5">
-      <h3 className="display text-2xl text-foreground">Como ler</h3>
+    <details className="surface p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">Como ler</summary>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
         {COMO_LER.map(([k, v]) => (<div key={k} className="contents"><dt className="font-bold text-foreground whitespace-nowrap">{k}</dt><dd className="text-muted-foreground">{v}</dd></div>))}
       </dl>
-    </section>
+    </details>
   );
 }
 
