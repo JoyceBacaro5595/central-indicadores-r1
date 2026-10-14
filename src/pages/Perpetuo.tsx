@@ -461,9 +461,9 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
     <div className="space-y-1.5">
       <div className="surface overflow-x-auto">
         <div className="flex flex-nowrap min-w-max divide-x divide-border" style={{ minWidth: '100%' }}>
-          <div className={CARD_FAIXA}>
+          <div className="flex-1 basis-0 min-w-[168px] p-3">
             <div className="text-[13px] font-bold text-foreground leading-tight min-h-[2.1rem]">Investimento</div>
-            <div className="display text-[28px] leading-none mt-1.5 text-foreground">{fmtBrlCurto(inv) ?? <Zero tipo="brl" />}</div>
+            <div className="display text-[22px] leading-none mt-3 text-foreground whitespace-nowrap">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
             <div className="h-1.5 mt-2.5" />
             <div className="mt-2.5 space-y-1 text-[11px]">
               <Linha k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
