@@ -31,17 +31,20 @@ const OPCOES = ['pendente', 'contatado', 'aguardando_retorno', 'sem_resposta', '
 const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Não contatados' }, { k: 'contatado', r: 'Mensagem enviada' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Sem Interesse' }, { k: 'todos', r: 'Todos' }];
 
 const tel = (t: string | null) => (t ? t.replace(/\D/g, '') : '');
-const MSG_PADRAO = 'Olá, {nome}! Vi que você iniciou a compra do ingresso {produto} e o pagamento não foi concluído. Posso te ajudar a finalizar?';
-const VARIAVEIS = ['{nome}', '{produto}', '{cidade}', '{valor}'];
-const preencher = (texto: string, p: Pedido) => texto
+const MSG_PADRAO = 'Olá, {nome}! Sou {atendente} do Grupo R1. Vi que você iniciou a compra do ingresso do evento {evento} e o pagamento não foi concluído. Posso te ajudar a finalizar?';
+const VARIAVEIS = ['{nome}', '{atendente}', '{evento}', '{produto}', '{cidade}', '{valor}'];
+const eventoDe = (p: Pedido) => (p.cidade_evento ? `${p.cidade_evento}${p.mes_evento ? ` (${mesLabel(p.mes_evento)})` : ''}` : p.produto_nome ?? '');
+const preencher = (texto: string, p: Pedido, atendente: string) => texto
+  .replace(/\{atendente\}/g, atendente)
+  .replace(/\{evento\}/g, eventoDe(p))
   .replace(/\{nome\}/g, (p.nome_contato ?? '').split(' ')[0] || 'tudo bem')
   .replace(/\{produto\}/g, p.produto_nome ?? '')
   .replace(/\{cidade\}/g, p.cidade_evento ?? '')
   .replace(/\{valor\}/g, brl(p.valor_bruto));
-const whats = (p: Pedido, texto: string) => {
+const whats = (p: Pedido, texto: string, atendente: string) => {
   const d = tel(p.telefone); if (!d) return null;
   const n = d.startsWith('55') ? d : `55${d}`;
-  return `https://wa.me/${n}?text=${encodeURIComponent(preencher(texto, p))}`;
+  return `https://wa.me/${n}?text=${encodeURIComponent(preencher(texto, p, atendente))}`;
 };
 
 function csv(l: Pedido[]) {
@@ -52,7 +55,8 @@ function csv(l: Pedido[]) {
 }
 
 export default function Recuperacao() {
-  const { pode } = useAuth();
+  const { pode, perfil, session } = useAuth();
+  const atendente = (perfil?.nome || session?.user.email || '').trim().split(' ')[0] || 'a equipe';
   const qc = useQueryClient();
   const [situacao, setSituacao] = useState<Situacao>('pendente');
   const [cidade, setCidade] = useState<string>('');
@@ -151,7 +155,7 @@ export default function Recuperacao() {
               {fila.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
               {!fila.isLoading && lista.length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum pedido nesta situação.</td></tr>}
               {lista.map((p) => {
-                const w = veDados ? whats(p, textoMsg) : null;
+                const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
                     <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div><div className="text-muted-foreground mono">{p.transacao_id}</div></td>
@@ -191,11 +195,11 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
     mutationFn: () => r1Rpc('recuperacao_template_salvar', { p_id: f.id || null, p_nome: f.nome, p_texto: f.texto, p_ativo: f.ativo, p_padrao: f.padrao }),
     onSuccess: () => { setF(vazio); qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }); },
   });
-  const excluir = useMutation({
-    mutationFn: (id: string) => r1Rpc('recuperacao_template_excluir', { p_id: id }),
+  const alternar = useMutation({
+    mutationFn: (t: Template) => r1Rpc('recuperacao_template_salvar', { p_id: t.id, p_nome: t.nome, p_texto: t.texto, p_ativo: !t.ativo, p_padrao: t.padrao }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
   });
-  const exemplo = f.texto.replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
+  const exemplo = f.texto.replace(/\{atendente\}/g, 'Grazi').replace(/\{evento\}/g, 'Belém (10/2026)').replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
   return (
     <div className="grid md:grid-cols-2 gap-4">
       <section className="surface p-4 space-y-3">
@@ -222,7 +226,7 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>
             <div className="flex items-center gap-2"><span className="font-semibold text-foreground">{t.nome}</span>{t.padrao && <span className="px-1.5 rounded bg-primary/15 text-primary text-[10px]">padrão</span>}{!t.ativo && <span className="text-[10px] text-muted-foreground">inativo</span>}
-              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => { if (confirm(`Excluir o template "${t.nome}"?`)) excluir.mutate(t.id); }} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">Excluir</button></span></div>
+              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button></span></div>
             <p className="mt-1 text-muted-foreground whitespace-pre-wrap">{t.texto}</p>
           </div>
         ))}
