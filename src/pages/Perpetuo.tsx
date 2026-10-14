@@ -682,10 +682,10 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; s
         )
       ) : (
         <div className="surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1500px]">
+          <div>
+            <div>
               {/* cabeçalho das colunas */}
-              <div className="grid grid-cols-[1.3fr_repeat(10,1fr)] gap-3 px-5 py-3 border-b border-border bg-secondary/30 text-xs">
+              <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
                 <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">leads Meta</div></div>
                 {ETAPAS.map((e) => {
                   const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
@@ -734,7 +734,7 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
 function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
   return (
-    <div className="px-5 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
+    <div className="px-3 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
         <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
@@ -743,7 +743,7 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
           {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
         </span>
       </div>
-      <div className="grid grid-cols-[1.3fr_repeat(10,1fr)] gap-3 mt-2 pl-8">
+      <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 mt-2 pl-6">
         <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
         {ETAPAS.map((e) => {
           const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
@@ -774,11 +774,12 @@ function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => voi
 }
 
 function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | null; secundaria?: ReactNode | null; terciaria?: ReactNode | null }) {
+  // Tamanhos acompanham a largura da tela para os 11 grupos caberem sem rolagem lateral.
   return (
     <div className="min-w-0">
-      <div className="text-base font-bold text-foreground mono">{principal ?? <Zero />}</div>
-      {secundaria != null && <div className="text-xs text-muted-foreground mt-0.5">{secundaria}</div>}
-      {terciaria != null && <div className="text-xs text-muted-foreground mono mt-0.5">{terciaria}</div>}
+      <div className="font-bold text-foreground mono whitespace-nowrap text-[clamp(11px,1.05vw,16px)]">{principal ?? <Zero />}</div>
+      {secundaria != null && <div className="text-muted-foreground mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{secundaria}</div>}
+      {terciaria != null && <div className="text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]">{terciaria}</div>}
     </div>
   );
 }
@@ -845,7 +846,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           const cac = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
           return (
             <div className="border-t border-border pt-3 space-y-2">
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Mini k="Vendas RGV" v={fmtNum(it.vendas)} motivo={mItem} />
                 <Mini k="Vendas Clube R1" v={it.clube != null ? fmtNum(it.clube) : '—'} />
                 <Mini k="Vendas Trator" v={it.trator != null ? fmtNum(it.trator) : '—'} />
@@ -898,7 +899,7 @@ function Mini({ k, v, motivo, tipo = 'num' }: { k: string; v: string | null | un
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-muted-foreground">{k}</div>
-      <div className="text-sm font-bold text-foreground mono truncate">{v ?? <Zero tipo={tipo} motivo={motivo} />}</div>
+      <div className="text-sm font-bold text-foreground mono break-words">{v ?? <Zero tipo={tipo} motivo={motivo} />}</div>
     </div>
   );
 }
