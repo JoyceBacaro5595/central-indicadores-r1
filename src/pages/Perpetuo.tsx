@@ -106,8 +106,8 @@ type Etapa = {
 const custoDe = (e: Etapa, m: PerpetuoMetricas) => (custosValidos(m) ? e.custo.v(m) : null);
 const ETAPAS: Etapa[] = [
   { chave: 'leads', rotulo: 'Lead no CRM', curto: 'Leads', sub: 'CRM', valor: (m) => m.leads_crm, custo: { rotulo: 'Custo por lead', v: (m) => m.cpl } },
-  { chave: 'mql', rotulo: 'Lead no perfil (MQL)', curto: 'No perfil', sub: 'MQL', valor: (m) => m.mql,
-    taxa: { rotulo: 'No perfil', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
+  { chave: 'mql', rotulo: 'MQL', curto: 'MQL', sub: 'perfil', valor: (m) => m.mql,
+    taxa: { rotulo: 'MQL', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
   { chave: 'contato', rotulo: 'Contato efetivo', curto: 'Contato', sub: 'conexão', valor: (m) => m.contato_efetivo,
     taxa: { rotulo: 'Conexão', v: (m) => m.taxa_contato, meta: 'conexao' }, custo: { rotulo: 'Custo por contato', v: (m) => m.custo_contato ?? divide(m.investimento, m.contato_efetivo) } },
   { chave: 'sql', rotulo: 'SQL', curto: 'SQL', sub: 'qualificação', valor: (m) => m.sql,
@@ -392,7 +392,7 @@ function ContaPill() {
 }
 
 /* ─── faixa do funil: uma linha única, sem quebra nem rolagem; os cards se ajustam à largura (Joyce, 14/10) ───
- * Investimento | Lead no CRM | Lead no perfil | Contato efetivo | SQL | Ag. marcado | Ag. realizado | Vendas RGV | Vendas Clube R1 | Vendas Trator | Total.
+ * Investimento | Lead no CRM | MQL | Contato efetivo | SQL | Ag. marcado | Ag. realizado | Vendas RGV | Vendas Clube R1 | Vendas Trator | Total.
  * Em telas estreitas a faixa rola na horizontal em vez de quebrar linha. */
 const CARD_FAIXA = 'flex-1 basis-0 min-w-0 p-2';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
@@ -419,7 +419,7 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
           </>
         ) : e.chave === 'mql' ? (
           <>
-            <Linha empilhado k="No perfil" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
+            <Linha empilhado k="MQL" v={fmtPct(taxa)} motivo={mTaxa} tipo="pct" />
             {/* MQL → venda vem do backend (rgv.funil_calc). */}
             <Linha empilhado k="MQL → venda" v={fmtPct(m.taxa_mql_venda, 2)} motivo={mTaxa} tipo="pct" />
           </>
@@ -936,7 +936,7 @@ function Mini({ k, v, motivo, tipo = 'num' }: { k: string; v: string | null | un
 const COMO_LER: [string, string][] = [
   ['Investimento', 'Gasto no Meta Ads da conta PERPETUO RGV no período, só das campanhas marcadas [FF] (Perpétuo); campanhas de distribuição e remarketing sem lead ficam de fora.'],
   ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
-  ['Lead no perfil (MQL)', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
+  ['MQL', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
   ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo que contém o fim do período (ciclo 45: conexão 33% dos MQLs, qualificação 45%, agendamento 76%, comparecimento 72%, fechamento 32%). Sem plano cadastrado, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
@@ -946,7 +946,7 @@ const COMO_LER: [string, string][] = [
   ['Custos por etapa', 'Investimento do período dividido pela quantidade da etapa (custo por lead, por MQL, por contato, por SQL, por agendamento, por reunião e por venda), calculado pelo backend quando mídia e CRM do período estão publicados. "Investimento atribuído" é a parte da peça ou página; nas campanhas o valor é o da campanha inteira.'],
   ['Atribuição', 'O negócio é ligado ao anúncio pelo nome do anúncio na UTM (utm_content, ou utm_term quando o content traz o conjunto), casado com um anúncio da mesma campanha. Leads sem nome de anúncio ficam fora da visão por peça e vão para a página principal da campanha; o painel informa quantos foram.'],
   ['Parcial em tempo real', 'Os dias depois do último lote publicado (inclusive hoje) são recalculados de hora em hora, logo depois da recarga do Meta e do HubSpot (minuto 00); a hora aparece no cabeçalho e os números podem mudar até o dia fechar. Nas abas de campanhas, peças e LPs só aparecem itens com veiculação ou leads no período filtrado.'],
-  ['MQL', 'Lead no perfil: faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
+  ['MQL (regra)', 'Faturamento mensal declarado no HubSpot igual ou acima de R$ 100 mil (Joyce, 09/10/2026). Cada etapa do funil conta uma vez por negócio, no primeiro dia em que foi alcançada.'],
   ['Zero em cinza', 'A métrica ainda não está conectada no ETL ou a RPC devolveu nulo para o período: o indicador mostra 0, 0,0% ou R$ 0,00 em cinza; passe o mouse para ver o motivo. Zero em branco é contagem real sem atividade.'],
 ];
 function ComoLer() {
