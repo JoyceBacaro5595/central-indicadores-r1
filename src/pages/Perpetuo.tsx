@@ -314,6 +314,8 @@ export default function Perpetuo() {
 
         {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
+        {data && <CardSemOrigem d={data} />}
+
         <ComoLer />
       </PageBody>
     </div>
@@ -447,6 +449,33 @@ function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total
           {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
         </span>
       )}
+    </div>
+  );
+}
+
+/** Leads que chegam sem campanha na UTM (origem "Sem Origem"): total de leads no CRM menos os leads somados nas campanhas.
+ *  Calculado no front a partir do que a RPC já devolve; sem campanha na lista, fica "—" (Joyce, 14/10). */
+function CardSemOrigem({ d }: { d: PerpetuoFunil }) {
+  const total = d.resumo?.leads_crm;
+  const camps = d.por_campanha;
+  const ok = total != null && Array.isArray(camps);
+  const comCamp = ok ? camps!.reduce((s, c) => s + (c.leads_crm ?? 0), 0) : null;
+  const sem = ok && comCamp != null ? Math.max(0, total! - comCamp) : null;
+  const pct = sem != null && total! > 0 ? (sem / total!) * 100 : null;
+  return (
+    <div className="surface p-4 space-y-2" role="note" aria-label="Leads sem origem">
+      <p className="font-semibold text-foreground">Leads sem origem</p>
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+        <div>
+          <div className="text-3xl font-serif text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
+          <div className="text-xs text-muted-foreground">leads sem campanha na UTM</div>
+        </div>
+        <div>
+          <div className="text-3xl font-serif text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
+          <div className="text-xs text-muted-foreground">dos leads no CRM{total != null ? ` (${fmtNum(total)})` : ''}</div>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">Leads que entram sem as UTMs e ficam agrupados como Sem Origem. Total de leads no CRM menos os leads somados nas campanhas do período.</p>
     </div>
   );
 }
