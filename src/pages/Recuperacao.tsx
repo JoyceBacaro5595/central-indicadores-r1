@@ -62,6 +62,8 @@ export default function Recuperacao() {
   const [cidade, setCidade] = useState<string>('');
   const [recomprados, setRecomprados] = useState(false);
   const [busca, setBusca] = useState('');
+  const [de, setDe] = useState('');
+  const [ate, setAte] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
   const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
   const [tplId, setTplId] = useState('');
@@ -80,9 +82,10 @@ export default function Recuperacao() {
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    const l = fila.data ?? [];
+    const dia = (d: string) => new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const l = (fila.data ?? []).filter((p) => (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome, p.transacao_id].some((x) => (x ?? '').toLowerCase().includes(q))) : l;
-  }, [fila.data, busca]);
+  }, [fila.data, busca, de, ate]);
   const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
 
   const baixar = () => {
@@ -141,6 +144,9 @@ export default function Recuperacao() {
               <option value="">Todas as cidades</option>
               {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            {(de || ate) && <button onClick={() => { setDe(''); setAte(''); }} className="text-[11px] text-primary font-semibold">Limpar datas</button>}
             <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
             {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
@@ -153,7 +159,7 @@ export default function Recuperacao() {
             </tr></thead>
             <tbody>
               {fila.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
-              {!fila.isLoading && lista.length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum pedido nesta situação.</td></tr>}
+              {!fila.isLoading && lista.length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
               {lista.map((p) => {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
