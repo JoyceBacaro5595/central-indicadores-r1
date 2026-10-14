@@ -838,6 +838,22 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           <Mini k="MQL" v={fmtNum(it.mql)} motivo={mItem} />
           <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
         </div>
+        {(() => {
+          const ct = it.clube != null && it.trator != null;
+          const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
+          const cac = total != null && total > 0 && it.investimento != null ? fmtBrl(it.investimento / total) : null;
+          return (
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="grid grid-cols-4 gap-2">
+                <Mini k="Vendas RGV" v={fmtNum(it.vendas)} motivo={mItem} />
+                <Mini k="Vendas Clube R1" v={it.clube != null ? fmtNum(it.clube) : '—'} />
+                <Mini k="Vendas Trator" v={it.trator != null ? fmtNum(it.trator) : '—'} />
+                <Mini k="Total de vendas" v={total != null ? fmtNum(total) : '—'} />
+              </div>
+              <div className="text-[11px] text-muted-foreground">CAC total <b className="mono text-foreground/80">{cac ?? '—'}</b> · Clube e Trator por UTM</div>
+            </div>
+          );
+        })()}
         <table className="w-full text-xs border-t border-border">
           <thead>
             <tr className="text-muted-foreground"><th className="py-1.5 text-left font-semibold">Etapa</th><th className="py-1.5 text-right font-semibold">Qtd</th><th className="py-1.5 text-right font-semibold">Taxa</th><th className="py-1.5 text-right font-semibold">Custo</th></tr>
@@ -857,14 +873,6 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
                 </tr>
               );
             })}
-            {(() => {
-              const ct = it.clube != null && it.trator != null;
-              const total = ct ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
-              const linha = (rot: string, v: number | null | undefined, forte = false) => (
-                <tr className="border-t border-border/60"><td className="py-1.5 text-muted-foreground">{rot}</td><td className={`py-1.5 text-right mono font-semibold ${forte ? 'text-foreground' : 'text-foreground'}`}>{v != null ? fmtNum(v) : '—'}</td><td /><td /></tr>
-              );
-              return <>{linha('Vendas Clube R1', it.clube)}{linha('Vendas Trator', it.trator)}{linha('Total de vendas', total, true)}</>;
-            })()}
           </tbody>
         </table>
         <button type="button" onClick={aoAbrir} className="w-full border-t border-border pt-3 text-sm font-semibold text-gold hover:underline">Ver detalhes</button>
