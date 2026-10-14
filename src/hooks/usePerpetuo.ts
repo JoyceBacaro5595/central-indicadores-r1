@@ -124,3 +124,22 @@ export function usePerpetuo(de?: string, ate?: string, habilitado = true) {
     retry: false,
   });
 }
+
+export interface VendasGrupo { vendas: number; faturamento: number }
+/** Vendas Clube R1 e Operação Trator (negócios em Ganho do pipeline Clube R1, por data de fechamento). */
+export interface PerpetuoVendasClubeTrator {
+  clube_r1: VendasGrupo; trator: VendasGrupo; sem_produto: VendasGrupo; atualizado_em: string | null;
+}
+
+export function usePerpetuoVendasClubeTrator(de?: string, ate?: string, habilitado = true) {
+  return useQuery({
+    queryKey: ['perpetuo-vendas-clube-trator', de, ate],
+    queryFn: () => r1Rpc<PerpetuoVendasClubeTrator>('perpetuo_vendas_clube_trator', { p_de: de ?? null, p_ate: ate ?? null }),
+    enabled: habilitado && !!de && !!ate,
+    staleTime: 10 * 60 * 1000,
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}

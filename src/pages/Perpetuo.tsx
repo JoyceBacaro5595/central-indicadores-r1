@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { usePerpetuo, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl, fmtNum, fmtPct } from '@/components/shared';
 import lpFotos from '@/data/lpFotos.json';
 
@@ -185,6 +185,7 @@ export default function Perpetuo() {
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
+  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
   const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
@@ -311,6 +312,8 @@ export default function Perpetuo() {
         {data && <Limitacoes d={data} aba={aba} de={de} ate={ate} ateConsulta={ateConsulta} />}
 
         {r && <FaixaFunil m={r} metas={metas} />}
+
+        {r && <CardsVendasPorProduto m={r} ct={vendasCT ?? null} />}
 
         {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} />}
 
@@ -449,6 +452,44 @@ function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total
           {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
         </span>
       )}
+    </div>
+  );
+}
+
+/** Vendas separadas por produto (RGV, Clube R1, Trator) e o total, cada card com o seu CAC = investimento de Perpétuo / vendas
+ *  do card (Joyce, 14/10). Clube R1 e Trator = negócios em Ganho do pipeline Clube R1, datados pelo fechamento. Sem dado: "—". */
+function CardsVendasPorProduto({ m, ct }: { m: PerpetuoMetricas; ct: PerpetuoVendasClubeTrator | null }) {
+  const inv = m.investimento;
+  const rgv = m.vendas;
+  const clube = ct?.clube_r1.vendas ?? null;
+  const trator = ct?.trator.vendas ?? null;
+  const semProduto = ct?.sem_produto.vendas ?? 0;
+  const total = rgv != null && clube != null && trator != null ? rgv + clube + trator + semProduto : null;
+  const fatRgv = m.faturamento;
+  const fatTotal = fatRgv != null && ct ? fatRgv + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
+  const cac = (v: number | null) => (inv != null && v != null && v > 0 ? fmtBrl(inv / v) : '—');
+  const cards: { titulo: string; vendas: number | null; fat: number | null }[] = [
+    { titulo: 'Vendas RGV', vendas: rgv, fat: fatRgv },
+    { titulo: 'Vendas Clube R1', vendas: clube, fat: ct ? ct.clube_r1.faturamento : null },
+    { titulo: 'Vendas Trator', vendas: trator, fat: ct ? ct.trator.faturamento : null },
+    { titulo: 'Total de vendas', vendas: total, fat: fatTotal },
+  ];
+  return (
+    <div className="surface p-4 space-y-3" role="group" aria-label="Vendas por produto">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c) => (
+          <div key={c.titulo} className="space-y-1">
+            <p className="font-semibold text-foreground text-sm">{c.titulo}</p>
+            <div className="text-3xl font-serif text-foreground">{c.vendas == null ? '—' : fmtNum(c.vendas)}</div>
+            <div className="text-xs text-muted-foreground">Faturamento <span className="mono text-foreground/90">{c.fat == null ? '—' : fmtBrl(c.fat)}</span></div>
+            <div className="text-xs text-muted-foreground">CAC <span className="mono text-foreground/90">{cac(c.vendas)}</span></div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        CAC = investimento de Perpétuo no período dividido pelas vendas de cada card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
+      </p>
     </div>
   );
 }
