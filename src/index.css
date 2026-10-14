@@ -371,3 +371,7 @@
     background: hsl(var(--muted-foreground));
   }
 }
+
+/* Regra da Joyce (14/10): nenhuma barra de rolagem visível em lugar nenhum do app; a rolagem continua funcionando. */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
