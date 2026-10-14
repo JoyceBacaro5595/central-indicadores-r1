@@ -134,11 +134,14 @@ export interface PerpetuoVendasClubeTrator {
   itens?: { dim: 'campanha' | 'lp' | 'peca'; chave: string; grupo: 'clube_r1' | 'trator' | 'sem_produto'; vendas: number; faturamento: number }[] | null;
 }
 
-export function usePerpetuoVendasClubeTrator(de?: string, ate?: string, habilitado = true) {
+/** Com `ciclo` (ex.: "RGV 45"), Clube R1 e Trator vêm pela tag do ciclo no negócio; sem ele, pela data de fechamento. */
+export function usePerpetuoVendasClubeTrator(de?: string, ate?: string, habilitado = true, ciclo?: string | null) {
   return useQuery({
-    queryKey: ['perpetuo-vendas-clube-trator', de, ate],
-    queryFn: () => r1Rpc<PerpetuoVendasClubeTrator>('perpetuo_vendas_clube_trator', { p_de: de ?? null, p_ate: ate ?? null }),
-    enabled: habilitado && !!de && !!ate,
+    queryKey: ['perpetuo-vendas-clube-trator', ciclo ?? null, ciclo ? null : de, ciclo ? null : ate],
+    queryFn: () => ciclo
+      ? r1Rpc<PerpetuoVendasClubeTrator>('perpetuo_vendas_clube_trator_ciclo', { p_ciclo: ciclo })
+      : r1Rpc<PerpetuoVendasClubeTrator>('perpetuo_vendas_clube_trator', { p_de: de ?? null, p_ate: ate ?? null }),
+    enabled: habilitado && (!!ciclo || (!!de && !!ate)),
     staleTime: 10 * 60 * 1000,
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,

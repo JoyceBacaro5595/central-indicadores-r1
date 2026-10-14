@@ -199,7 +199,9 @@ export default function Perpetuo() {
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
-  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
+  // Filtro por ciclo: Clube R1 e Trator seguem a tag do ciclo no negócio (evento_tag, ex.: "RGV 45"), não a data de fechamento (Joyce, 14/10).
+  const cicloTag = data?.ciclos.some((c) => c.ciclo === preset) ? preset : null;
+  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta, true, cicloTag);
   const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
@@ -549,7 +551,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela tag do ciclo no negócio quando um ciclo está selecionado, e pela data de fechamento nos demais períodos{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
         {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
       </p>
     </div>
