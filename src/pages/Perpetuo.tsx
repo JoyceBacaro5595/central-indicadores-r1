@@ -129,19 +129,20 @@ const ABAS: { valor: Aba; rotulo: string; eyebrow: string; titulo: string; desta
 ];
 
 /** Vendas de Clube R1 e Trator ligadas ao item pela UTM; `null` enquanto a consulta não voltou. */
-type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string; clube?: number | null; trator?: number | null };
+type Item = PerpetuoMetricas & PerpetuoDescritivo & { id: string; nome: string; clube?: number | null; trator?: number | null; clubeFat?: number | null; tratorFat?: number | null };
+const fmtRoas = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? null : `${v.toFixed(2).replace('.', ',')}x`);
 function comVendasCT(itens: Item[] | null | undefined, aba: Aba, ct: PerpetuoVendasClubeTrator | null | undefined): Item[] | null | undefined {
   if (!itens) return itens;
-  if (!ct?.itens) return itens.map((i) => ({ ...i, clube: null, trator: null }));
+  if (!ct?.itens) return itens.map((i) => ({ ...i, clube: null, trator: null, clubeFat: null, tratorFat: null }));
   const dim = aba === 'campanhas' ? 'campanha' : aba === 'lps' ? 'lp' : 'peca';
-  const soma = (chaves: (string | null | undefined)[], grupo: 'clube_r1' | 'trator') => {
+  const soma = (chaves: (string | null | undefined)[], grupo: 'clube_r1' | 'trator', campo: 'vendas' | 'faturamento' = 'vendas') => {
     const set = new Set(chaves.filter((c): c is string => !!c));
-    return ct.itens!.filter((x) => x.dim === dim && x.grupo === grupo && set.has(x.chave)).reduce((s, x) => s + x.vendas, 0);
+    return ct.itens!.filter((x) => x.dim === dim && x.grupo === grupo && set.has(x.chave)).reduce((s, x) => s + Number(x[campo] ?? 0), 0);
   };
   return itens.map((i) => {
     // Peça: o código do item é o mesmo rgv.peca_chave(nome do anúncio) que o banco usa na UTM.
     const chaves = dim === 'peca' ? [i.codigo, ...(i.codigos ?? [])] : [i.id];
-    return { ...i, clube: soma(chaves, 'clube_r1'), trator: soma(chaves, 'trator') };
+    return { ...i, clube: soma(chaves, 'clube_r1'), trator: soma(chaves, 'trator'), clubeFat: soma(chaves, 'clube_r1', 'faturamento'), tratorFat: soma(chaves, 'trator', 'faturamento') };
   });
 }
 
@@ -850,7 +851,19 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
                 <Mini k="Vendas Trator" v={it.trator != null ? fmtNum(it.trator) : '—'} />
                 <Mini k="Total de vendas" v={total != null ? fmtNum(total) : '—'} />
               </div>
-              <div className="text-[11px] text-muted-foreground">CAC total <b className="mono text-foreground/80">{cac ?? '—'}</b> · Clube e Trator por UTM</div>
+              {(() => {
+                const fatTotal = it.faturamento != null && it.clubeFat != null && it.tratorFat != null ? it.faturamento + it.clubeFat + it.tratorFat : null;
+                const roasRgv = it.roas ?? (it.faturamento != null && it.investimento ? it.faturamento / it.investimento : null);
+                const roasTotal = fatTotal != null && it.investimento ? fatTotal / it.investimento : null;
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    <Mini k="ROAS RGV" v={fmtRoas(roasRgv)} motivo="Sem faturamento ou investimento no período." />
+                    <Mini k="ROAS total" v={fmtRoas(roasTotal)} motivo="Faturamento de RGV, Clube e Trator dividido pelo investimento." />
+                    <Mini k="CAC total" v={cac} motivo="Sem venda no período." tipo="brl" />
+                  </div>
+                );
+              })()}
+              <div className="text-[11px] text-muted-foreground">Clube e Trator ligados pela UTM do negócio</div>
             </div>
           );
         })()}
@@ -1015,6 +1028,25 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
                 </div>
               </div>;
             })}
+            {(() => {
+              const ct = item.clube != null && item.trator != null;
+              const total = ct ? (item.vendas ?? 0) + (item.clube ?? 0) + (item.trator ?? 0) : null;
+              const cac = total != null && total > 0 && item.investimento != null ? fmtBrl(item.investimento / total) : null;
+              const linha = (rot: string, v: number | null | undefined, extra?: ReactNode) => (
+                <div className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
+                  <span className="text-foreground font-semibold pt-1">{rot}</span>
+                  <div className="space-y-1">
+                    <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{v != null ? fmtNum(v) : '—'}</div>
+                    {extra}
+                  </div>
+                </div>
+              );
+              return <>
+                {linha('Vendas Clube R1', item.clube, <div className="text-muted-foreground">Ligadas pela UTM do negócio</div>)}
+                {linha('Vendas Trator', item.trator, <div className="text-muted-foreground">Ligadas pela UTM do negócio</div>)}
+                {linha('Total de vendas', total, <div className="text-muted-foreground">CAC total <b className="text-foreground">{cac ?? '—'}</b></div>)}
+              </>;
+            })()}
           </div>
           {poucosLeads && <p className="text-[11px] text-muted-foreground">Amostra pequena: menos de 10 leads. Os custos ainda não servem de comparação.</p>}
           {!custosValidos(item) && <p className="text-[11px] text-muted-foreground">{MOTIVO_CUSTO}</p>}
