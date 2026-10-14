@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
+  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useAlertas } from '@/components/AlertasSaude';
@@ -12,7 +12,10 @@ type Secao = { titulo: string; recurso?: string; itens: Item[] };
 const SECOES: Secao[] = [
   {
     titulo: 'Visão geral',
-    itens: [{ to: '/visao-geral', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true }],
+    itens: [
+      { to: '/visao-geral', rotulo: 'Visão geral', icone: LayoutDashboard, fim: true },
+      { to: '/calendario', rotulo: 'Calendário', icone: CalendarDays },
+    ],
   },
   {
     titulo: 'Máquina de Vendas',
