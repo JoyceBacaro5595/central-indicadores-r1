@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { r1Rpc } from '@/integrations/r1/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
@@ -32,10 +34,10 @@ function Kpi({ label, value, sub, highlight }: { label: string; value: string; s
   );
 }
 
-function MiniTable({ title, head, rows }: { title: string; head: string[]; rows: (string | number)[][] }) {
+function MiniTable({ title, head, rows, onClick }: { title: string; head: string[]; rows: (string | number)[][]; onClick?: () => void }) {
   return (
-    <div className="surface p-4">
-      <span className="section-label">{title}</span>
+    <div className={`surface p-4 ${onClick ? 'cursor-pointer hover:ring-1 hover:ring-primary/40' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined}>
+      <span className="section-label">{title}{onClick && <span className="ml-2 normal-case tracking-normal text-[10px] text-primary">clique para abrir por cidade</span>}</span>
       <table className="w-full mt-3 text-xs">
         <thead>
           <tr className="text-muted-foreground">
@@ -123,6 +125,7 @@ export default function Central() {
   const [inicio, setInicio] = useState(inicioMesISO());
   const [fim, setFim] = useState(hojeISO());
   const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim);
+  const [canaisAberto, setCanaisAberto] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', localStorage.getItem('theme') === 'light');
@@ -219,6 +222,7 @@ export default function Central() {
                 title="Por canal"
                 head={['Canal', 'Pagos', 'Cortesias', 'Faturamento']}
                 rows={data.canais.map((c) => [c.canal, num(c.ingressos), num(c.cortesias), brl(c.faturamento)])}
+                onClick={() => setCanaisAberto(true)}
               />
               <MiniTable
                 title="Forma de pagamento"
@@ -245,6 +249,140 @@ export default function Central() {
           </>
         )}
       </PageBody>
+      {canaisAberto && <VendasCidadeCanal onFechar={() => setCanaisAberto(false)} />}
+    </div>
+  );
+}
+
+/* Card "Por canal" aberto: vendas por cidade e por canal, mês a mês (do mês atual para trás, até janeiro). Pedido da Joyce, 14/10. */
+interface LinhaCanalMes { cidade: string; mes_evento: string; tipo: 'comum' | 'vip' | 'cortesia'; grupo: 'comercial' | 'cs' | 'seller' | 'social_selling' | 'geral'; ingressos: number; faturamento: number }
+const GRUPOS_CANAL: { k: LinhaCanalMes['grupo']; r: string }[] = [
+  { k: 'geral', r: 'Geral' }, { k: 'comercial', r: 'Comercial' }, { k: 'cs', r: 'CS' }, { k: 'seller', r: 'Seller' }, { k: 'social_selling', r: 'Social Selling' },
+];
+const MESES_NOME = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
+  const [visao, setVisao] = useState<'cidade' | 'canal'>('cidade');
+  const ano = hojeISO().slice(0, 4);
+  const mesAtual = hojeISO().slice(0, 7);
+  const q = useQuery({
+    queryKey: ['central-vendas-cidade-canal', ano],
+    queryFn: () => r1Rpc<LinhaCanalMes[]>('mv_ingressos_canal', { p_de: `${ano}-01-01`, p_ate: `${ano}-12-31` }),
+    retry: false,
+  });
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar(); };
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, [onFechar]);
+
+  const meses = useMemo(() => {
+    const porMes = new Map<string, Map<string, { vendas: Record<string, number>; cortesias: number; faturamento: number }>>();
+    for (const l of q.data ?? []) {
+      const ym = l.mes_evento.slice(0, 7);
+      if (ym > mesAtual) continue;
+      const cidades = porMes.get(ym) ?? new Map();
+      const c = cidades.get(l.cidade) ?? { vendas: {}, cortesias: 0, faturamento: 0 };
+      if (l.tipo === 'cortesia') c.cortesias += Number(l.ingressos);
+      else c.vendas[l.grupo] = (c.vendas[l.grupo] ?? 0) + Number(l.ingressos);
+      c.faturamento += Number(l.faturamento);
+      cidades.set(l.cidade, c); porMes.set(ym, cidades);
+    }
+    return Array.from(porMes.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([ym, cidades]) => ({ ym, linhas: Array.from(cidades.entries()).map(([cidade, c]) => ({ cidade, ...c, total: GRUPOS_CANAL.reduce((s, g) => s + (c.vendas[g.k] ?? 0), 0) })).sort((a, b) => b.total - a.total) }));
+  }, [q.data, mesAtual]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center overflow-y-auto p-4" onClick={onFechar}>
+      <div className="surface w-full max-w-5xl my-6 p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="section-label">Vendas por cidade e por canal</span>
+            <p className="text-xs text-muted-foreground mt-1">Mês do evento, de {MESES_NOME[Number(mesAtual.slice(5, 7)) - 1].toLowerCase()} até janeiro. Vendas = ingressos comuns e VIP; cortesias à parte.</p>
+          </div>
+          <button onClick={onFechar} className="text-xs px-2 py-1 rounded bg-secondary text-foreground">Fechar</button>
+        </div>
+        <div className="mt-3 inline-flex rounded-lg bg-secondary p-0.5 text-xs">
+          {([['cidade', 'Por cidade'], ['canal', 'Por canal']] as const).map(([k, r]) => (
+            <button key={k} onClick={() => setVisao(k)} className={`px-3 py-1 rounded-md ${visao === k ? 'bg-background text-foreground font-semibold' : 'text-muted-foreground'}`}>{r}</button>
+          ))}
+        </div>
+        {q.isLoading && <p className="text-sm text-muted-foreground mt-4">Carregando…</p>}
+        {q.error && <p className="text-sm text-red-400 mt-4">{(q.error as Error).message}</p>}
+        {!q.isLoading && !q.error && meses.length === 0 && <p className="text-sm text-muted-foreground mt-4">Sem vendas no período.</p>}
+        <div className="mt-4 space-y-3">
+          {meses.map(({ ym, linhas }, i) => {
+            const tot = (f: (l: (typeof linhas)[number]) => number) => linhas.reduce((s, l) => s + f(l), 0);
+            return (
+              <details key={ym} open={i === 0} className="rounded-lg border border-border">
+                <summary className="cursor-pointer px-3 py-2 flex flex-wrap items-center gap-x-4 text-sm">
+                  <span className="font-semibold text-foreground">{MESES_NOME[Number(ym.slice(5, 7)) - 1]} {ym.slice(0, 4)}</span>
+                  <span className="text-muted-foreground mono text-xs">{num(tot((l) => l.total))} vendas · {num(tot((l) => l.cortesias))} cortesias · {brl(tot((l) => l.faturamento))}</span>
+                </summary>
+                <div className="overflow-x-auto px-3 pb-3">
+                  {visao === 'canal' ? (
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-muted-foreground">
+                        <th className="pb-2 text-left font-semibold">Canal</th>
+                        {linhas.map((l) => <th key={l.cidade} className="pb-2 text-right font-semibold">{l.cidade}</th>)}
+                        <th className="pb-2 text-right font-semibold">Total</th>
+                      </tr></thead>
+                      <tbody>
+                        {GRUPOS_CANAL.map((g) => (
+                          <tr key={g.k} className="border-t border-border">
+                            <td className="py-1.5 text-left">{g.r}</td>
+                            {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.vendas[g.k] ?? 0)}</td>)}
+                            <td className="py-1.5 text-right mono font-semibold">{num(tot((l) => l.vendas[g.k] ?? 0))}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t border-border font-semibold">
+                          <td className="py-1.5 text-left">Total vendas</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.total)}</td>)}
+                          <td className="py-1.5 text-right mono">{num(tot((l) => l.total))}</td>
+                        </tr>
+                        <tr className="border-t border-border text-muted-foreground">
+                          <td className="py-1.5 text-left">Cortesias</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{num(l.cortesias)}</td>)}
+                          <td className="py-1.5 text-right mono">{num(tot((l) => l.cortesias))}</td>
+                        </tr>
+                        <tr className="border-t border-border text-muted-foreground">
+                          <td className="py-1.5 text-left">Faturamento</td>
+                          {linhas.map((l) => <td key={l.cidade} className="py-1.5 text-right mono">{brl(l.faturamento)}</td>)}
+                          <td className="py-1.5 text-right mono">{brl(tot((l) => l.faturamento))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : (
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-muted-foreground">
+                      <th className="pb-2 text-left font-semibold">Cidade</th>
+                      {GRUPOS_CANAL.map((g) => <th key={g.k} className="pb-2 text-right font-semibold">{g.r}</th>)}
+                      <th className="pb-2 text-right font-semibold">Total vendas</th><th className="pb-2 text-right font-semibold">Cortesias</th><th className="pb-2 text-right font-semibold">Faturamento</th>
+                    </tr></thead>
+                    <tbody>
+                      {linhas.map((l) => (
+                        <tr key={l.cidade} className="border-t border-border">
+                          <td className="py-1.5 text-left">{l.cidade}</td>
+                          {GRUPOS_CANAL.map((g) => <td key={g.k} className="py-1.5 text-right mono">{num(l.vendas[g.k] ?? 0)}</td>)}
+                          <td className="py-1.5 text-right mono font-semibold">{num(l.total)}</td>
+                          <td className="py-1.5 text-right mono">{num(l.cortesias)}</td>
+                          <td className="py-1.5 text-right mono">{brl(l.faturamento)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-border font-semibold">
+                        <td className="py-1.5 text-left">Total</td>
+                        {GRUPOS_CANAL.map((g) => <td key={g.k} className="py-1.5 text-right mono">{num(tot((l) => l.vendas[g.k] ?? 0))}</td>)}
+                        <td className="py-1.5 text-right mono">{num(tot((l) => l.total))}</td><td className="py-1.5 text-right mono">{num(tot((l) => l.cortesias))}</td><td className="py-1.5 text-right mono">{brl(tot((l) => l.faturamento))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
