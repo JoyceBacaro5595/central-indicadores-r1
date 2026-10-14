@@ -926,6 +926,27 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           <Mini k="MQL" v={fmtNum(it.mql)} motivo={mItem} />
           <Mini k="Custo por MQL" v={custosValidos(it) ? fmtBrl(it.cpmql) : null} motivo={MOTIVO_CUSTO} tipo="brl" />
         </div>
+        <table className="w-full text-xs border-t border-border">
+          <thead>
+            <tr className="text-muted-foreground"><th className="py-1.5 text-left font-semibold">Etapa</th><th className="py-1.5 text-right font-semibold">Qtd</th><th className="py-1.5 text-right font-semibold">Taxa</th><th className="py-1.5 text-right font-semibold">Custo</th></tr>
+          </thead>
+          <tbody>
+            {ETAPAS.map((e) => {
+              const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
+              const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+              const sit = e.taxa && e.chave !== 'mql' ? situacao(taxa, meta, v) : 'nd';
+              const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
+              return (
+                <tr key={e.chave} className="border-t border-border/60">
+                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.chave === 'venda' ? 'Vendas RGV' : e.curto}</td>
+                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <Zero motivo={mItem} />}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} /> : ''}</td>
+                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={v === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         {(() => {
           // Vendas por produto: quantidade, faturamento, CAC e ROAS (pedido da Joyce, 14/10). Clube e Trator só com UTM ligada ao item.
           const ok = it.clube != null && it.trator != null && it.clubeFat != null && it.tratorFat != null;
@@ -960,27 +981,6 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
             </div>
           );
         })()}
-        <table className="w-full text-xs border-t border-border">
-          <thead>
-            <tr className="text-muted-foreground"><th className="py-1.5 text-left font-semibold">Etapa</th><th className="py-1.5 text-right font-semibold">Qtd</th><th className="py-1.5 text-right font-semibold">Taxa</th><th className="py-1.5 text-right font-semibold">Custo</th></tr>
-          </thead>
-          <tbody>
-            {ETAPAS.map((e) => {
-              const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
-              const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
-              const sit = e.taxa && e.chave !== 'mql' ? situacao(taxa, meta, v) : 'nd';
-              const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
-              return (
-                <tr key={e.chave} className="border-t border-border/60">
-                  <td className="py-1.5 text-muted-foreground">{e.chave === 'leads' ? 'Lead' : e.chave === 'venda' ? 'Vendas RGV' : e.curto}</td>
-                  <td className="py-1.5 text-right mono font-semibold text-foreground">{fmtNum(v) ?? <Zero motivo={mItem} />}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corTaxa}`}>{e.taxa ? fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} /> : ''}</td>
-                  <td className={`py-1.5 text-right mono font-semibold ${corCusto(custo, referencia ? custoDe(e, referencia) : null)}`}>{fmtBrl(custo) ?? <Zero tipo="brl" motivo={v === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
         <button type="button" onClick={aoAbrir} className="w-full border-t border-border pt-3 text-sm font-semibold text-gold hover:underline">Ver detalhes</button>
       </div>
     </article>
