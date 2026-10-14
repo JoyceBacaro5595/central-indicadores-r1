@@ -25,8 +25,10 @@ const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.
 const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
-const SIT: Record<string, string> = { pendente: 'Na fila', contatado: 'Contatado', em_atendimento: 'Em atendimento', sem_resposta: 'Sem resposta', aguardando_retorno: 'Aguardando retorno', recuperado: 'Recuperado', descartado: 'Descartado' };
-const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Na fila' }, { k: 'contatado', r: 'Contatados' }, { k: 'em_atendimento', r: 'Em atendimento' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
+const SIT: Record<string, string> = { pendente: 'Não contatado', contatado: 'Mensagem enviada', em_atendimento: 'Em atendimento', aguardando_retorno: 'Aguardando retorno', sem_resposta: 'Sem resposta', recuperado: 'Recuperado', descartado: 'Descartado' };
+/** Opções do seletor do atendente (em_atendimento ficou só para registros antigos). */
+const OPCOES = ['pendente', 'contatado', 'aguardando_retorno', 'sem_resposta', 'recuperado', 'descartado'];
+const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Não contatados' }, { k: 'contatado', r: 'Mensagem enviada' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
 
 const tel = (t: string | null) => (t ? t.replace(/\D/g, '') : '');
 const MSG_PADRAO = 'Olá, {nome}! Vi que você iniciou a compra do ingresso {produto} e o pagamento não foi concluído. Posso te ajudar a finalizar?';
@@ -104,7 +106,7 @@ export default function Recuperacao() {
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="kpi-card"><div className="kpi-label">Na fila</div><div className="kpi-value mono">{r ? num(r.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r ? brl(r.valor_na_fila) : ''} em pedidos</div></div>
+          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{r ? num(r.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r ? brl(r.valor_na_fila) : ''} em pedidos</div></div>
           <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{r ? num(r.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
           <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{r ? num(r.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
@@ -158,15 +160,15 @@ export default function Recuperacao() {
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
                     <td className="py-2">{PAG[p.metodo_pagamento] ?? p.metodo_pagamento}{p.parcelas && p.parcelas > 1 ? ` ${p.parcelas}x` : ''}</td>
                     <td className="py-2 text-muted-foreground">{p.utm_source ?? '—'}{p.utm_campaign && <div className="truncate max-w-[160px]" title={p.utm_campaign}>{p.utm_campaign}</div>}</td>
-                    <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-emerald-500/15 text-emerald-400' : p.situacao === 'contatado' ? 'bg-amber-500/15 text-amber-400' : p.situacao === 'em_atendimento' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'aguardando_retorno' ? 'bg-violet-500/15 text-violet-400' : p.situacao === 'sem_resposta' ? 'bg-orange-500/15 text-orange-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-primary/15 text-primary'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && <div className="text-[10px] text-emerald-400 mt-1">comprou depois</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
+                    <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-emerald-500/15 text-emerald-400' : p.situacao === 'contatado' ? 'bg-amber-500/15 text-amber-400' : p.situacao === 'em_atendimento' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'aguardando_retorno' ? 'bg-violet-500/15 text-violet-400' : p.situacao === 'sem_resposta' ? 'bg-orange-500/15 text-orange-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-primary/15 text-primary'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && <div className="text-[10px] text-emerald-400 mt-1">comprou depois</div>}{p.situacao !== 'pendente' && p.situacao_em && <div className="text-[10px] text-muted-foreground mt-1">alterado em {quando(p.situacao_em)}</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
                     <td className="py-2">
                       <div className="flex flex-wrap gap-1">
                         {w && <a href={w} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold" title="Abrir WhatsApp"><Phone className="w-3 h-3" /> WhatsApp</a>}
                         <select value={p.situacao} onChange={(e) => marcar.mutate({ id: p.transacao_id, situacao: e.target.value, observacao: e.target.value === 'pendente' ? null : (obs[p.transacao_id] ?? p.observacao) })} className="bg-secondary rounded px-2 py-1 text-[11px] font-semibold text-foreground" title="Mudar o status do atendimento">
-                          {Object.entries(SIT).map(([k, r]) => <option key={k} value={k}>{r}</option>)}
+                          {(OPCOES.includes(p.situacao) ? OPCOES : [p.situacao, ...OPCOES]).map((k) => <option key={k} value={k}>{SIT[k]}</option>)}
                         </select>
                       </div>
-                      <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="observação" className="mt-1 bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
+                      <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="o que foi registrado no contato" onBlur={(e) => { const v = e.target.value.trim(); if (v && p.situacao !== 'pendente' && v !== (p.observacao ?? '')) marcar.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: v }); }} className="mt-1 bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
                     </td>
                   </tr>
                 );
