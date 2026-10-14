@@ -25,10 +25,10 @@ const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.
 const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
-const SIT: Record<string, string> = { pendente: 'Não contatado', contatado: 'Mensagem enviada', em_atendimento: 'Em atendimento', aguardando_retorno: 'Aguardando retorno', sem_resposta: 'Sem resposta', recuperado: 'Recuperado', descartado: 'Descartado' };
+const SIT: Record<string, string> = { pendente: 'Não contatado', contatado: 'Mensagem enviada', em_atendimento: 'Em atendimento', aguardando_retorno: 'Aguardando retorno', sem_resposta: 'Sem resposta', recuperado: 'Recuperado', descartado: 'Sem Interesse' };
 /** Opções do seletor do atendente (em_atendimento ficou só para registros antigos). */
 const OPCOES = ['pendente', 'contatado', 'aguardando_retorno', 'sem_resposta', 'recuperado', 'descartado'];
-const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Não contatados' }, { k: 'contatado', r: 'Mensagem enviada' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Descartados' }, { k: 'todos', r: 'Todos' }];
+const SITUACOES: { k: Situacao; r: string }[] = [{ k: 'pendente', r: 'Não contatados' }, { k: 'contatado', r: 'Mensagem enviada' }, { k: 'aguardando_retorno', r: 'Aguardando retorno' }, { k: 'sem_resposta', r: 'Sem resposta' }, { k: 'recuperado', r: 'Recuperados' }, { k: 'descartado', r: 'Sem Interesse' }, { k: 'todos', r: 'Todos' }];
 
 const tel = (t: string | null) => (t ? t.replace(/\D/g, '') : '');
 const MSG_PADRAO = 'Olá, {nome}! Vi que você iniciou a compra do ingresso {produto} e o pagamento não foi concluído. Posso te ajudar a finalizar?';
@@ -110,7 +110,7 @@ export default function Recuperacao() {
           <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{r ? num(r.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
           <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{r ? num(r.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Descartados</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
         </div>
 
         {r?.por_cidade && r.por_cidade.length > 0 && (
