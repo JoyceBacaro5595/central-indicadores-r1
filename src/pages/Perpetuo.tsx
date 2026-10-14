@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -467,6 +467,58 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
   );
 }
 
+/* Largura (peso de cada card) e altura da faixa ajustáveis por arraste; ficam salvos neste navegador (Joyce, 14/10). */
+const PESOS_PADRAO = [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+const CHAVE_TAMANHO = 'perpetuo-faixa-tamanho-v1';
+function lerTamanho(): { pesos: number[]; altura: number | null } {
+  try {
+    const j = JSON.parse(localStorage.getItem(CHAVE_TAMANHO) ?? 'null');
+    if (j && Array.isArray(j.pesos) && j.pesos.length === PESOS_PADRAO.length && j.pesos.every((x: unknown) => typeof x === 'number' && x > 0))
+      return { pesos: j.pesos, altura: typeof j.altura === 'number' ? j.altura : null };
+  } catch { /* sem armazenamento: usa o padrão */ }
+  return { pesos: PESOS_PADRAO, altura: null };
+}
+function useTamanhoFaixa() {
+  const linhaRef = useRef<HTMLDivElement>(null);
+  const [ini] = useState(lerTamanho);
+  const [pesos, setPesos] = useState<number[]>(ini.pesos);
+  const [altura, setAltura] = useState<number | null>(ini.altura);
+  useEffect(() => {
+    try { localStorage.setItem(CHAVE_TAMANHO, JSON.stringify({ pesos, altura })); } catch { /* ignora */ }
+  }, [pesos, altura]);
+  const arrastarAltura = (ev: React.PointerEvent) => {
+    const y0 = ev.clientY; const h0 = linhaRef.current?.getBoundingClientRect().height ?? 0;
+    const mv = (e: PointerEvent) => setAltura(Math.max(120, Math.round(h0 + e.clientY - y0)));
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  const Slot = ({ i, ultimo, children }: { i: number; ultimo?: boolean; children: React.ReactNode }) => {
+    const arrastar = (ev: React.PointerEvent) => {
+      ev.preventDefault();
+      const x0 = ev.clientX; const base = pesos; const soma = base.reduce((a, b) => a + b, 0);
+      const larg = linhaRef.current?.getBoundingClientRect().width || 1;
+      const mv = (e: PointerEvent) => {
+        const d = ((e.clientX - x0) / larg) * soma;
+        const prox = ultimo ? null : i + 1;
+        const novo = [...base];
+        novo[i] = Math.max(0.5, base[i] + d);
+        if (prox != null) novo[prox] = Math.max(0.5, base[prox] - (novo[i] - base[i]));
+        setPesos(novo);
+      };
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    };
+    return (
+      <div className="relative min-w-0" style={{ flex: `${pesos[i]} 1 0%` }}>
+        {children}
+        <div onPointerDown={arrastar} onDoubleClick={() => setPesos(PESOS_PADRAO)}
+          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize touch-none hover:bg-violet-400/40 z-10" title="Arraste para ajustar a largura" />
+      </div>
+    );
+  };
+  return { linhaRef, pesos, setPesos, altura, setAltura, arrastarAltura, Slot };
+}
+
 function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMetas | null; ct: PerpetuoVendasClubeTrator | null }) {
   const etapas = ETAPAS.filter((e) => e.chave !== 'venda');
   const venda = ETAPAS.find((e) => e.chave === 'venda')!;
@@ -477,11 +529,13 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
   const total = rgv != null && clube != null && trator != null ? rgv + clube + trator + semProduto : null;
   const fatTotal = m.faturamento != null && ct ? m.faturamento + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
   const inv = m.investimento;
+  const { linhaRef, pesos, setPesos, altura, setAltura, arrastarAltura, Slot } = useTamanhoFaixa();
   return (
     <div className="space-y-1.5">
       <div className="surface overflow-hidden">
-        <div className="flex flex-nowrap divide-x divide-border">
-          <div className="flex-[1.5] basis-0 min-w-0 p-2">
+        <div ref={linhaRef} className="flex flex-nowrap divide-x divide-border" style={altura != null ? { minHeight: altura } : undefined}>
+          <Slot i={0}>
+          <div className="min-w-0 p-2 h-full">
             <div className={TITULO_FAIXA}>Investimento</div>
             <div className="display leading-none mt-2 text-foreground whitespace-nowrap text-[clamp(14px,1.45vw,22px)]">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
             <div className="h-1.5 mt-2.5" />
@@ -492,13 +546,23 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
             <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Perpétuo</div>
             <div className={CUSTO_FAIXA}>&nbsp;</div>
           </div>
-          {etapas.map((e) => <CardEtapa key={e.chave} e={e} m={m} metas={metas} />)}
-          <CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
-            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaDe(metas, venda.taxa!.meta)} mTaxa={motivoTaxa(m)} />
-          <CardVendas titulo="Vendas Clube R1" vendas={clube} fat={ct ? ct.clube_r1.faturamento : null} inv={inv} base={m.leads_crm} />
-          <CardVendas titulo="Vendas Trator" vendas={trator} fat={ct ? ct.trator.faturamento : null} inv={inv} base={m.leads_crm} />
-          <CardVendas titulo="Total de vendas" vendas={total} fat={fatTotal} inv={inv} base={m.leads_crm} />
+          </Slot>
+          {etapas.map((e, k) => <Slot key={e.chave} i={k + 1}><CardEtapa e={e} m={m} metas={metas} /></Slot>)}
+          <Slot i={etapas.length + 1}><CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
+            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaDe(metas, venda.taxa!.meta)} mTaxa={motivoTaxa(m)} /></Slot>
+          <Slot i={etapas.length + 2}><CardVendas titulo="Vendas Clube R1" vendas={clube} fat={ct ? ct.clube_r1.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
+          <Slot i={etapas.length + 3}><CardVendas titulo="Vendas Trator" vendas={trator} fat={ct ? ct.trator.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
+          <Slot i={etapas.length + 4} ultimo><CardVendas titulo="Total de vendas" vendas={total} fat={fatTotal} inv={inv} base={m.leads_crm} /></Slot>
         </div>
+        <div
+          onPointerDown={arrastarAltura} onDoubleClick={() => setAltura(null)}
+          className="h-2 cursor-row-resize touch-none border-t border-border/60 hover:bg-violet-400/30" title="Arraste para ajustar a altura dos cards; duplo clique restaura" />
+      </div>
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span>Arraste a borda direita de um card para a largura e a barra de baixo para a altura.</span>
+        {(altura != null || pesos.some((x, k) => x !== PESOS_PADRAO[k])) && (
+          <button type="button" onClick={() => { setPesos(PESOS_PADRAO); setAltura(null); }} className="underline hover:text-foreground">Restaurar tamanhos</button>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela data de fechamento{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
