@@ -199,7 +199,7 @@ export default function Perpetuo() {
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
-  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
+  const { data: vendasCT, isPlaceholderData: ctDefasado } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
   const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
@@ -313,7 +313,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
-        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} />}
+        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} defasado={isPlaceholderData || ctDefasado} />}
 
         {data && <CardSemOrigem d={data} />}
 
@@ -570,27 +570,28 @@ function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num', empilhado }: { k
 /** Vendas do período são sempre o total do CRM, tenha havido investimento ou não. A lista só traz itens com veiculação
  *  ou leads no período e vendas com UTM; a diferença para o total vira a linha "Sem atribuição", para as colunas fecharem
  *  com o total do período filtrado (Joyce, 14/10). */
-function VendasForaDaLista({ itens, total, nome, ct }: { itens: Item[] | null; total: number | null | undefined; nome: string; ct?: PerpetuoVendasClubeTrator | null }) {
-  if (!itens || total == null) return null;
+function VendasForaDaLista({ itens, total, nome, ct, defasado }: { itens: Item[] | null; total: number | null | undefined; nome: string; ct?: PerpetuoVendasClubeTrator | null; defasado?: boolean }) {
+  if (!itens || (total == null && !ct)) return null;
   const plural = nome === 'página' ? 'páginas' : nome === 'peça' ? 'peças' : 'campanhas';
   const linhas = [
-    { k: 'Vendas RGV', total, lista: itens.reduce((s, i) => s + (i.vendas ?? 0), 0) },
+    ...(total != null ? [{ k: 'Vendas RGV', total, lista: itens.reduce((s, i) => s + (i.vendas ?? 0), 0) }] : []),
     ...(ct ? [
       { k: 'Vendas Clube R1', total: ct.clube_r1.vendas, lista: itens.reduce((s, i) => s + (i.clube ?? 0), 0) },
       { k: 'Vendas Trator', total: ct.trator.vendas, lista: itens.reduce((s, i) => s + (i.trator ?? 0), 0) },
     ] : []),
   ];
-  const fora = linhas.reduce((s, l) => s + Math.max(0, l.total - l.lista), 0);
+  const fora = defasado ? 0 : linhas.reduce((s, l) => s + Math.max(0, l.total - l.lista), 0);
   return (
     <div className="surface px-4 py-3 text-sm space-y-2" role="note">
       <table className="text-xs">
         <thead><tr className="text-muted-foreground text-left"><th className="pr-6 pb-1 font-semibold">Vendas do período</th><th className="pr-6 pb-1 font-semibold text-right">Total</th><th className="pr-6 pb-1 font-semibold text-right">Nas {plural} abaixo</th><th className="pb-1 font-semibold text-right">Sem atribuição</th></tr></thead>
         <tbody>
           {linhas.map((l) => (
-            <tr key={l.k}><td className="pr-6 text-muted-foreground">{l.k}</td><td className="pr-6 text-right mono font-bold text-foreground">{fmtNum(l.total)}</td><td className="pr-6 text-right mono text-foreground">{fmtNum(l.lista)}</td><td className={`text-right mono ${l.total - l.lista > 0 ? 'text-amber-400 font-bold' : 'text-muted-foreground'}`}>{fmtNum(Math.max(0, l.total - l.lista))}</td></tr>
+            <tr key={l.k}><td className="pr-6 text-muted-foreground">{l.k}</td><td className="pr-6 text-right mono font-bold text-foreground">{fmtNum(l.total)}</td><td className="pr-6 text-right mono text-foreground">{fmtNum(l.lista)}</td><td className={`text-right mono ${!defasado && l.total - l.lista > 0 ? 'text-amber-400 font-bold' : 'text-muted-foreground'}`}>{defasado ? '…' : fmtNum(Math.max(0, l.total - l.lista))}</td></tr>
           ))}
         </tbody>
       </table>
+      {defasado && <p className="text-xs text-muted-foreground">Atualizando o período… a coluna "Sem atribuição" volta quando todos os números chegarem.</p>}
       {fora > 0 && <p className="text-xs text-amber-400">{fmtNum(fora)} {fora === 1 ? 'venda não entra' : 'vendas não entram'} em nenhuma {nome}: o negócio chegou sem {nome === 'peça' ? 'nome do anúncio' : nome === 'página' ? 'página' : 'campanha'} na UTM, ou a {nome} não teve investimento nem leads no período. Elas continuam no total geral, sem atribuição por palpite.</p>}
     </div>
   );
@@ -648,7 +649,7 @@ function lerPorLinha(): PorLinha {
   try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
 }
 
-function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null }) {
+function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null; defasado?: boolean }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
@@ -723,7 +724,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; s
       </div>
 
       <ReguaMetas metas={metas} />
-      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} ct={ct} />
+      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} ct={ct} defasado={defasado} />
       <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
