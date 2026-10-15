@@ -194,13 +194,15 @@ export default function Recuperacao() {
   const cards = useMemo(() => {
     if (baseCards.isLoading || baseCards.isPlaceholderData) return undefined;
     const l = filtra(baseCards.data ?? []).filter((p) => !cidade || p.cidade_evento === cidade);
-    const naFila = l.filter((p) => p.situacao === 'pendente' && !p.ja_comprou_depois);
+    const soma = (x: Pedido[]) => x.reduce((acc, p) => acc + (Number(p.valor_bruto) || 0), 0);
+    const mk = (x: Pedido[]) => ({ n: x.length, valor: soma(x), pct: l.length ? (x.length / l.length) * 100 : 0 });
     return {
-      na_fila: naFila.length, valor_na_fila: naFila.reduce((a, p) => a + (Number(p.valor_bruto) || 0), 0),
-      contatados: l.filter((p) => ['contatado', 'em_atendimento', 'sem_resposta', 'aguardando_retorno'].includes(p.situacao)).length,
-      recuperados: l.filter((p) => p.situacao === 'recuperado').length,
-      descartados: l.filter((p) => p.situacao === 'descartado').length,
-      ja_compraram_depois: l.filter((p) => p.ja_comprou_depois).length,
+      total: l.length,
+      na_fila: mk(l.filter((p) => p.situacao === 'pendente' && !p.ja_comprou_depois)),
+      contatados: mk(l.filter((p) => ['contatado', 'em_atendimento', 'sem_resposta', 'aguardando_retorno'].includes(p.situacao))),
+      recuperados: mk(l.filter((p) => p.situacao === 'recuperado')),
+      descartados: mk(l.filter((p) => p.situacao === 'descartado')),
+      ja_compraram_depois: mk(l.filter((p) => p.ja_comprou_depois)),
     };
   }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidade]);
   /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
@@ -244,11 +246,11 @@ export default function Recuperacao() {
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{cards ? brl(cards.valor_na_fila) : ''} em pedidos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados) : '…'}</div></div>
-          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
-          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.na_fila.valor)} · {cards.na_fila.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.contatados.valor)} · {cards.contatados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.recuperados.valor)} · {cards.recuperados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
+          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.descartados.valor)} · {cards.descartados.pct.toFixed(0)}%</div>}</div></div>
         </div>
 
         {!filaTodas.isPlaceholderData && porEvento.length > 0 && (
