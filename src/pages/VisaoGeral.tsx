@@ -6,6 +6,7 @@ import { usePerpetuo } from '@/hooks/usePerpetuo';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
+import AvisosSino from '@/components/AvisosSino';
 import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
@@ -312,6 +313,7 @@ export default function VisaoGeral() {
             <div className="rt-sync-l">Dados dos painéis</div>
             <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
           </div>
+          <AvisosSino />
         </header>
 
         <main className="rt-grid">

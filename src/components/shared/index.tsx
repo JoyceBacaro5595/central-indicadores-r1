@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
+import AvisosSino from '@/components/AvisosSino';
 
 /* ─── Componentes visuais compartilhados da Central ─── */
 
@@ -47,6 +48,7 @@ export function PageHeader({ titulo, subtitulo, acoes, onAtualizar, atualizando 
             <RefreshCw className={`w-4 h-4 ${atualizando ? 'animate-spin' : ''}`} />
           </button>
         )}
+        <AvisosSino />
         <UserMenu />
       </div>
     </header>
