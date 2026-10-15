@@ -35,6 +35,13 @@ const dataDoEvento = (cidade: string | null, mes: string | null, doBanco: string
 const diaMes = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : null);
 const diaCompleto = (d: string | null) => (d && d.length === 10 ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : d ? new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 const TIPOS = [{ k: '', r: 'Todos os ingressos' }, { k: 'comum', r: 'Comum' }, { k: 'vip', r: 'VIP' }, { k: 'mais1', r: 'Mais de 1 ingresso' }];
+/* Acima de 24 h, mostra em dias e horas (ex.: 34 h -> 1 dia e 10 h). */
+const duracao = (h: number) => {
+  const t = Math.max(0, Math.round(h));
+  if (t < 24) return `${num(t)} h`;
+  const d = Math.floor(t / 24), r = t % 24;
+  return `${num(d)} ${d === 1 ? 'dia' : 'dias'}${r ? ` e ${r} h` : ''}`;
+};
 const batePedidoTipo = (p: { tipo_ingresso: string | null; qtd_ingressos: number }, k: string) => !k || (k === 'mais1' ? (p.qtd_ingressos ?? 0) > 1 : norm(p.tipo_ingresso ?? '') === k);
 const linkAnuncio = (p: Pedido) => (p.conta_id && p.anuncio_id ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${p.conta_id}&selected_ad_ids=${p.anuncio_id}` : p.conta_id && p.campanha_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${p.conta_id}&selected_campaign_ids=${p.campanha_id}` : null);
 /** Horário do pedido (criado_em) vem da base já em Brasília e sem fuso: mostra como está. Datas com fuso (registros do atendimento) são convertidas para Brasília. */
@@ -179,7 +186,7 @@ export default function Recuperacao() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo={aba === 'templates' ? 'Templates de mensagem' : aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
-        subtitulo={`Pedidos expirados, cancelados, abandonados ou em recuperação, e aguardando pagamento há mais de ${r?.horas_parametro ?? 4} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
+        subtitulo={`Pedidos expirados, cancelados, abandonados ou em recuperação, e aguardando pagamento há mais de ${r?.horas_parametro ?? 1} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
@@ -264,7 +271,7 @@ export default function Recuperacao() {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
-                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div></td>
+                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {duracao(p.horas_pendente)}</div></td>
                     <td className="py-2"><div className="font-semibold text-foreground">{p.nome_contato ?? '—'}</div><div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento)) !== '—' ? `Evento em ${diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento))}` : mesLabel(p.mes_evento)}</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div>{p.produto_criado_em && <div className="text-muted-foreground">Produto cadastrado em {diaCompleto(p.produto_criado_em)}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{num(p.qtd_ingressos)} {p.qtd_ingressos === 1 ? 'ingresso' : 'ingressos'}</div></td>
