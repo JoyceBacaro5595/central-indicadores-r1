@@ -111,7 +111,7 @@ export default function Recuperacao() {
   const veDados = pode('dados_pessoais');
 
   useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
-  const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
+  const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
@@ -154,7 +154,7 @@ export default function Recuperacao() {
     const blob = new Blob([csv(lista)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `recuperacao-${situacao}${cidade ? `-${cidade}` : ''}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
-  const r = resumo.data;
+  const r = resumo.isPlaceholderData ? undefined : resumo.data;
 
   return (
     <div className="min-h-screen bg-background">
