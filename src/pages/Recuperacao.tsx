@@ -189,9 +189,11 @@ export default function Recuperacao() {
         <section className="surface p-4 overflow-x-auto">
           <div className="flex flex-wrap items-center gap-2">
             <span className="section-label">Pedidos</span>
-            <select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground ml-auto" title="Filtrar por status" aria-label="Filtrar por status">
+            <label className="flex items-center gap-1.5 ml-auto text-[11px] font-semibold text-muted-foreground">Status do atendimento
+            <select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground" title="Filtrar por status" aria-label="Filtrar por status">
               {SITUACOES.map((s) => <option key={s.k} value={s.k}>{s.r}</option>)}
             </select>
+            </label>
             <select value={cidade} onChange={(e) => setCidade(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground">
               <option value="">Todas as cidades</option>
               {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
