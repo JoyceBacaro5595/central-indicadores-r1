@@ -59,7 +59,10 @@ const lerCompacta = () => { try { return localStorage.getItem(CHAVE_COMPACTA) ==
 export default function AppShell() {
   const { pode } = useAuth();
   const [aberta, setAberta] = useState(false);
-  const [compacta, setCompacta] = useState<boolean>(() => lerCompacta());
+  const [fixaCompacta, setCompacta] = useState<boolean>(() => lerCompacta());
+  /* Recolhido, o menu abre por cima do conteúdo enquanto o mouse estiver sobre ele (desktop). */
+  const [sobre, setSobre] = useState(false);
+  const compacta = fixaCompacta && !sobre;
   const alternarCompacta = () => setCompacta((v) => { const novo = !v; try { localStorage.setItem(CHAVE_COMPACTA, novo ? '1' : '0'); } catch { /* preferência só desta sessão */ } return novo; });
   const alertas = useAlertas(pode('gerenciador')).data?.alertas ?? [];
   const loc = useLocation();
@@ -83,8 +86,11 @@ export default function AppShell() {
       </button>
       {aberta && <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setAberta(false)} />}
 
+      <div className={`shrink-0 md:sticky md:top-0 md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
       <aside
-        className={`print:hidden fixed md:sticky top-0 z-40 h-screen shrink-0 flex flex-col border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
+      onMouseEnter={() => setSobre(true)}
+      onMouseLeave={() => setSobre(false)}
+        className={`print:hidden fixed md:absolute md:left-0 top-0 z-40 h-screen shrink-0 flex flex-col ${fixaCompacta && sobre ? 'md:shadow-2xl' : ''} border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
           aberta ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         data-compacta={compacta ? 'true' : undefined}
@@ -97,8 +103,8 @@ export default function AppShell() {
             <p className="text-sm font-extrabold text-foreground tracking-wide leading-tight">Central R1</p>
             <p className="text-[10px] text-muted-foreground font-medium">Indicadores</p>
           </div>
-          <button type="button" onClick={alternarCompacta} className={`hidden md:flex h-8 shrink-0 rounded-lg ${compacta ? 'w-6' : 'w-8 ml-auto'} items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 items-center justify-center`} title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
-            {compacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          <button type="button" onClick={alternarCompacta} className={`hidden md:flex h-8 shrink-0 rounded-lg ${compacta ? 'w-6' : 'w-8 ml-auto'} items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 items-center justify-center`} title={fixaCompacta ? 'Expandir menu' : 'Recolher menu'} aria-label={fixaCompacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={fixaCompacta}>
+            {fixaCompacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
         <nav className={`flex-1 overflow-y-auto py-4 ${compacta ? 'px-3 md:px-2 space-y-5 md:space-y-3' : 'px-3 space-y-5'}`}>
@@ -136,6 +142,7 @@ export default function AppShell() {
           <p className={`flex-1 px-2 text-[10px] text-muted-foreground ${compacta ? 'md:hidden' : ''}`}>Grupo R1 · Central de Indicadores</p>
         </div>
       </aside>
+      </div>
 
       <div className="flex-1 min-w-0">
         <Suspense fallback={<div role="status" className="p-8 text-sm text-muted-foreground">Carregando conteúdo…</div>}>
