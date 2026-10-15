@@ -86,7 +86,7 @@ export default function Recuperacao() {
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
-  const [detalhes, setDetalhes] = useState<Record<string, boolean>>({});
+  const [detalheId, setDetalheId] = useState<string | null>(null);
   const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
   /* Linhas que o atendente mexeu ficam na tela (na mesma posição) até trocar de filtro, mesmo saindo da situação filtrada. */
   const [fixos, setFixos] = useState<Record<string, { p: Pedido; i: number }>>({});
@@ -231,7 +231,7 @@ export default function Recuperacao() {
                           <select value={p.situacao} onChange={(e) => marcar.mutate({ id: p.transacao_id, situacao: e.target.value, observacao: e.target.value === 'pendente' ? null : (obs[p.transacao_id] ?? p.observacao) })} className="bg-secondary rounded px-2 py-1 text-[11px] font-semibold text-foreground" title="Mudar o status do atendimento">
                           {(OPCOES.includes(p.situacao) ? OPCOES : [p.situacao, ...OPCOES]).map((k) => <option key={k} value={k}>{SIT[k]}</option>)}
                         </select>
-                          <button onClick={() => setDetalhes((d) => ({ ...d, [p.transacao_id]: !d[p.transacao_id] }))} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold" aria-expanded={!!detalhes[p.transacao_id]}>Detalhes{(porPedido.get(p.transacao_id) ?? []).length > 0 ? ` (${(porPedido.get(p.transacao_id) ?? []).length})` : ''}</button>
+                          <button onClick={() => setDetalheId(p.transacao_id)} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold" aria-haspopup="dialog">Detalhes{(porPedido.get(p.transacao_id) ?? []).length > 0 ? ` (${(porPedido.get(p.transacao_id) ?? []).length})` : ''}</button>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="Observações" className="bg-secondary rounded px-2 py-1 text-[11px] text-foreground min-w-0 flex-1" />
@@ -240,14 +240,6 @@ export default function Recuperacao() {
                       </div>
                       {errosStatus[p.transacao_id] && <div className="text-[10px] text-red-400 mt-1">Não consegui salvar o status: {errosStatus[p.transacao_id]}</div>}
                       {salvarObs.isError && salvarObs.variables?.id === p.transacao_id && <div className="text-[10px] text-red-400 mt-1">{(salvarObs.error as Error).message}</div>}
-                      {detalhes[p.transacao_id] && (
-                        <div className="mt-2 border-t border-border pt-1 space-y-1 max-w-[250px]">
-                          {(porPedido.get(p.transacao_id) ?? []).length === 0 && <div className="text-[10px] text-muted-foreground">Nenhuma ação registrada neste pedido.</div>}
-                          {(porPedido.get(p.transacao_id) ?? []).map((h, i) => (
-                            <div key={i} className="text-[10px] text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · Atendente: {h.criado_por_nome ?? '—'}{h.situacao ? ` · ${SIT[h.situacao] ?? h.situacao}` : ''}{h.observacao && <div className="text-foreground whitespace-pre-wrap">{h.observacao}</div>}</div>
-                          ))}
-                        </div>
-                      )}
                     </td>
                   </tr>
                 );
@@ -256,6 +248,34 @@ export default function Recuperacao() {
           </table>
           <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada e Em recuperação assim que acontecem, e Ag. pagamento há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
+        {(() => {
+          const d = detalheId ? (fila.data ?? []).find((x) => x.transacao_id === detalheId) ?? Object.values(fixos).find((f) => f.p.transacao_id === detalheId)?.p : undefined;
+          if (!detalheId) return null;
+          const hist = porPedido.get(detalheId) ?? [];
+          return (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetalheId(null)} onKeyDown={(e) => { if (e.key === 'Escape') setDetalheId(null); }} role="presentation">
+              <div role="dialog" aria-modal="true" aria-label="Detalhes do atendimento" className="surface-elevated rounded-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-foreground">Detalhes do atendimento</h3>
+                    {d && <p className="text-[11px] text-muted-foreground truncate">{d.nome_contato ?? '—'} · {d.produto_nome}</p>}
+                  </div>
+                  <button autoFocus onClick={() => setDetalheId(null)} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold shrink-0">Fechar</button>
+                </div>
+                <div className="p-4 overflow-y-auto space-y-3">
+                  {hist.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma ação registrada neste pedido.</p>}
+                  {hist.map((h, i) => (
+                    <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
+                      <div className="text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · Atendente: <span className="text-foreground">{h.criado_por_nome ?? '—'}</span></div>
+                      {h.situacao && <div className="text-muted-foreground">Status: <span className="text-foreground">{SIT[h.situacao] ?? h.situacao}</span></div>}
+                      {h.observacao && <div className="text-foreground whitespace-pre-wrap mt-0.5">{h.observacao}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </>)}
       </main>
     </div>
