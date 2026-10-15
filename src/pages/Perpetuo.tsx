@@ -7,6 +7,7 @@ import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
+import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
@@ -20,8 +21,6 @@ type Aba = 'campanhas' | 'criativos' | 'lps';
 const CONTA_META = { nome: 'PERPETUO RGV', id: '696363384474339' };
 
 /* ─── datas e presets ─── */
-function hojeSP() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }); }
-function addDias(iso: string, n: number) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); }
 function dataBR(iso?: string | null) { return iso ? iso.split('-').reverse().join('/') : '—'; }
 function dataCurta(iso?: string | null) { return iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '—'; }
 /** Minutos até o próximo carregamento automático. O cron começa na hora cheia (HubSpot e Meta às :00,
@@ -32,25 +31,6 @@ function minutosParaCron(proxima?: string | null) {
   const agora = Date.now();
   const proximaHora = Number.isFinite(alvo) && alvo > agora ? alvo : (Math.floor(agora / 3600000) + 1) * 3600000;
   return { minutos: Math.ceil((proximaHora - agora) / 60000), quando: new Date(proximaHora).toISOString() };
-}
-
-type Preset = { chave: string; rotulo: string; de: string; ate: string };
-function presets(): Preset[] {
-  const hoje = hojeSP(); const ontem = addDias(hoje, -1);
-  const mesIni = hoje.slice(0, 8) + '01';
-  const mesPassadoFim = addDias(mesIni, -1); const mesPassadoIni = mesPassadoFim.slice(0, 8) + '01';
-  return [
-    { chave: 'hoje', rotulo: 'Hoje', de: hoje, ate: hoje },
-    { chave: 'ontem', rotulo: 'Ontem', de: ontem, ate: ontem },
-    { chave: 'todos', rotulo: 'Todo o período', de: '2026-01-01', ate: hoje },
-    { chave: 'ano', rotulo: `${hoje.slice(0, 4)} até hoje`, de: `${hoje.slice(0, 4)}-01-01`, ate: hoje },
-    { chave: '90', rotulo: 'Últimos 90 dias', de: addDias(ontem, -89), ate: ontem },
-    { chave: '60', rotulo: 'Últimos 60 dias', de: addDias(ontem, -59), ate: ontem },
-    { chave: '30', rotulo: 'Últimos 30 dias', de: addDias(ontem, -29), ate: ontem },
-    { chave: '7', rotulo: 'Últimos 7 dias', de: addDias(ontem, -6), ate: ontem },
-    { chave: 'mes', rotulo: 'Este mês', de: mesIni, ate: hoje },
-    { chave: 'mes-1', rotulo: 'Mês passado', de: mesPassadoIni, ate: mesPassadoFim },
-  ];
 }
 
 /* ─── formatação ─── */

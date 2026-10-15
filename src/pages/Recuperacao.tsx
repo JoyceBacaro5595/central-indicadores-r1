@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Phone } from 'lucide-react';
+import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { Abas, PageHeader } from '@/components/shared';
@@ -85,6 +86,15 @@ export default function Recuperacao() {
   const [busca, setBusca] = useState('');
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
+  const [periodo, setPeriodo] = useState('todos');
+  const periodos = useMemo(presets, []);
+  const aplicarPeriodo = (chave: string) => {
+    setPeriodo(chave);
+    if (chave === 'custom') return;
+    if (chave === 'todos') { setDe(''); setAte(''); return; }
+    const p = periodos.find((x) => x.chave === chave);
+    if (p) { setDe(p.de); setAte(p.ate); }
+  };
   const [obs, setObs] = useState<Record<string, string>>({});
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
@@ -201,9 +211,14 @@ export default function Recuperacao() {
             <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Tipo de ingresso">
               {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.r}</option>)}
             </select>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            {(de || ate) && <button onClick={() => { setDe(''); setAte(''); }} className="text-[11px] text-primary font-semibold">Limpar datas</button>}
+            <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
+              <option value="custom">Personalizado</option>
+              {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
+            </select>
+            {periodo === 'custom' && <>
+              <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+              <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            </>}
             <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
             {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
