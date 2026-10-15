@@ -103,7 +103,7 @@ export default function AppShell() {
             <p className="text-sm font-extrabold text-foreground tracking-wide leading-tight">Central R1</p>
             <p className="text-[10px] text-muted-foreground font-medium">Indicadores</p>
           </div>
-          <button type="button" onClick={alternarCompacta} className={`hidden md:flex h-8 shrink-0 rounded-lg ${compacta ? 'w-6' : 'w-8 ml-auto'} items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 items-center justify-center`} title={fixaCompacta ? 'Expandir menu' : 'Recolher menu'} aria-label={fixaCompacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={fixaCompacta}>
+          <button type="button" onClick={alternarCompacta} className={`hidden md:flex h-8 shrink-0 rounded-lg ${compacta ? 'w-6' : 'w-8 ml-auto'} items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 items-center justify-center`} title={fixaCompacta ? 'Fixar menu aberto' : 'Recolher menu'} aria-label={fixaCompacta ? 'Fixar menu aberto' : 'Recolher menu'} aria-pressed={fixaCompacta}>
             {fixaCompacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
