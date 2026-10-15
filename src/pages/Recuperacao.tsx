@@ -113,6 +113,7 @@ export default function Recuperacao() {
   useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
   const historico = useQuery({ queryKey: ['recuperacao-historico'], queryFn: () => r1Rpc<Registro[]>('recuperacao_historico'), refetchInterval: 5 * 60_000, retry: false });
@@ -140,15 +141,28 @@ export default function Recuperacao() {
     onSettled: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
   });
 
-  const lista = useMemo(() => {
+  /* Mesmos filtros da lista (situação, tipo, período, busca, recomprados), para a lista e para a "Fila por evento" baterem sempre. */
+  const filtra = useMemo(() => {
     const q = busca.trim().toLowerCase();
     const dia = (d: string) => (comFuso(d) ? new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : d.slice(0, 10));
-    const base = comFixos(fila.data ?? [], fixos, (id) => origemDe.has(id));
-    const l = base.filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     const qd = q.replace(/\D/g, '');
-    return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
-  }, [fila.data, fixos, origemDe, busca, de, ate, tipo]);
-  const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
+    return (base: Pedido[]) => {
+      const l = base.filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
+      return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
+    };
+  }, [busca, de, ate, tipo]);
+  const lista = useMemo(() => filtra(comFixos(fila.data ?? [], fixos, (id) => origemDe.has(id))), [fila.data, fixos, origemDe, filtra]);
+  const porEvento = useMemo(() => {
+    const m = new Map<string, { cidade: string | null; mes_evento: string; data_evento: string | null; n: number; valor: number }>();
+    for (const p of filtra(filaTodas.data ?? [])) {
+      const k = `${p.cidade_evento ?? ''}|${p.mes_evento}`;
+      const c = m.get(k) ?? { cidade: p.cidade_evento, mes_evento: p.mes_evento, data_evento: p.data_evento, n: 0, valor: 0 };
+      c.n += 1; c.valor += Number(p.valor_bruto) || 0;
+      m.set(k, c);
+    }
+    return Array.from(m.values()).sort((x, y) => y.n - x.n);
+  }, [filaTodas.data, filtra]);
+  const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
     const blob = new Blob([csv(lista)], { type: 'text/csv;charset=utf-8' });
@@ -182,14 +196,14 @@ export default function Recuperacao() {
           <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
         </div>
 
-        {r?.por_cidade && r.por_cidade.length > 0 && (
+        {!filaTodas.isPlaceholderData && porEvento.length > 0 && (
           <section className="surface p-4">
             <span className="section-label">Fila por evento</span>
             <div className="flex flex-wrap gap-2 mt-3">
-              {r.por_cidade.map((c) => (
+              {porEvento.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
-                  <div className="mono">{num(c.na_fila)} · {brl(c.valor)}</div>
+                  <div className="mono">{num(c.n)} · {brl(c.valor)}</div>
                 </button>
               ))}
             </div>
