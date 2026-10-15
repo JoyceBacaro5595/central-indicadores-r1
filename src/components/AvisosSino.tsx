@@ -29,7 +29,7 @@ export default function AvisosSino() {
 
   return (
     <div ref={ref} className="relative print:hidden">
-      <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} aria-label={alertas.length ? `${alertas.length} avisos` : 'Avisos'} title={alertas.length ? `${alertas.length} aviso(s)` : 'Sem avisos'}
+      <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} aria-label={alertas.length ? `${alertas.length} avisos` : 'Avisos'} title={!data ? 'Verificando avisos…' : alertas.length ? `${alertas.length} aviso(s)` : 'Sem avisos'}
         className="relative flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary">
         <Bell className="w-4 h-4" aria-hidden="true" />
         {alertas.length > 0 && <span className={`absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white ${critico ? 'bg-red-500' : 'bg-amber-500'}`}>{alertas.length}</span>}
@@ -37,7 +37,8 @@ export default function AvisosSino() {
       {aberto && (
         <div role="dialog" aria-label="Avisos" className="absolute right-0 top-10 z-50 w-[min(92vw,380px)] max-h-[70vh] overflow-y-auto surface-elevated rounded-lg border border-border p-3 space-y-2 shadow-2xl">
           <p className="section-label">Avisos</p>
-          {alertas.length === 0 && <p className="text-xs text-emerald-400 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" aria-hidden="true" />Tudo em dia: integrações e base de pedidos atualizadas.</p>}
+          {!data && <p className="text-xs text-muted-foreground">Verificando…</p>}
+          {data && alertas.length === 0 && <p className="text-xs text-emerald-400 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" aria-hidden="true" />Tudo em dia: integrações e base de pedidos atualizadas.</p>}
           {alertas.map((a) => (
             <div key={a.id} className={`rounded-lg border p-2.5 text-xs ${a.gravidade === 'critico' ? 'border-red-500/40' : 'border-amber-500/40'}`}>
               <p className={`font-bold flex items-start gap-2 ${a.gravidade === 'critico' ? 'text-red-400' : 'text-amber-400'}`}><AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />{a.titulo}</p>
