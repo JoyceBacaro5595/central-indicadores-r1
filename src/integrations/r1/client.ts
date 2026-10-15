@@ -37,7 +37,9 @@ export async function r1Rpc<T>(nome: string, params: Record<string, unknown> = {
     } catch { /* corpo vazio */ }
     throw new Error(msg);
   }
-  return res.json();
+  /* RPCs que não devolvem nada (retorno void) respondem com corpo vazio: não é erro. */
+  const texto = await res.text();
+  return (texto ? JSON.parse(texto) : undefined) as T;
 }
 
 /** Chama uma Edge Function do r1-indicadores como o usuário logado. */
