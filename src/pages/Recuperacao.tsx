@@ -80,6 +80,7 @@ export default function Recuperacao() {
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
+  const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
   const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
   const [tplId, setTplId] = useState('');
   const tpls = useQuery({ queryKey: ['recuperacao-templates'], queryFn: () => r1Rpc<Template[]>('recuperacao_templates_listar'), retry: false });
@@ -102,12 +103,13 @@ export default function Recuperacao() {
     mutationFn: (v: { id: string; situacao: string; observacao?: string | null }) => r1Rpc('recuperacao_marcar', { p_transacao_id: v.id, p_situacao: v.situacao, p_observacao: v.observacao ?? null }),
     // Troca o status na tela na hora; se o banco recusar, volta ao valor anterior e mostra o motivo
     onMutate: async (v) => {
+      setErrosStatus((e) => { const { [v.id]: _, ...resto } = e; return resto; });
       await qc.cancelQueries({ queryKey: ['recuperacao-fila'] });
       const antes = qc.getQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] });
       qc.setQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] }, (l) => l?.map((p) => (p.transacao_id === v.id ? { ...p, situacao: v.situacao } : p)));
       return { antes };
     },
-    onError: (_e, _v, ctx) => { ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); },
+    onError: (e, v, ctx) => { ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); setErrosStatus((x) => ({ ...x, [v.id]: (e as Error).message })); },
     onSettled: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
   });
 
@@ -219,7 +221,7 @@ export default function Recuperacao() {
                         <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="o que foi registrado no contato" className="bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
                         <button onClick={() => salvarObs.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: (obs[p.transacao_id] ?? '').trim() })} disabled={!(obs[p.transacao_id] ?? '').trim() || salvarObs.isPending} className="px-2 py-0.5 rounded bg-primary text-primary-foreground text-[11px] font-semibold disabled:opacity-50">Salvar</button>
                       </div>
-                      {marcar.isError && marcar.variables?.id === p.transacao_id && <div className="text-[10px] text-red-400 mt-1">Não consegui salvar o status: {(marcar.error as Error).message}</div>}
+                      {errosStatus[p.transacao_id] && <div className="text-[10px] text-red-400 mt-1">Não consegui salvar o status: {errosStatus[p.transacao_id]}</div>}
                       {salvarObs.isError && salvarObs.variables?.id === p.transacao_id && <div className="text-[10px] text-red-400 mt-1">{(salvarObs.error as Error).message}</div>}
                       {(porPedido.get(p.transacao_id) ?? []).length > 0 && (
                         <div className="mt-2 border-t border-border pt-1 space-y-1 max-w-[260px]">
