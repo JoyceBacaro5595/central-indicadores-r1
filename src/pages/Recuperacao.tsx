@@ -5,23 +5,36 @@ import { Download, Phone } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { Abas, PageHeader } from '@/components/shared';
+import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
 
 interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
 interface Resumo {
   na_fila: number; valor_na_fila: number; contatados: number; recuperados: number; descartados: number; ja_compraram_depois: number; horas_parametro: number;
-  por_cidade: { cidade: string | null; mes_evento: string | null; na_fila: number; valor: number }[] | null;
+  por_cidade: { cidade: string | null; mes_evento: string | null; data_evento: string | null; na_fila: number; valor: number }[] | null;
 }
 interface Pedido {
   transacao_id: string; status: string; criado_em: string; horas_pendente: number; produto_nome: string; cidade_evento: string | null; mes_evento: string | null;
   tipo_ingresso: string | null; canal: string | null; qtd_ingressos: number; valor_bruto: number; metodo_pagamento: string; parcelas: number | null; cupom: string | null;
   nome_contato: string | null; email: string | null; telefone: string | null; cidade_comprador: string | null; uf_comprador: string | null;
   utm_source: string | null; utm_campaign: string | null; ja_comprou_depois: boolean; situacao: string; observacao: string | null; situacao_em: string | null;
+  data_evento: string | null; produto_criado_em: string | null; campanha_id: string | null; anuncio_id: string | null; conta_id: string | null; destino_url: string | null; utm_content: string | null;
 }
 type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.split('-'); return `${m}/${y}`; };
+/** Data do evento: a cadastrada na Central; sem ela, a da Rota 45. */
+const dataDoEvento = (cidade: string | null, mes: string | null, doBanco: string | null) => {
+  if (doBanco) return doBanco;
+  if (!cidade || !mes) return null;
+  return ROTA.cidades.find((c) => mesmoEvento({ cidade, mes_evento: mes }, c))?.data ?? null;
+};
+const diaMes = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : null);
+const diaCompleto = (d: string | null) => (d ? new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
+const TIPOS = [{ k: '', r: 'Todos os ingressos' }, { k: 'comum', r: 'Comum' }, { k: 'vip', r: 'VIP' }, { k: 'mais1', r: 'Mais de 1 ingresso' }];
+const batePedidoTipo = (p: { tipo_ingresso: string | null; qtd_ingressos: number }, k: string) => !k || (k === 'mais1' ? (p.qtd_ingressos ?? 0) > 1 : norm(p.tipo_ingresso ?? '') === k);
+const linkAnuncio = (p: Pedido) => (p.conta_id && p.anuncio_id ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${p.conta_id}&selected_ad_ids=${p.anuncio_id}` : p.conta_id && p.campanha_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${p.conta_id}&selected_campaign_ids=${p.campanha_id}` : null);
 const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
@@ -49,8 +62,8 @@ const whats = (p: Pedido, texto: string, atendente: string) => {
 
 function csv(l: Pedido[]) {
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const cab = ['pedido', 'criado_em', 'horas_pendente', 'status', 'produto', 'cidade', 'mes_evento', 'tipo', 'canal', 'qtd', 'valor', 'pagamento', 'nome', 'email', 'telefone', 'cidade_comprador', 'uf', 'utm_source', 'utm_campaign', 'situacao', 'observacao'];
-  const corpo = l.map((p) => [p.transacao_id, p.criado_em, p.horas_pendente, STATUS[p.status] ?? p.status, p.produto_nome, p.cidade_evento, p.mes_evento, p.tipo_ingresso, p.canal, p.qtd_ingressos, p.valor_bruto, PAG[p.metodo_pagamento] ?? p.metodo_pagamento, p.nome_contato, p.email, p.telefone, p.cidade_comprador, p.uf_comprador, p.utm_source, p.utm_campaign, SIT[p.situacao] ?? p.situacao, p.observacao].map(esc).join(';'));
+  const cab = ['pedido', 'criado_em', 'horas_pendente', 'status', 'produto', 'cidade', 'data_evento', 'tipo', 'canal', 'qtd', 'valor', 'pagamento', 'nome', 'email', 'telefone', 'cidade_comprador', 'uf', 'utm_source', 'utm_campaign', 'situacao', 'observacao'];
+  const corpo = l.map((p) => [p.transacao_id, p.criado_em, p.horas_pendente, STATUS[p.status] ?? p.status, p.produto_nome, p.cidade_evento, dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento), p.tipo_ingresso, p.canal, p.qtd_ingressos, p.valor_bruto, PAG[p.metodo_pagamento] ?? p.metodo_pagamento, p.nome_contato, p.email, p.telefone, p.cidade_comprador, p.uf_comprador, p.utm_source, p.utm_campaign, SIT[p.situacao] ?? p.situacao, p.observacao].map(esc).join(';'));
   return '﻿' + [cab.join(';'), ...corpo].join('\n');
 }
 
@@ -61,6 +74,7 @@ export default function Recuperacao() {
   const [situacao, setSituacao] = useState<Situacao>('pendente');
   const [cidade, setCidade] = useState<string>('');
   const [recomprados, setRecomprados] = useState(false);
+  const [tipo, setTipo] = useState('');
   const [busca, setBusca] = useState('');
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
@@ -74,7 +88,7 @@ export default function Recuperacao() {
   const veDados = pode('dados_pessoais');
 
   const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
-  const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const marcar = useMutation({
     mutationFn: (v: { id: string; situacao: string; observacao?: string | null }) => r1Rpc('recuperacao_marcar', { p_transacao_id: v.id, p_situacao: v.situacao, p_observacao: v.observacao ?? null }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); },
@@ -83,9 +97,9 @@ export default function Recuperacao() {
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     const dia = (d: string) => new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-    const l = (fila.data ?? []).filter((p) => (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
+    const l = (fila.data ?? []).filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome, p.transacao_id].some((x) => (x ?? '').toLowerCase().includes(q))) : l;
-  }, [fila.data, busca, de, ate]);
+  }, [fila.data, busca, de, ate, tipo]);
   const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
 
   const baixar = () => {
@@ -98,7 +112,7 @@ export default function Recuperacao() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo={aba === 'templates' ? 'Templates de mensagem' : aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
-        subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos deste mês em diante · últimos 90 dias`}
+        subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
@@ -126,7 +140,7 @@ export default function Recuperacao() {
             <div className="flex flex-wrap gap-2 mt-3">
               {r.por_cidade.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
-                  <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{mesLabel(c.mes_evento)}</span></div>
+                  <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
                   <div className="mono">{num(c.na_fila)} · {brl(c.valor)}</div>
                 </button>
               ))}
@@ -144,6 +158,9 @@ export default function Recuperacao() {
               <option value="">Todas as cidades</option>
               {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Tipo de ingresso">
+              {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.r}</option>)}
+            </select>
             <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
             <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
             {(de || ate) && <button onClick={() => { setDe(''); setAte(''); }} className="text-[11px] text-primary font-semibold">Limpar datas</button>}
@@ -155,21 +172,23 @@ export default function Recuperacao() {
           {!veDados && <p className="text-xs text-muted-foreground mt-3">Seu perfil vê a fila com nome e e-mail mascarados e sem telefone (recurso "dados pessoais").</p>}
           <table className="w-full mt-3 text-xs">
             <thead><tr className="text-muted-foreground text-left">
-              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Status e ações</th>
+              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Tipo de ingresso</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Status e ações</th>
             </tr></thead>
             <tbody>
-              {fila.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
-              {!fila.isLoading && lista.length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
+              {fila.isLoading && <tr><td colSpan={9} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+              {!fila.isLoading && lista.length === 0 && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
               {lista.map((p) => {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
-                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div><div className="text-muted-foreground mono">{p.transacao_id}</div></td>
+                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div></td>
                     <td className="py-2"><div className="font-semibold text-foreground">{p.nome_contato ?? '—'}</div><div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
-                    <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'} <span className="text-muted-foreground">{mesLabel(p.mes_evento)}</span></div><div className="text-muted-foreground">{p.tipo_ingresso ?? ''}{p.canal ? ` · ${p.canal}` : ''} · {num(p.qtd_ingressos)} ingr.</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div></td>
+                    <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento)) !== '—' ? `Evento em ${diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento))}` : mesLabel(p.mes_evento)}</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div>{p.produto_criado_em && <div className="text-muted-foreground">Produto cadastrado em {diaCompleto(p.produto_criado_em)}</div>}</td>
+                    <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{p.canal ? `${p.canal} · ` : ''}{num(p.qtd_ingressos)} ingr.</div></td>
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
                     <td className="py-2">{PAG[p.metodo_pagamento] ?? p.metodo_pagamento}{p.parcelas && p.parcelas > 1 ? ` ${p.parcelas}x` : ''}</td>
-                    <td className="py-2 text-muted-foreground">{p.utm_source ?? '—'}{p.utm_campaign && <div className="truncate max-w-[160px]" title={p.utm_campaign}>{p.utm_campaign}</div>}</td>
+                    <td className="py-2 text-muted-foreground">{p.utm_source ?? '—'}{p.utm_campaign && <div className="truncate max-w-[160px]" title={p.utm_campaign}>{p.utm_campaign}</div>}
+                      {(p.destino_url || linkAnuncio(p)) && <div className="flex gap-2 mt-1">{p.destino_url && <a href={p.destino_url} target="_blank" rel="noreferrer" className="text-primary font-semibold">Página</a>}{linkAnuncio(p) && <a href={linkAnuncio(p)!} target="_blank" rel="noreferrer" className="text-primary font-semibold">Gerenciador</a>}</div>}</td>
                     <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-emerald-500/15 text-emerald-400' : p.situacao === 'contatado' ? 'bg-amber-500/15 text-amber-400' : p.situacao === 'em_atendimento' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'aguardando_retorno' ? 'bg-violet-500/15 text-violet-400' : p.situacao === 'sem_resposta' ? 'bg-orange-500/15 text-orange-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-primary/15 text-primary'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && <div className="text-[10px] text-emerald-400 mt-1">comprou depois</div>}{p.situacao !== 'pendente' && p.situacao_em && <div className="text-[10px] text-muted-foreground mt-1">alterado em {quando(p.situacao_em)}</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
                     <td className="py-2">
                       <div className="flex flex-wrap gap-1">
@@ -185,7 +204,7 @@ export default function Recuperacao() {
               })}
             </tbody>
           </table>
-          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada, Ag. pagamento e Em recuperação, há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias e eventos já passados não entram. Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
+          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada, Ag. pagamento e Em recuperação, há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
       </>)}
       </main>
