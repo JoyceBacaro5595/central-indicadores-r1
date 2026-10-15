@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Phone } from 'lucide-react';
+import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
 import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -35,6 +35,13 @@ const dataDoEvento = (cidade: string | null, mes: string | null, doBanco: string
 const diaMes = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : null);
 const diaCompleto = (d: string | null) => (d && d.length === 10 ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : d ? new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 const TIPOS = [{ k: '', r: 'Todos os ingressos' }, { k: 'comum', r: 'Comum' }, { k: 'vip', r: 'VIP' }, { k: 'mais1', r: 'Mais de 1 ingresso' }];
+/* Acima de 24 h, mostra em dias e horas (ex.: 34 h -> 1 dia e 10 h). */
+const duracao = (h: number) => {
+  const t = Math.max(0, Math.round(h));
+  if (t < 24) return `${num(t)} h`;
+  const d = Math.floor(t / 24), r = t % 24;
+  return `${num(d)} ${d === 1 ? 'dia' : 'dias'}${r ? ` e ${r} h` : ''}`;
+};
 const batePedidoTipo = (p: { tipo_ingresso: string | null; qtd_ingressos: number }, k: string) => !k || (k === 'mais1' ? (p.qtd_ingressos ?? 0) > 1 : norm(p.tipo_ingresso ?? '') === k);
 const linkAnuncio = (p: Pedido) => (p.conta_id && p.anuncio_id ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${p.conta_id}&selected_ad_ids=${p.anuncio_id}` : p.conta_id && p.campanha_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${p.conta_id}&selected_campaign_ids=${p.campanha_id}` : null);
 /** Horário do pedido (criado_em) vem da base já em Brasília e sem fuso: mostra como está. Datas com fuso (registros do atendimento) são convertidas para Brasília. */
@@ -75,18 +82,31 @@ function csv(l: Pedido[]) {
   return '﻿' + [cab.join(';'), ...corpo].join('\n');
 }
 
+/* Filtros lembrados no navegador (sobrevivem a recarregar a página). Período em atalho é recalculado a cada abertura. */
+const PREF_KEY = 'central.recuperacao.filtros';
+type Pref = { situacao?: string; cidade?: string; tipo?: string; recomprados?: boolean; periodo?: string; de?: string; ate?: string; porPagina?: number };
+const lerPref = (): Pref => { try { return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as Pref; } catch { return {}; } };
+const periodoInicial = (pref: Pref) => {
+  const k = pref.periodo ?? 'todos';
+  if (k === 'custom') return { periodo: k, de: pref.de ?? '', ate: pref.ate ?? '' };
+  const p = presets().find((x) => x.chave === k);
+  return p ? { periodo: k, de: p.de, ate: p.ate } : { periodo: 'todos', de: '', ate: '' };
+};
+
 export default function Recuperacao() {
   const { pode, perfil, session } = useAuth();
   const atendente = (perfil?.nome || session?.user.email || '').trim().split(' ')[0] || 'a equipe';
   const qc = useQueryClient();
-  const [situacao, setSituacao] = useState<Situacao>('pendente');
-  const [cidade, setCidade] = useState<string>('');
-  const [recomprados, setRecomprados] = useState(false);
-  const [tipo, setTipo] = useState('');
+  const PREF = useMemo(lerPref, []);
+  const PERIODO_INICIAL = useMemo(() => periodoInicial(PREF), [PREF]);
+  const [situacao, setSituacao] = useState<Situacao>(SITUACOES.some((x) => x.k === PREF.situacao) ? (PREF.situacao as Situacao) : 'pendente');
+  const [cidade, setCidade] = useState<string>(PREF.cidade ?? '');
+  const [recomprados, setRecomprados] = useState(PREF.recomprados === true);
+  const [tipo, setTipo] = useState(PREF.tipo ?? '');
   const [busca, setBusca] = useState('');
-  const [de, setDe] = useState('');
-  const [ate, setAte] = useState('');
-  const [periodo, setPeriodo] = useState('todos');
+  const [de, setDe] = useState(PERIODO_INICIAL.de);
+  const [ate, setAte] = useState(PERIODO_INICIAL.ate);
+  const [periodo, setPeriodo] = useState(PERIODO_INICIAL.periodo);
   const periodos = useMemo(presets, []);
   const aplicarPeriodo = (chave: string) => {
     setPeriodo(chave);
@@ -111,11 +131,19 @@ export default function Recuperacao() {
   const veDados = pode('dados_pessoais');
 
   useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
+  const [porPagina, setPorPagina] = useState([10, 20, 50, 100].includes(PREF.porPagina ?? 0) ? (PREF.porPagina as number) : 10);
+  useEffect(() => { try { localStorage.setItem(PREF_KEY, JSON.stringify({ situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina })); } catch { /* sem armazenamento, segue sem lembrar */ } }, [situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina]);
+  const [pagina, setPagina] = useState(0);
+  useEffect(() => { setPagina(0); }, [situacao, cidade, recomprados, tipo, de, ate, busca, porPagina]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
+  const outras = useQuery({ queryKey: ['recuperacao-outra-cidade'], queryFn: () => r1Rpc<{ transacao_id: string; cidade: string; mes_evento: string | null; data_evento: string | null; compra_em: string }[]>('recuperacao_outra_cidade'), refetchInterval: 5 * 60_000, retry: false });
+  const outraCidade = useMemo(() => new Map((outras.data ?? []).map((o) => [o.transacao_id, o])), [outras.data]);
+  const [avisoId, setAvisoId] = useState<string | null>(null);
   const historico = useQuery({ queryKey: ['recuperacao-historico'], queryFn: () => r1Rpc<Registro[]>('recuperacao_historico'), refetchInterval: 5 * 60_000, retry: false });
   const porPedido = useMemo(() => { const m = new Map<string, Registro[]>(); for (const r of historico.data ?? []) { const l = m.get(r.transacao_id); if (l) l.push(r); else m.set(r.transacao_id, [r]); } return m; }, [historico.data]);
   const salvarObs = useMutation({
@@ -162,19 +190,48 @@ export default function Recuperacao() {
     }
     return Array.from(m.values()).sort((x, y) => y.n - x.n);
   }, [filaTodas.data, filtra]);
+  /* Cards do topo: seguem cidade, ingresso, período e busca (a Situação não entra, porque cada card já é uma situação). */
+  const cards = useMemo(() => {
+    if (baseCards.isLoading || baseCards.isPlaceholderData) return undefined;
+    const l = filtra(baseCards.data ?? []).filter((p) => !cidade || p.cidade_evento === cidade);
+    const soma = (x: Pedido[]) => x.reduce((acc, p) => acc + (Number(p.valor_bruto) || 0), 0);
+    const mk = (x: Pedido[]) => ({ n: x.length, valor: soma(x), pct: l.length ? (x.length / l.length) * 100 : 0 });
+    return {
+      total: l.length,
+      na_fila: mk(l.filter((p) => p.situacao === 'pendente' && !p.ja_comprou_depois)),
+      contatados: mk(l.filter((p) => ['contatado', 'em_atendimento', 'sem_resposta', 'aguardando_retorno'].includes(p.situacao))),
+      recuperados: mk(l.filter((p) => p.situacao === 'recuperado')),
+      descartados: mk(l.filter((p) => p.situacao === 'descartado')),
+      ja_compraram_depois: mk(l.filter((p) => p.ja_comprou_depois)),
+    };
+  }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidade]);
+  /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
+  const recPorEvento = useMemo(() => {
+    const m = new Map<string, { total: number; rec: number }>();
+    for (const p of filtra(baseCards.data ?? [])) {
+      const k = `${p.cidade_evento ?? ''}|${p.mes_evento}`;
+      const c = m.get(k) ?? { total: 0, rec: 0 };
+      c.total += 1; if (p.situacao === 'recuperado') c.rec += 1;
+      m.set(k, c);
+    }
+    return m;
+  }, [baseCards.data, filtra]);
+  const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
     const blob = new Blob([csv(lista)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `recuperacao-${situacao}${cidade ? `-${cidade}` : ''}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas - 1);
   const r = resumo.isPlaceholderData ? undefined : resumo.data;
 
   return (
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo={aba === 'templates' ? 'Templates de mensagem' : aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
-        subtitulo={`Pedidos expirados, cancelados, abandonados ou em recuperação, e aguardando pagamento há mais de ${r?.horas_parametro ?? 4} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
+        subtitulo={`Pedidos expirados, cancelados, abandonados ou em recuperação, e aguardando pagamento há mais de ${r?.horas_parametro ?? 1} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
@@ -189,11 +246,11 @@ export default function Recuperacao() {
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{r ? num(r.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r ? brl(r.valor_na_fila) : ''} em pedidos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
-          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{r ? num(r.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
-          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{r ? num(r.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.na_fila.valor)} · {cards.na_fila.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.contatados.valor)} · {cards.contatados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.recuperados.valor)} · {cards.recuperados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
+          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.descartados.valor)} · {cards.descartados.pct.toFixed(0)}%</div>}</div>
         </div>
 
         {!filaTodas.isPlaceholderData && porEvento.length > 0 && (
@@ -203,7 +260,8 @@ export default function Recuperacao() {
               {porEvento.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
-                  <div className="mono">{num(c.n)} · {brl(c.valor)}</div>
+                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
+                  {(() => { const r2 = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`); const pct = r2 && r2.total ? ((r2.rec / r2.total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0'; return <div className="text-[10px] text-emerald-400 mt-0.5">Recuperados: {num(r2?.rec ?? 0)} · {pct}% dos {num(r2?.total ?? 0)} pedidos</div>; })()}
                 </button>
               ))}
             </div>
@@ -241,6 +299,7 @@ export default function Recuperacao() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
               {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
+              <button onClick={() => setAba('templates')} className="flex items-center justify-center w-7 h-7 rounded bg-secondary text-foreground hover:bg-secondary/70" title="Cadastrar template de mensagem" aria-label="Cadastrar template de mensagem"><Plus className="w-4 h-4" /></button>
               <button onClick={baixar} disabled={!lista.length} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-secondary text-foreground disabled:opacity-50"><Download className="w-3.5 h-3.5" /> CSV</button>
               </div>
               <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
@@ -254,12 +313,12 @@ export default function Recuperacao() {
             <tbody>
               {(fila.isLoading || fila.isPlaceholderData) && <tr><td colSpan={9} className="py-3 text-muted-foreground" role="status">Carregando os pedidos deste filtro…</td></tr>}
               {!fila.isLoading && !fila.isPlaceholderData && lista.length === 0 && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
-              {(fila.isPlaceholderData ? [] : lista).map((p) => {
+              {(fila.isPlaceholderData ? [] : lista.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)).map((p) => {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
-                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {num(p.horas_pendente)} h</div></td>
-                    <td className="py-2"><div className="font-semibold text-foreground">{p.nome_contato ?? '—'}</div><div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
+                    <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {duracao(p.horas_pendente)}</div></td>
+                    <td className="py-2"><div className="font-semibold text-foreground flex items-center gap-1.5">{p.nome_contato ?? '—'}{outraCidade.has(p.transacao_id) && <button onClick={() => setAvisoId(avisoId === p.transacao_id ? null : p.transacao_id)} className="text-amber-400 hover:text-amber-300" title="Comprou ingresso em outra cidade" aria-label="Comprou ingresso em outra cidade"><TriangleAlert className="w-3.5 h-3.5" /></button>}</div>{avisoId === p.transacao_id && outraCidade.get(p.transacao_id) && (() => { const o = outraCidade.get(p.transacao_id)!; const dt = diaMes(dataDoEvento(o.cidade, o.mes_evento, o.data_evento)); return <div className="mt-1 mb-1 rounded bg-amber-500/10 text-amber-300 px-2 py-1 text-[11px]" role="status">Comprou ingresso em outra cidade: {o.cidade}{dt ? ` (${dt})` : ''}, em {quando(o.compra_em)}.</div>; })()}<div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento)) !== '—' ? `Evento em ${diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento))}` : mesLabel(p.mes_evento)}</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div>{p.produto_criado_em && <div className="text-muted-foreground">Produto cadastrado em {diaCompleto(p.produto_criado_em)}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{num(p.qtd_ingressos)} {p.qtd_ingressos === 1 ? 'ingresso' : 'ingressos'}</div></td>
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
@@ -289,6 +348,21 @@ export default function Recuperacao() {
               })}
             </tbody>
           </table>
+          {lista.length > 0 && !fila.isPlaceholderData && (
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-[11px] text-muted-foreground">
+              <span>Mostrando {num(paginaAtual * porPagina + 1)}–{num(Math.min((paginaAtual + 1) * porPagina, lista.length))} de {num(lista.length)} pedidos</span>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5">Ver
+                  <select value={porPagina} onChange={(e) => setPorPagina(Number(e.target.value))} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" aria-label="Pedidos por vez">
+                    {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select> por vez
+                </label>
+                <button onClick={() => setPagina(paginaAtual - 1)} disabled={paginaAtual === 0} className="px-2 py-1 rounded bg-secondary text-foreground disabled:opacity-40">Anterior</button>
+                <span>Página {paginaAtual + 1} de {totalPaginas}</span>
+                <button onClick={() => setPagina(paginaAtual + 1)} disabled={paginaAtual >= totalPaginas - 1} className="px-2 py-1 rounded bg-secondary text-foreground disabled:opacity-40">Próxima</button>
+              </div>
+            </div>
+          )}
           <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada e Em recuperação assim que acontecem, e Ag. pagamento há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
         {(() => {
