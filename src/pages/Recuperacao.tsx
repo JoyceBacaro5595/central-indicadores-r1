@@ -255,7 +255,7 @@ export default function Recuperacao() {
         {(() => {
           const d = detalheId ? (fila.data ?? []).find((x) => x.transacao_id === detalheId) ?? Object.values(fixos).find((f) => f.p.transacao_id === detalheId)?.p : undefined;
           if (!detalheId) return null;
-          const hist = porPedido.get(detalheId) ?? [];
+          const hist = [...(porPedido.get(detalheId) ?? [])].sort((a, b) => b.criado_em.localeCompare(a.criado_em));
           return (
             <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetalheId(null)} onKeyDown={(e) => { if (e.key === 'Escape') setDetalheId(null); }} role="presentation">
               <div role="dialog" aria-modal="true" aria-label="Detalhes do atendimento" className="surface-elevated rounded-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -272,7 +272,7 @@ export default function Recuperacao() {
                     <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
                       <div className="text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · Atendente: <span className="text-foreground">{h.criado_por_nome ?? '—'}</span></div>
                       {h.situacao && <div className="text-muted-foreground">Status: <span className="text-foreground">{SIT[h.situacao] ?? h.situacao}</span></div>}
-                      {h.observacao && <div className="text-foreground whitespace-pre-wrap mt-0.5">{h.observacao}</div>}
+                      <div className="text-muted-foreground">Observação: {h.observacao ? <span className="text-foreground whitespace-pre-wrap">{h.observacao}</span> : '—'}</div>
                     </div>
                   ))}
                 </div>
