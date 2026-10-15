@@ -84,12 +84,12 @@ export default function AppShell() {
       {aberta && <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setAberta(false)} />}
 
       <aside
-        className={`print:hidden fixed md:sticky top-0 z-40 h-screen shrink-0 flex flex-col border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-16' : 'w-60'} ${
+        className={`print:hidden fixed md:sticky top-0 z-40 h-screen shrink-0 flex flex-col border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
           aberta ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         data-compacta={compacta ? 'true' : undefined}
       >
-        <div className={`flex items-center gap-3 h-[60px] border-b border-border ${compacta ? 'px-5 md:px-0 md:justify-center' : 'px-5'}`}>
+        <div className={`flex items-center gap-3 h-[60px] border-b border-border ${compacta ? 'px-5 md:px-2 md:gap-1 md:justify-center' : 'px-5'}`}>
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0" title="Central R1 · Indicadores">
             <span className="text-primary text-sm font-black">R1</span>
           </div>
@@ -97,15 +97,10 @@ export default function AppShell() {
             <p className="text-sm font-extrabold text-foreground tracking-wide leading-tight">Central R1</p>
             <p className="text-[10px] text-muted-foreground font-medium">Indicadores</p>
           </div>
-          {!compacta && <button type="button" onClick={alternarCompacta} className="hidden md:flex w-8 h-8 shrink-0 ml-auto rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
-            {compacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>}
-        </div>
-        {compacta && <div className="hidden md:flex justify-center py-2 border-b border-border">
-          <button type="button" onClick={alternarCompacta} className="flex w-8 h-8 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
+          <button type="button" onClick={alternarCompacta} className={`hidden md:flex h-8 shrink-0 rounded-lg ${compacta ? 'w-6' : 'w-8 ml-auto'} items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2 items-center justify-center`} title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
             {compacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
-        </div>}
+        </div>
         <nav className={`flex-1 overflow-y-auto py-4 ${compacta ? 'px-3 md:px-2 space-y-5 md:space-y-3' : 'px-3 space-y-5'}`}>
           {secoes.map((s) => (
             <div key={s.titulo}>
