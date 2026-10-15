@@ -189,6 +189,17 @@ export default function Recuperacao() {
       ja_compraram_depois: l.filter((p) => p.ja_comprou_depois).length,
     };
   }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidade]);
+  /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
+  const recPorEvento = useMemo(() => {
+    const m = new Map<string, { total: number; rec: number }>();
+    for (const p of filtra(baseCards.data ?? [])) {
+      const k = `${p.cidade_evento ?? ''}|${p.mes_evento}`;
+      const c = m.get(k) ?? { total: 0, rec: 0 };
+      c.total += 1; if (p.situacao === 'recuperado') c.rec += 1;
+      m.set(k, c);
+    }
+    return m;
+  }, [baseCards.data, filtra]);
   const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
@@ -234,6 +245,7 @@ export default function Recuperacao() {
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
                   <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
+                  {(() => { const r2 = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`); const pct = r2 && r2.total ? ((r2.rec / r2.total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0'; return <div className="text-[10px] text-emerald-400 mt-0.5">Recuperados: {num(r2?.rec ?? 0)} · {pct}% dos {num(r2?.total ?? 0)} pedidos</div>; })()}
                 </button>
               ))}
             </div>
