@@ -105,7 +105,8 @@ export default function Recuperacao() {
     const q = busca.trim().toLowerCase();
     const dia = (d: string) => new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const l = (fila.data ?? []).filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
-    return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome, p.transacao_id].some((x) => (x ?? '').toLowerCase().includes(q))) : l;
+    const qd = q.replace(/\D/g, '');
+    return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
   }, [fila.data, busca, de, ate, tipo]);
   const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
 
@@ -172,7 +173,7 @@ export default function Recuperacao() {
             <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
             {(de || ate) && <button onClick={() => { setDe(''); setAte(''); }} className="text-[11px] text-primary font-semibold">Limpar datas</button>}
             <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
             {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
             <button onClick={baixar} disabled={!lista.length} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-secondary text-foreground disabled:opacity-50"><Download className="w-3.5 h-3.5" /> CSV</button>
           </div>
