@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, PanelLeftClose, PanelLeftOpen,
+  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useAlertas } from '@/components/AlertasSaude';
@@ -98,12 +98,12 @@ export default function AppShell() {
             <p className="text-[10px] text-muted-foreground font-medium">Indicadores</p>
           </div>
           {!compacta && <button type="button" onClick={alternarCompacta} className="hidden md:flex w-8 h-8 shrink-0 ml-auto rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
-            {compacta ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            {compacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>}
         </div>
         {compacta && <div className="hidden md:flex justify-center py-2 border-b border-border">
           <button type="button" onClick={alternarCompacta} className="flex w-8 h-8 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
-            {compacta ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            {compacta ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>}
         <nav className={`flex-1 overflow-y-auto py-4 ${compacta ? 'px-3 md:px-2 space-y-5 md:space-y-3' : 'px-3 space-y-5'}`}>
