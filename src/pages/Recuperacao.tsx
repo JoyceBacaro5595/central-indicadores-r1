@@ -197,32 +197,38 @@ export default function Recuperacao() {
         )}
 
         <section className="surface p-4 overflow-x-auto">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2">
             <span className="section-label">Pedidos</span>
-            <label className="flex items-center gap-1.5 ml-auto text-[11px] font-semibold text-muted-foreground">Situação
-            <select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground" title="Filtrar por situação" aria-label="Filtrar por situação">
-              {SITUACOES.map((s) => <option key={s.k} value={s.k}>{s.r}</option>)}
-            </select>
-            </label>
-            <select value={cidade} onChange={(e) => setCidade(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground">
-              <option value="">Todas as cidades</option>
-              {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Tipo de ingresso">
-              {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.r}</option>)}
-            </select>
-            <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
-              <option value="custom">Personalizado</option>
-              {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-            </select>
-            {periodo === 'custom' && <>
-              <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-              <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            </>}
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-52" />
-            {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
-            <button onClick={baixar} disabled={!lista.length} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-secondary text-foreground disabled:opacity-50"><Download className="w-3.5 h-3.5" /> CSV</button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">Situação
+                <select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground" title="Filtrar por situação" aria-label="Filtrar por situação">
+                {SITUACOES.map((s) => <option key={s.k} value={s.k}>{s.r}</option>)}
+                </select>
+                </label>
+                <select value={cidade} onChange={(e) => setCidade(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground">
+                <option value="">Todas as cidades</option>
+                {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Tipo de ingresso">
+                {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.r}</option>)}
+                </select>
+                <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
+                <option value="custom">Personalizado</option>
+                {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
+                </select>
+                {periodo === 'custom' && <>
+                <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+                <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+                </>}
+                <label className="text-[11px] text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={recomprados} onChange={(e) => setRecomprados(e.target.checked)} /> incluir quem já comprou depois</label>
+              </div>
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-full md:w-72" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {tplAtivos.length > 0 && <select value={tplEscolhido?.id ?? ''} onChange={(e) => setTplId(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Mensagem enviada pelo botão WhatsApp">{tplAtivos.map((t) => <option key={t.id} value={t.id}>Mensagem: {t.nome}</option>)}</select>}
+              <button onClick={baixar} disabled={!lista.length} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-secondary text-foreground disabled:opacity-50"><Download className="w-3.5 h-3.5" /> CSV</button>
+            </div>
           </div>
           {!veDados && <p className="text-xs text-muted-foreground mt-3">Seu perfil vê a fila com nome e e-mail mascarados e sem telefone (recurso "dados pessoais").</p>}
           <table className="w-full mt-3 text-xs">
