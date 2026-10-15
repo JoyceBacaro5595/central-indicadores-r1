@@ -175,6 +175,7 @@ export default function Recuperacao() {
     }
     return Array.from(m.values()).sort((x, y) => y.n - x.n);
   }, [filaTodas.data, filtra]);
+  const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
@@ -218,7 +219,7 @@ export default function Recuperacao() {
               {porEvento.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
-                  <div className="mono">{num(c.n)} · {brl(c.valor)}</div>
+                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
                 </button>
               ))}
             </div>
