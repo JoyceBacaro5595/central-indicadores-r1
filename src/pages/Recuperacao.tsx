@@ -124,6 +124,7 @@ export default function Recuperacao() {
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
   const outras = useQuery({ queryKey: ['recuperacao-outra-cidade'], queryFn: () => r1Rpc<{ transacao_id: string; cidade: string; mes_evento: string | null; data_evento: string | null; compra_em: string }[]>('recuperacao_outra_cidade'), refetchInterval: 5 * 60_000, retry: false });
@@ -175,6 +176,19 @@ export default function Recuperacao() {
     }
     return Array.from(m.values()).sort((x, y) => y.n - x.n);
   }, [filaTodas.data, filtra]);
+  /* Cards do topo: seguem cidade, ingresso, período e busca (a Situação não entra, porque cada card já é uma situação). */
+  const cards = useMemo(() => {
+    if (baseCards.isLoading || baseCards.isPlaceholderData) return undefined;
+    const l = filtra(baseCards.data ?? []).filter((p) => !cidade || p.cidade_evento === cidade);
+    const naFila = l.filter((p) => p.situacao === 'pendente' && !p.ja_comprou_depois);
+    return {
+      na_fila: naFila.length, valor_na_fila: naFila.reduce((a, p) => a + (Number(p.valor_bruto) || 0), 0),
+      contatados: l.filter((p) => ['contatado', 'em_atendimento', 'sem_resposta', 'aguardando_retorno'].includes(p.situacao)).length,
+      recuperados: l.filter((p) => p.situacao === 'recuperado').length,
+      descartados: l.filter((p) => p.situacao === 'descartado').length,
+      ja_compraram_depois: l.filter((p) => p.ja_comprou_depois).length,
+    };
+  }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidade]);
   const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
@@ -205,11 +219,11 @@ export default function Recuperacao() {
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{r ? num(r.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r ? brl(r.valor_na_fila) : ''} em pedidos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{r ? num(r.contatados) : '…'}</div></div>
-          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{r ? num(r.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
-          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{r ? num(r.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
-          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{r ? num(r.descartados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{cards ? brl(cards.valor_na_fila) : ''} em pedidos</div></div>
+          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados) : '…'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">marcados pela equipe</div></div>
+          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
+          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados) : '…'}</div></div>
         </div>
 
         {!filaTodas.isPlaceholderData && porEvento.length > 0 && (
