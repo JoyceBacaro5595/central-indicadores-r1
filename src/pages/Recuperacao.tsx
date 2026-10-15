@@ -247,6 +247,7 @@ export default function Recuperacao() {
 
 function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error | null; carregando: boolean }) {
   const qc = useQueryClient();
+  const { perfil } = useAuth();
   const vazio = { id: '', nome: '', texto: '', ativo: true, padrao: false };
   const [f, setF] = useState(vazio);
   const salvar = useMutation({
@@ -255,6 +256,10 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
   });
   const alternar = useMutation({
     mutationFn: (t: Template) => r1Rpc('recuperacao_template_salvar', { p_id: t.id, p_nome: t.nome, p_texto: t.texto, p_ativo: !t.ativo, p_padrao: t.padrao }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
+  });
+  const apagar = useMutation({
+    mutationFn: (id: string) => r1Rpc('recuperacao_template_apagar', { p_id: id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
   });
   const exemplo = f.texto.replace(/\{atendente\}/g, 'Grazi').replace(/\{evento\}/g, 'Belém (10/2026)').replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
@@ -278,13 +283,14 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
       </section>
       <section className="surface p-4 space-y-2">
         <span className="section-label">Templates</span>
+        {apagar.error && <p className="text-xs text-red-400">{(apagar.error as Error).message}</p>}
         {erro && <p className="text-xs text-red-400">Não foi possível ler os templates: {erro.message}</p>}
         {carregando && <p className="text-xs text-muted-foreground">Carregando…</p>}
         {!carregando && !erro && lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum template ainda.</p>}
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>
             <div className="flex items-center gap-2"><span className="font-semibold text-foreground">{t.nome}</span>{t.padrao && <span className="px-1.5 rounded bg-primary/15 text-primary text-[10px]">padrão</span>}{!t.ativo && <span className="text-[10px] text-muted-foreground">inativo</span>}
-              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button></span></div>
+              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button>{perfil?.papel === 'administrador' && <button onClick={() => { if (window.confirm(`Excluir o template "${t.nome}"? Não dá para desfazer.`)) apagar.mutate(t.id); }} className="px-2 py-0.5 rounded bg-red-500/15 text-red-400">Excluir</button>}</span></div>
             <p className="mt-1 text-muted-foreground whitespace-pre-wrap">{t.texto}</p>
           </div>
         ))}
