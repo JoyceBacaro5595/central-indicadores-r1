@@ -111,6 +111,9 @@ export default function Recuperacao() {
   const veDados = pode('dados_pessoais');
 
   useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
+  const [porPagina, setPorPagina] = useState(10);
+  const [pagina, setPagina] = useState(0);
+  useEffect(() => { setPagina(0); }, [situacao, cidade, recomprados, tipo, de, ate, busca, porPagina]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
@@ -168,6 +171,8 @@ export default function Recuperacao() {
     const blob = new Blob([csv(lista)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `recuperacao-${situacao}${cidade ? `-${cidade}` : ''}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas - 1);
   const r = resumo.isPlaceholderData ? undefined : resumo.data;
 
   return (
@@ -254,7 +259,7 @@ export default function Recuperacao() {
             <tbody>
               {(fila.isLoading || fila.isPlaceholderData) && <tr><td colSpan={9} className="py-3 text-muted-foreground" role="status">Carregando os pedidos deste filtro…</td></tr>}
               {!fila.isLoading && !fila.isPlaceholderData && lista.length === 0 && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
-              {(fila.isPlaceholderData ? [] : lista).map((p) => {
+              {(fila.isPlaceholderData ? [] : lista.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)).map((p) => {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
@@ -289,6 +294,21 @@ export default function Recuperacao() {
               })}
             </tbody>
           </table>
+          {lista.length > 0 && !fila.isPlaceholderData && (
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-[11px] text-muted-foreground">
+              <span>Mostrando {num(paginaAtual * porPagina + 1)}–{num(Math.min((paginaAtual + 1) * porPagina, lista.length))} de {num(lista.length)} pedidos</span>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5">Ver
+                  <select value={porPagina} onChange={(e) => setPorPagina(Number(e.target.value))} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" aria-label="Pedidos por vez">
+                    {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select> por vez
+                </label>
+                <button onClick={() => setPagina(paginaAtual - 1)} disabled={paginaAtual === 0} className="px-2 py-1 rounded bg-secondary text-foreground disabled:opacity-40">Anterior</button>
+                <span>Página {paginaAtual + 1} de {totalPaginas}</span>
+                <button onClick={() => setPagina(paginaAtual + 1)} disabled={paginaAtual >= totalPaginas - 1} className="px-2 py-1 rounded bg-secondary text-foreground disabled:opacity-40">Próxima</button>
+              </div>
+            </div>
+          )}
           <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada e Em recuperação assim que acontecem, e Ag. pagamento há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
         {(() => {
