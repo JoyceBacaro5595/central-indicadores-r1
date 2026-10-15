@@ -97,7 +97,15 @@ export default function AppShell() {
             <p className="text-sm font-extrabold text-foreground tracking-wide leading-tight">Central R1</p>
             <p className="text-[10px] text-muted-foreground font-medium">Indicadores</p>
           </div>
+          {!compacta && <button type="button" onClick={alternarCompacta} className="hidden md:flex w-8 h-8 shrink-0 ml-auto rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
+            {compacta ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>}
         </div>
+        {compacta && <div className="hidden md:flex justify-center py-2 border-b border-border">
+          <button type="button" onClick={alternarCompacta} className="flex w-8 h-8 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
+            {compacta ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        </div>}
         <nav className={`flex-1 overflow-y-auto py-4 ${compacta ? 'px-3 md:px-2 space-y-5 md:space-y-3' : 'px-3 space-y-5'}`}>
           {secoes.map((s) => (
             <div key={s.titulo}>
@@ -131,9 +139,6 @@ export default function AppShell() {
         </nav>
         <div className={`border-t border-border flex items-center ${compacta ? 'px-5 md:px-0 md:justify-center' : 'px-3'} py-2`}>
           <p className={`flex-1 px-2 text-[10px] text-muted-foreground ${compacta ? 'md:hidden' : ''}`}>Grupo R1 · Central de Indicadores</p>
-          <button type="button" onClick={alternarCompacta} className="hidden md:flex w-8 h-8 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:outline focus-visible:outline-2" title={compacta ? 'Expandir menu' : 'Recolher menu'} aria-label={compacta ? 'Expandir menu' : 'Recolher menu'} aria-pressed={compacta}>
-            {compacta ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-          </button>
         </div>
       </aside>
 
