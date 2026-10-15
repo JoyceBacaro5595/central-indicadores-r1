@@ -82,18 +82,31 @@ function csv(l: Pedido[]) {
   return '﻿' + [cab.join(';'), ...corpo].join('\n');
 }
 
+/* Filtros lembrados no navegador (sobrevivem a recarregar a página). Período em atalho é recalculado a cada abertura. */
+const PREF_KEY = 'central.recuperacao.filtros';
+type Pref = { situacao?: string; cidade?: string; tipo?: string; recomprados?: boolean; periodo?: string; de?: string; ate?: string; porPagina?: number };
+const lerPref = (): Pref => { try { return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as Pref; } catch { return {}; } };
+const periodoInicial = (pref: Pref) => {
+  const k = pref.periodo ?? 'todos';
+  if (k === 'custom') return { periodo: k, de: pref.de ?? '', ate: pref.ate ?? '' };
+  const p = presets().find((x) => x.chave === k);
+  return p ? { periodo: k, de: p.de, ate: p.ate } : { periodo: 'todos', de: '', ate: '' };
+};
+
 export default function Recuperacao() {
   const { pode, perfil, session } = useAuth();
   const atendente = (perfil?.nome || session?.user.email || '').trim().split(' ')[0] || 'a equipe';
   const qc = useQueryClient();
-  const [situacao, setSituacao] = useState<Situacao>('pendente');
-  const [cidade, setCidade] = useState<string>('');
-  const [recomprados, setRecomprados] = useState(false);
-  const [tipo, setTipo] = useState('');
+  const PREF = useMemo(lerPref, []);
+  const PERIODO_INICIAL = useMemo(() => periodoInicial(PREF), [PREF]);
+  const [situacao, setSituacao] = useState<Situacao>(SITUACOES.some((x) => x.k === PREF.situacao) ? (PREF.situacao as Situacao) : 'pendente');
+  const [cidade, setCidade] = useState<string>(PREF.cidade ?? '');
+  const [recomprados, setRecomprados] = useState(PREF.recomprados === true);
+  const [tipo, setTipo] = useState(PREF.tipo ?? '');
   const [busca, setBusca] = useState('');
-  const [de, setDe] = useState('');
-  const [ate, setAte] = useState('');
-  const [periodo, setPeriodo] = useState('todos');
+  const [de, setDe] = useState(PERIODO_INICIAL.de);
+  const [ate, setAte] = useState(PERIODO_INICIAL.ate);
+  const [periodo, setPeriodo] = useState(PERIODO_INICIAL.periodo);
   const periodos = useMemo(presets, []);
   const aplicarPeriodo = (chave: string) => {
     setPeriodo(chave);
@@ -118,7 +131,8 @@ export default function Recuperacao() {
   const veDados = pode('dados_pessoais');
 
   useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
-  const [porPagina, setPorPagina] = useState(10);
+  const [porPagina, setPorPagina] = useState([10, 20, 50, 100].includes(PREF.porPagina ?? 0) ? (PREF.porPagina as number) : 10);
+  useEffect(() => { try { localStorage.setItem(PREF_KEY, JSON.stringify({ situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina })); } catch { /* sem armazenamento, segue sem lembrar */ } }, [situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina]);
   const [pagina, setPagina] = useState(0);
   useEffect(() => { setPagina(0); }, [situacao, cidade, recomprados, tipo, de, ate, busca, porPagina]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
