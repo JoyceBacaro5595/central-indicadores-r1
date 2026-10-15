@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Phone } from 'lucide-react';
@@ -88,6 +88,8 @@ export default function Recuperacao() {
   const [obs, setObs] = useState<Record<string, string>>({});
   const [detalhes, setDetalhes] = useState<Record<string, boolean>>({});
   const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
+  /* Linhas que o atendente mexeu ficam na tela (na mesma posição) até trocar de filtro, mesmo saindo da situação filtrada. */
+  const [fixos, setFixos] = useState<Record<string, { p: Pedido; i: number }>>({});
   const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
   const [tplId, setTplId] = useState('');
   const tpls = useQuery({ queryKey: ['recuperacao-templates'], queryFn: () => r1Rpc<Template[]>('recuperacao_templates_listar'), retry: false });
@@ -96,6 +98,7 @@ export default function Recuperacao() {
   const textoMsg = tplEscolhido?.texto ?? MSG_PADRAO;
   const veDados = pode('dados_pessoais');
 
+  useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
@@ -114,19 +117,23 @@ export default function Recuperacao() {
       await qc.cancelQueries({ queryKey: ['recuperacao-fila'] });
       const antes = qc.getQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] });
       qc.setQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] }, (l) => l?.map((p) => (p.transacao_id === v.id ? { ...p, situacao: v.situacao } : p)));
+      for (const [, d] of antes) { const i = d?.findIndex((x) => x.transacao_id === v.id) ?? -1; if (d && i >= 0) { setFixos((f) => ({ ...f, [v.id]: { p: { ...d[i], situacao: v.situacao }, i } })); break; } }
       return { antes };
     },
-    onError: (e, v, ctx) => { ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); setErrosStatus((x) => ({ ...x, [v.id]: (e as Error).message })); },
+    onError: (e, v, ctx) => { setFixos((f) => { const { [v.id]: _, ...resto } = f; return resto; }); ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); setErrosStatus((x) => ({ ...x, [v.id]: (e as Error).message })); },
     onSettled: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
   });
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     const dia = (d: string) => (comFuso(d) ? new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : d.slice(0, 10));
-    const l = (fila.data ?? []).filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
+    const base = [...(fila.data ?? [])];
+    const presentes = new Set(base.map((x) => x.transacao_id));
+    Object.values(fixos).filter((f) => !presentes.has(f.p.transacao_id)).sort((a, b) => a.i - b.i).forEach((f) => base.splice(Math.min(f.i, base.length), 0, f.p));
+    const l = base.filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     const qd = q.replace(/\D/g, '');
     return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
-  }, [fila.data, busca, de, ate, tipo]);
+  }, [fila.data, fixos, busca, de, ate, tipo]);
   const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
 
   const baixar = () => {
