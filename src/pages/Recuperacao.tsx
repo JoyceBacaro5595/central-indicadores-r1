@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Phone } from 'lucide-react';
@@ -90,6 +90,8 @@ export default function Recuperacao() {
   const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
   /* Linhas que o atendente mexeu ficam na tela (na mesma posição) até trocar de filtro, mesmo saindo da situação filtrada. */
   const [fixos, setFixos] = useState<Record<string, { p: Pedido; i: number }>>({});
+  const fixosRef = useRef(fixos);
+  fixosRef.current = fixos;
   const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
   const [tplId, setTplId] = useState('');
   const tpls = useQuery({ queryKey: ['recuperacao-templates'], queryFn: () => r1Rpc<Template[]>('recuperacao_templates_listar'), retry: false });
@@ -107,7 +109,7 @@ export default function Recuperacao() {
   const porPedido = useMemo(() => { const m = new Map<string, Registro[]>(); for (const r of historico.data ?? []) { const l = m.get(r.transacao_id); if (l) l.push(r); else m.set(r.transacao_id, [r]); } return m; }, [historico.data]);
   const salvarObs = useMutation({
     mutationFn: (v: { id: string; situacao: string; observacao: string }) => r1Rpc('recuperacao_registrar', { p_transacao_id: v.id, p_observacao: v.observacao, p_situacao: v.situacao }),
-    onSuccess: (_d, v) => { setObs((o) => ({ ...o, [v.id]: '' })); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); },
+    onSuccess: (_d, v) => { setFixos((f) => (f[v.id] ? { ...f, [v.id]: { ...f[v.id], p: { ...f[v.id].p, observacao: v.observacao, situacao_em: new Date().toISOString() } } } : f)); setObs((o) => ({ ...o, [v.id]: '' })); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); },
   });
   const marcar = useMutation({
     mutationFn: (v: { id: string; situacao: string; observacao?: string | null }) => r1Rpc('recuperacao_marcar', { p_transacao_id: v.id, p_situacao: v.situacao, p_observacao: v.observacao ?? null }),
@@ -117,7 +119,11 @@ export default function Recuperacao() {
       await qc.cancelQueries({ queryKey: ['recuperacao-fila'] });
       const antes = qc.getQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] });
       qc.setQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] }, (l) => l?.map((p) => (p.transacao_id === v.id ? { ...p, situacao: v.situacao } : p)));
-      for (const [, d] of antes) { const i = d?.findIndex((x) => x.transacao_id === v.id) ?? -1; if (d && i >= 0) { setFixos((f) => ({ ...f, [v.id]: { p: { ...d[i], situacao: v.situacao }, i } })); break; } }
+      for (const [, d] of antes) {
+        const composta = comFixos(d ?? [], fixosRef.current, (id) => origemDe.has(id));
+        const i = composta.findIndex((x) => x.transacao_id === v.id);
+        if (i >= 0) { setFixos((f) => ({ ...f, [v.id]: { p: { ...composta[i], situacao: v.situacao, observacao: v.observacao ?? composta[i].observacao, situacao_em: new Date().toISOString() }, i } })); break; }
+      }
       return { antes };
     },
     onError: (e, v, ctx) => { setFixos((f) => { const { [v.id]: _, ...resto } = f; return resto; }); ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); setErrosStatus((x) => ({ ...x, [v.id]: (e as Error).message })); },
@@ -127,13 +133,11 @@ export default function Recuperacao() {
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     const dia = (d: string) => (comFuso(d) ? new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : d.slice(0, 10));
-    const base = [...(fila.data ?? [])];
-    const presentes = new Set(base.map((x) => x.transacao_id));
-    Object.values(fixos).filter((f) => !presentes.has(f.p.transacao_id)).sort((a, b) => a.i - b.i).forEach((f) => base.splice(Math.min(f.i, base.length), 0, f.p));
+    const base = comFixos(fila.data ?? [], fixos, (id) => origemDe.has(id));
     const l = base.filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     const qd = q.replace(/\D/g, '');
     return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
-  }, [fila.data, fixos, busca, de, ate, tipo]);
+  }, [fila.data, fixos, origemDe, busca, de, ate, tipo]);
   const cidades = useMemo(() => Array.from(new Set((resumo.data?.por_cidade ?? []).map((c) => c.cidade).filter(Boolean) as string[])).sort(), [resumo.data]);
 
   const baixar = () => {
@@ -280,6 +284,14 @@ export default function Recuperacao() {
       </main>
     </div>
   );
+}
+
+/** Junta à fila as linhas que o atendente mexeu e que saíram da situação filtrada, na posição em que estavam (menos as que já recompraram). */
+function comFixos(dados: Pedido[], fixos: Record<string, { p: Pedido; i: number }>, recomprou: (id: string) => boolean): Pedido[] {
+  const base = [...dados];
+  const presentes = new Set(base.map((x) => x.transacao_id));
+  Object.values(fixos).filter((f) => !presentes.has(f.p.transacao_id) && !recomprou(f.p.transacao_id)).sort((a, b) => a.i - b.i).forEach((f) => base.splice(Math.min(f.i, base.length), 0, f.p));
+  return base;
 }
 
 function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error | null; carregando: boolean }) {
