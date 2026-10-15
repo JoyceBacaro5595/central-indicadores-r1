@@ -19,6 +19,7 @@ interface Pedido {
   utm_source: string | null; utm_campaign: string | null; ja_comprou_depois: boolean; situacao: string; observacao: string | null; situacao_em: string | null;
   data_evento: string | null; produto_criado_em: string | null; campanha_id: string | null; anuncio_id: string | null; conta_id: string | null; destino_url: string | null; utm_content: string | null;
 }
+interface Registro { transacao_id: string; situacao: string | null; observacao: string | null; criado_por_nome: string | null; criado_em: string }
 type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
@@ -89,9 +90,15 @@ export default function Recuperacao() {
 
   const resumo = useQuery({ queryKey: ['recuperacao-resumo'], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo').then((r) => r[0]), refetchInterval: 5 * 60_000 });
   const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const historico = useQuery({ queryKey: ['recuperacao-historico'], queryFn: () => r1Rpc<Registro[]>('recuperacao_historico'), refetchInterval: 5 * 60_000, retry: false });
+  const porPedido = useMemo(() => { const m = new Map<string, Registro[]>(); for (const r of historico.data ?? []) { const l = m.get(r.transacao_id); if (l) l.push(r); else m.set(r.transacao_id, [r]); } return m; }, [historico.data]);
+  const salvarObs = useMutation({
+    mutationFn: (v: { id: string; situacao: string; observacao: string }) => r1Rpc('recuperacao_registrar', { p_transacao_id: v.id, p_observacao: v.observacao, p_situacao: v.situacao }),
+    onSuccess: (_d, v) => { setObs((o) => ({ ...o, [v.id]: '' })); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); },
+  });
   const marcar = useMutation({
     mutationFn: (v: { id: string; situacao: string; observacao?: string | null }) => r1Rpc('recuperacao_marcar', { p_transacao_id: v.id, p_situacao: v.situacao, p_observacao: v.observacao ?? null }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
   });
 
   const lista = useMemo(() => {
@@ -197,7 +204,19 @@ export default function Recuperacao() {
                           {(OPCOES.includes(p.situacao) ? OPCOES : [p.situacao, ...OPCOES]).map((k) => <option key={k} value={k}>{SIT[k]}</option>)}
                         </select>
                       </div>
-                      <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="o que foi registrado no contato" onBlur={(e) => { const v = e.target.value.trim(); if (v && p.situacao !== 'pendente' && v !== (p.observacao ?? '')) marcar.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: v }); }} className="mt-1 bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
+                      <div className="mt-1 flex gap-1">
+                        <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="o que foi registrado no contato" className="bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
+                        <button onClick={() => salvarObs.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: (obs[p.transacao_id] ?? '').trim() })} disabled={!(obs[p.transacao_id] ?? '').trim() || salvarObs.isPending} className="px-2 py-0.5 rounded bg-primary text-primary-foreground text-[11px] font-semibold disabled:opacity-50">Salvar</button>
+                      </div>
+                      {salvarObs.isError && salvarObs.variables?.id === p.transacao_id && <div className="text-[10px] text-red-400 mt-1">{(salvarObs.error as Error).message}</div>}
+                      {(porPedido.get(p.transacao_id) ?? []).length > 0 && (
+                        <div className="mt-2 border-t border-border pt-1 space-y-1 max-w-[260px]">
+                          <div className="text-[10px] font-semibold text-muted-foreground">Histórico</div>
+                          {(porPedido.get(p.transacao_id) ?? []).map((h, i) => (
+                            <div key={i} className="text-[10px] text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · {h.criado_por_nome ?? '—'}{h.situacao ? ` · ${SIT[h.situacao] ?? h.situacao}` : ''}{h.observacao && <div className="text-foreground whitespace-pre-wrap">{h.observacao}</div>}</div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
