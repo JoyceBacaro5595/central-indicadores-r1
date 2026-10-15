@@ -199,7 +199,7 @@ export default function Perpetuo() {
   const [inicioPublicado, setInicioPublicado] = useState<string | null>(null);
   const deConsulta = inicioPublicado && de < inicioPublicado ? inicioPublicado : de;
   const { data, error, isFetching, isPlaceholderData, refetch } = usePerpetuo(deConsulta, ateConsulta);
-  const { data: vendasCT } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
+  const { data: vendasCT, isPlaceholderData: ctDefasado } = usePerpetuoVendasClubeTrator(deConsulta, ateConsulta);
   const parcial = data?.qualidade?.parcial === true;
   const inicioResposta = data?.qualidade?.periodo_completo_inicio ?? null;
   useEffect(() => { if (inicioResposta && inicioResposta !== inicioPublicado) setInicioPublicado(inicioResposta); }, [inicioResposta, inicioPublicado]);
@@ -313,7 +313,7 @@ export default function Perpetuo() {
 
         {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 
-        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} />}
+        {data && <Lista aba={aba} secao={cfg.secao} nome={cfg.nome} itens={itens ?? null} metas={metas} referencia={r ?? null} ct={vendasCT ?? null} defasado={isPlaceholderData || ctDefasado} />}
 
         {data && <CardSemOrigem d={data} />}
 
@@ -568,20 +568,31 @@ function Linha({ k, v, forte, meta, taxa, motivo, tipo = 'num', empilhado }: { k
 }
 
 /** Vendas do período são sempre o total do CRM, tenha havido investimento ou não. A lista só traz itens com veiculação
- *  ou leads no período; a diferença para o total aparece aqui, sem esconder venda (Joyce, 14/10). */
-function VendasForaDaLista({ itens, total, nome }: { itens: Item[] | null; total: number | null | undefined; nome: string }) {
-  if (!itens || total == null) return null;
-  const naLista = itens.reduce((s, i) => s + (i.vendas ?? 0), 0);
-  const fora = total - naLista;
+ *  ou leads no período e vendas com UTM; a diferença para o total vira a linha "Sem atribuição", para as colunas fecharem
+ *  com o total do período filtrado (Joyce, 14/10). */
+function VendasForaDaLista({ itens, total, nome, ct, defasado }: { itens: Item[] | null; total: number | null | undefined; nome: string; ct?: PerpetuoVendasClubeTrator | null; defasado?: boolean }) {
+  if (!itens || (total == null && !ct)) return null;
+  const plural = nome === 'página' ? 'páginas' : nome === 'peça' ? 'peças' : 'campanhas';
+  const linhas = [
+    ...(total != null ? [{ k: 'Vendas RGV', total, lista: itens.reduce((s, i) => s + (i.vendas ?? 0), 0) }] : []),
+    ...(ct ? [
+      { k: 'Vendas Clube R1', total: ct.clube_r1.vendas, lista: itens.reduce((s, i) => s + (i.clube ?? 0), 0) },
+      { k: 'Vendas Trator', total: ct.trator.vendas, lista: itens.reduce((s, i) => s + (i.trator ?? 0), 0) },
+    ] : []),
+  ];
+  const fora = defasado ? 0 : linhas.reduce((s, l) => s + Math.max(0, l.total - l.lista), 0);
   return (
-    <div className="surface px-4 py-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1" role="note">
-      <span><span className="text-muted-foreground">Vendas no período (total)</span> <b className="mono text-foreground">{fmtNum(total)}</b></span>
-      <span><span className="text-muted-foreground">Somadas nas {nome === 'página' ? 'páginas' : nome === 'peça' ? 'peças' : 'campanhas'} abaixo</span> <b className="mono text-foreground">{fmtNum(naLista)}</b></span>
-      {fora > 0 && (
-        <span className="text-amber-400">
-          {fmtNum(fora)} {fora === 1 ? 'venda fica' : 'vendas ficam'} fora da lista: {nome === 'campanha' ? 'campanha' : nome === 'página' ? 'página' : 'peça'} sem investimento nem leads no período, ou negócio sem {nome === 'peça' ? 'nome do anúncio' : 'campanha'} na UTM.
-        </span>
-      )}
+    <div className="surface px-4 py-3 text-sm space-y-2" role="note">
+      <table className="text-xs">
+        <thead><tr className="text-muted-foreground text-left"><th className="pr-6 pb-1 font-semibold">Vendas do período</th><th className="pr-6 pb-1 font-semibold text-right">Total</th><th className="pr-6 pb-1 font-semibold text-right">Nas {plural} abaixo</th><th className="pb-1 font-semibold text-right">Sem atribuição</th></tr></thead>
+        <tbody>
+          {linhas.map((l) => (
+            <tr key={l.k}><td className="pr-6 text-muted-foreground">{l.k}</td><td className="pr-6 text-right mono font-bold text-foreground">{fmtNum(l.total)}</td><td className="pr-6 text-right mono text-foreground">{fmtNum(l.lista)}</td><td className={`text-right mono ${!defasado && l.total - l.lista > 0 ? 'text-amber-400 font-bold' : 'text-muted-foreground'}`}>{defasado ? '…' : fmtNum(Math.max(0, l.total - l.lista))}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      {defasado && <p className="text-xs text-muted-foreground">Atualizando o período… a coluna "Sem atribuição" volta quando todos os números chegarem.</p>}
+      {fora > 0 && <p className="text-xs text-amber-400">{fmtNum(fora)} {fora === 1 ? 'venda não entra' : 'vendas não entram'} em nenhuma {nome}: o negócio chegou sem {nome === 'peça' ? 'nome do anúncio' : nome === 'página' ? 'página' : 'campanha'} na UTM, ou a {nome} não teve investimento nem leads no período. Elas continuam no total geral, sem atribuição por palpite.</p>}
     </div>
   );
 }
@@ -638,7 +649,7 @@ function lerPorLinha(): PorLinha {
   try { const n = Number(localStorage.getItem(CHAVE_POR_LINHA)); return (POR_LINHA as readonly number[]).includes(n) ? (n as PorLinha) : 3; } catch { return 3; }
 }
 
-function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null }) {
+function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null; defasado?: boolean }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
   const [tipo, setTipo] = useState<string>('todas');
@@ -713,12 +724,7 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct }: { aba: Aba; s
       </div>
 
       <ReguaMetas metas={metas} />
-      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} />
-      {ct && itens && (() => {
-        const lig = itens.reduce((x, i) => x + (i.clube ?? 0) + (i.trator ?? 0), 0);
-        const tot = ct.clube_r1.vendas + ct.trator.vendas + ct.sem_produto.vendas;
-        return <p className="text-xs text-muted-foreground">Clube R1 e Trator: {fmtNum(lig)} de {fmtNum(tot)} {tot === 1 ? 'venda ligada' : 'vendas ligadas'} {aba === 'criativos' ? 'às peças' : aba === 'campanhas' ? 'às campanhas' : 'às páginas'} pela UTM de campanha e anúncio do negócio. As demais não têm UTM (ou a UTM não existe no Meta) e ficam só no total geral, sem atribuição por palpite.</p>;
-      })()}
+      <VendasForaDaLista itens={itens} total={referencia?.vendas} nome={nome} ct={ct} defasado={defasado} />
       <Detalhes item={selecionado && itens?.includes(selecionado) ? selecionado : null} aba={aba} aoFechar={() => setSelecionado(null)} metas={metas} referencia={referencia} />
 
       {itens === null ? (
