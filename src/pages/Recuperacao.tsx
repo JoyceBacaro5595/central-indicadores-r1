@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Phone, Plus } from 'lucide-react';
+import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
 import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -126,6 +126,9 @@ export default function Recuperacao() {
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
+  const outras = useQuery({ queryKey: ['recuperacao-outra-cidade'], queryFn: () => r1Rpc<{ transacao_id: string; cidade: string; mes_evento: string | null; data_evento: string | null; compra_em: string }[]>('recuperacao_outra_cidade'), refetchInterval: 5 * 60_000, retry: false });
+  const outraCidade = useMemo(() => new Map((outras.data ?? []).map((o) => [o.transacao_id, o])), [outras.data]);
+  const [avisoId, setAvisoId] = useState<string | null>(null);
   const historico = useQuery({ queryKey: ['recuperacao-historico'], queryFn: () => r1Rpc<Registro[]>('recuperacao_historico'), refetchInterval: 5 * 60_000, retry: false });
   const porPedido = useMemo(() => { const m = new Map<string, Registro[]>(); for (const r of historico.data ?? []) { const l = m.get(r.transacao_id); if (l) l.push(r); else m.set(r.transacao_id, [r]); } return m; }, [historico.data]);
   const salvarObs = useMutation({
@@ -272,7 +275,7 @@ export default function Recuperacao() {
                 return (
                   <tr key={p.transacao_id} className={`border-t border-border align-top ${p.ja_comprou_depois ? 'opacity-60' : ''}`}>
                     <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {duracao(p.horas_pendente)}</div></td>
-                    <td className="py-2"><div className="font-semibold text-foreground">{p.nome_contato ?? '—'}</div><div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
+                    <td className="py-2"><div className="font-semibold text-foreground flex items-center gap-1.5">{p.nome_contato ?? '—'}{outraCidade.has(p.transacao_id) && <button onClick={() => setAvisoId(avisoId === p.transacao_id ? null : p.transacao_id)} className="text-amber-400 hover:text-amber-300" title="Comprou ingresso em outra cidade" aria-label="Comprou ingresso em outra cidade"><TriangleAlert className="w-3.5 h-3.5" /></button>}</div>{avisoId === p.transacao_id && outraCidade.get(p.transacao_id) && (() => { const o = outraCidade.get(p.transacao_id)!; const dt = diaMes(dataDoEvento(o.cidade, o.mes_evento, o.data_evento)); return <div className="mt-1 mb-1 rounded bg-amber-500/10 text-amber-300 px-2 py-1 text-[11px]" role="status">Comprou ingresso em outra cidade: {o.cidade}{dt ? ` (${dt})` : ''}, em {quando(o.compra_em)}.</div>; })()}<div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento)) !== '—' ? `Evento em ${diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento))}` : mesLabel(p.mes_evento)}</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div>{p.produto_criado_em && <div className="text-muted-foreground">Produto cadastrado em {diaCompleto(p.produto_criado_em)}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{num(p.qtd_ingressos)} {p.qtd_ingressos === 1 ? 'ingresso' : 'ingressos'}</div></td>
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
