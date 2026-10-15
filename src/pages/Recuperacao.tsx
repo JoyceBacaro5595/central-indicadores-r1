@@ -36,7 +36,13 @@ const diaCompleto = (d: string | null) => (d && d.length === 10 ? `${d.slice(8, 
 const TIPOS = [{ k: '', r: 'Todos os ingressos' }, { k: 'comum', r: 'Comum' }, { k: 'vip', r: 'VIP' }, { k: 'mais1', r: 'Mais de 1 ingresso' }];
 const batePedidoTipo = (p: { tipo_ingresso: string | null; qtd_ingressos: number }, k: string) => !k || (k === 'mais1' ? (p.qtd_ingressos ?? 0) > 1 : norm(p.tipo_ingresso ?? '') === k);
 const linkAnuncio = (p: Pedido) => (p.conta_id && p.anuncio_id ? `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${p.conta_id}&selected_ad_ids=${p.anuncio_id}` : p.conta_id && p.campanha_id ? `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${p.conta_id}&selected_campaign_ids=${p.campanha_id}` : null);
-const quando = (d: string | null) => (d ? new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
+/** Horário do pedido (criado_em) vem da base já em Brasília e sem fuso: mostra como está. Datas com fuso (registros do atendimento) são convertidas para Brasília. */
+const comFuso = (d: string) => d.endsWith('Z') || /[+-]\d{2}(:?\d{2})?$/.test(d);
+const quando = (d: string | null) => {
+  if (!d) return '—';
+  if (!comFuso(d)) return `${d.slice(8, 10)}/${d.slice(5, 7)}, ${d.slice(11, 16)}`;
+  return new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+};
 const STATUS: Record<string, string> = { expired: 'Expirada', canceled: 'Cancelada', abandoned: 'Abandonada', waiting_payment: 'Ag. pagamento', recovering: 'Em recuperação', unpaid: 'Não paga' };
 const PAG: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão', billet: 'Boleto', free: 'Gratuito' };
 const SIT: Record<string, string> = { pendente: 'Não contatado', contatado: 'Mensagem enviada', em_atendimento: 'Em atendimento', aguardando_retorno: 'Aguardando retorno', sem_resposta: 'Sem resposta', recuperado: 'Recuperado', descartado: 'Sem Interesse' };
@@ -80,6 +86,8 @@ export default function Recuperacao() {
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [obs, setObs] = useState<Record<string, string>>({});
+  const [detalhes, setDetalhes] = useState<Record<string, boolean>>({});
+  const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
   const [aba, setAba] = useState<'carrinho' | 'resgate' | 'templates'>('carrinho');
   const [tplId, setTplId] = useState('');
   const tpls = useQuery({ queryKey: ['recuperacao-templates'], queryFn: () => r1Rpc<Template[]>('recuperacao_templates_listar'), retry: false });
@@ -100,12 +108,21 @@ export default function Recuperacao() {
   });
   const marcar = useMutation({
     mutationFn: (v: { id: string; situacao: string; observacao?: string | null }) => r1Rpc('recuperacao_marcar', { p_transacao_id: v.id, p_situacao: v.situacao, p_observacao: v.observacao ?? null }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
+    // Troca o status na tela na hora; se o banco recusar, volta ao valor anterior e mostra o motivo
+    onMutate: async (v) => {
+      setErrosStatus((e) => { const { [v.id]: _, ...resto } = e; return resto; });
+      await qc.cancelQueries({ queryKey: ['recuperacao-fila'] });
+      const antes = qc.getQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] });
+      qc.setQueriesData<Pedido[]>({ queryKey: ['recuperacao-fila'] }, (l) => l?.map((p) => (p.transacao_id === v.id ? { ...p, situacao: v.situacao } : p)));
+      return { antes };
+    },
+    onError: (e, v, ctx) => { ctx?.antes.forEach(([k, d]) => qc.setQueryData(k, d)); setErrosStatus((x) => ({ ...x, [v.id]: (e as Error).message })); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['recuperacao-fila'] }); qc.invalidateQueries({ queryKey: ['recuperacao-resumo'] }); qc.invalidateQueries({ queryKey: ['recuperacao-historico'] }); },
   });
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    const dia = (d: string) => new Date(d + (d.endsWith('Z') || d.includes('+') ? '' : 'Z')).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const dia = (d: string) => (comFuso(d) ? new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : d.slice(0, 10));
     const l = (fila.data ?? []).filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
     const qd = q.replace(/\D/g, '');
     return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
@@ -122,7 +139,7 @@ export default function Recuperacao() {
     <div className="min-h-screen bg-background">
       <PageHeader
         titulo={aba === 'templates' ? 'Templates de mensagem' : aba === 'resgate' ? 'Resgate MDV' : 'Recuperação de carrinho'}
-        subtitulo={`Pedidos expirados, cancelados, abandonados, aguardando pagamento ou em recuperação há mais de ${r?.horas_parametro ?? 4} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
+        subtitulo={`Pedidos expirados, cancelados, abandonados ou em recuperação, e aguardando pagamento há mais de ${r?.horas_parametro ?? 4} h · eventos que ainda não aconteceram, com produto cadastrado · todo o período`}
         onAtualizar={() => { resumo.refetch(); fila.refetch(); }}
         atualizando={fila.isFetching}
       />
@@ -182,7 +199,7 @@ export default function Recuperacao() {
           {!veDados && <p className="text-xs text-muted-foreground mt-3">Seu perfil vê a fila com nome e e-mail mascarados e sem telefone (recurso "dados pessoais").</p>}
           <table className="w-full mt-3 text-xs">
             <thead><tr className="text-muted-foreground text-left">
-              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Tipo de ingresso</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Status e ações</th>
+              <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Tipo de ingresso</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">WhatsApp · Status · Observações · Detalhes</th>
             </tr></thead>
             <tbody>
               {fila.isLoading && <tr><td colSpan={9} className="py-3 text-muted-foreground">Carregando…</td></tr>}
@@ -201,22 +218,22 @@ export default function Recuperacao() {
                       {(p.destino_url || linkAnuncio(p)) && <div className="flex gap-2 mt-1">{p.destino_url && <a href={p.destino_url} target="_blank" rel="noreferrer" className="text-primary font-semibold">Página</a>}{linkAnuncio(p) && <a href={linkAnuncio(p)!} target="_blank" rel="noreferrer" className="text-primary font-semibold">Gerenciador</a>}</div>}</td>
                     <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${p.situacao === 'recuperado' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'contatado' ? 'bg-cyan-500/15 text-cyan-400' : p.situacao === 'em_atendimento' ? 'bg-sky-500/15 text-sky-400' : p.situacao === 'aguardando_retorno' ? 'bg-violet-500/15 text-violet-400' : p.situacao === 'sem_resposta' ? 'bg-orange-500/15 text-orange-400' : p.situacao === 'descartado' ? 'bg-secondary text-muted-foreground' : 'bg-amber-500/15 text-amber-400'}`}>{SIT[p.situacao]}</span>{p.ja_comprou_depois && (() => { const o = origemDe.get(p.transacao_id)?.origem; const [txt, cor] = o === 'social_selling' ? ['Social Selling', 'bg-emerald-500/15 text-emerald-400'] : o === 'recuperado' ? ['Recuperado', 'bg-sky-500/15 text-sky-400'] : o === 'outro_link' ? ['Comprou com outro link - Sem recuperação', 'bg-secondary text-muted-foreground'] : ['Comprou mesmo link - Sem recuperação', 'bg-secondary text-muted-foreground']; return <div className={`text-[10px] mt-1 px-1.5 py-0.5 rounded inline-block ${cor}`}>{txt}</div>; })()}{p.situacao !== 'pendente' && p.situacao_em && <div className="text-[10px] text-muted-foreground mt-1">alterado em {quando(p.situacao_em)}</div>}{p.observacao && <div className="text-muted-foreground mt-1 max-w-[180px]">{p.observacao}</div>}</td>
                     <td className="py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {w && <a href={w} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold" title="Abrir WhatsApp"><Phone className="w-3 h-3" /> WhatsApp</a>}
+                      <div className="flex items-start gap-1.5">
+                        {w && <a href={w} target="_blank" rel="noreferrer" className="shrink-0 flex items-center justify-center w-7 h-7 rounded bg-emerald-500/15 text-emerald-400" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><Phone className="w-3.5 h-3.5" /></a>}
                         <select value={p.situacao} onChange={(e) => marcar.mutate({ id: p.transacao_id, situacao: e.target.value, observacao: e.target.value === 'pendente' ? null : (obs[p.transacao_id] ?? p.observacao) })} className="bg-secondary rounded px-2 py-1 text-[11px] font-semibold text-foreground" title="Mudar o status do atendimento">
                           {(OPCOES.includes(p.situacao) ? OPCOES : [p.situacao, ...OPCOES]).map((k) => <option key={k} value={k}>{SIT[k]}</option>)}
                         </select>
+                        <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="Observações" className="bg-secondary rounded px-2 py-1 text-[11px] text-foreground w-36" />
+                        <button onClick={() => salvarObs.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: (obs[p.transacao_id] ?? '').trim() })} disabled={!(obs[p.transacao_id] ?? '').trim() || salvarObs.isPending} className="px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] font-semibold disabled:opacity-50">Salvar</button>
+                        <button onClick={() => setDetalhes((d) => ({ ...d, [p.transacao_id]: !d[p.transacao_id] }))} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold" aria-expanded={!!detalhes[p.transacao_id]}>Detalhes{(porPedido.get(p.transacao_id) ?? []).length > 0 ? ` (${(porPedido.get(p.transacao_id) ?? []).length})` : ''}</button>
                       </div>
-                      <div className="mt-1 flex gap-1">
-                        <input value={obs[p.transacao_id] ?? ''} onChange={(e) => setObs({ ...obs, [p.transacao_id]: e.target.value })} placeholder="o que foi registrado no contato" className="bg-secondary rounded px-2 py-0.5 text-[11px] text-foreground w-40" />
-                        <button onClick={() => salvarObs.mutate({ id: p.transacao_id, situacao: p.situacao, observacao: (obs[p.transacao_id] ?? '').trim() })} disabled={!(obs[p.transacao_id] ?? '').trim() || salvarObs.isPending} className="px-2 py-0.5 rounded bg-primary text-primary-foreground text-[11px] font-semibold disabled:opacity-50">Salvar</button>
-                      </div>
+                      {errosStatus[p.transacao_id] && <div className="text-[10px] text-red-400 mt-1">Não consegui salvar o status: {errosStatus[p.transacao_id]}</div>}
                       {salvarObs.isError && salvarObs.variables?.id === p.transacao_id && <div className="text-[10px] text-red-400 mt-1">{(salvarObs.error as Error).message}</div>}
-                      {(porPedido.get(p.transacao_id) ?? []).length > 0 && (
-                        <div className="mt-2 border-t border-border pt-1 space-y-1 max-w-[260px]">
-                          <div className="text-[10px] font-semibold text-muted-foreground">Histórico</div>
+                      {detalhes[p.transacao_id] && (
+                        <div className="mt-2 border-t border-border pt-1 space-y-1 max-w-[420px]">
+                          {(porPedido.get(p.transacao_id) ?? []).length === 0 && <div className="text-[10px] text-muted-foreground">Nenhuma ação registrada neste pedido.</div>}
                           {(porPedido.get(p.transacao_id) ?? []).map((h, i) => (
-                            <div key={i} className="text-[10px] text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · {h.criado_por_nome ?? '—'}{h.situacao ? ` · ${SIT[h.situacao] ?? h.situacao}` : ''}{h.observacao && <div className="text-foreground whitespace-pre-wrap">{h.observacao}</div>}</div>
+                            <div key={i} className="text-[10px] text-muted-foreground"><span className="mono text-foreground">{quando(h.criado_em)}</span> · Atendente: {h.criado_por_nome ?? '—'}{h.situacao ? ` · ${SIT[h.situacao] ?? h.situacao}` : ''}{h.observacao && <div className="text-foreground whitespace-pre-wrap">{h.observacao}</div>}</div>
                           ))}
                         </div>
                       )}
@@ -226,7 +243,7 @@ export default function Recuperacao() {
               })}
             </tbody>
           </table>
-          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada, Ag. pagamento e Em recuperação, há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
+          <p className="text-[10px] text-muted-foreground mt-3">Entram na fila pedidos com qualquer forma de pagamento nos status Expirada, Cancelada, Abandonada e Em recuperação assim que acontecem, e Ag. pagamento há mais de {r?.horas_parametro ?? 4} h (prazo editável no Gerenciador, parâmetro "recuperacao_horas"). Quem fez um pedido aprovado depois, com o mesmo e-mail e produto, sai da fila automaticamente. Cortesias, eventos já passados e eventos sem produto cadastrado na Guru não entram. Os links de Página e Gerenciador aparecem quando o pedido traz o anúncio nos parâmetros de origem (UTM). Os pedidos vêm da Guru a cada hora; use "Atualizar período agora" na Central para antecipar.</p>
         </section>
       </>)}
       </main>
@@ -236,6 +253,7 @@ export default function Recuperacao() {
 
 function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error | null; carregando: boolean }) {
   const qc = useQueryClient();
+  const { perfil } = useAuth();
   const vazio = { id: '', nome: '', texto: '', ativo: true, padrao: false };
   const [f, setF] = useState(vazio);
   const salvar = useMutation({
@@ -244,6 +262,10 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
   });
   const alternar = useMutation({
     mutationFn: (t: Template) => r1Rpc('recuperacao_template_salvar', { p_id: t.id, p_nome: t.nome, p_texto: t.texto, p_ativo: !t.ativo, p_padrao: t.padrao }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
+  });
+  const apagar = useMutation({
+    mutationFn: (id: string) => r1Rpc('recuperacao_template_apagar', { p_id: id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recuperacao-templates'] }),
   });
   const exemplo = f.texto.replace(/\{atendente\}/g, 'Grazi').replace(/\{evento\}/g, 'Belém (10/2026)').replace(/\{nome\}/g, 'Maria').replace(/\{produto\}/g, 'Ingresso Máquina de Vendas').replace(/\{cidade\}/g, 'Belém').replace(/\{valor\}/g, 'R$ 497,00');
@@ -267,13 +289,14 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
       </section>
       <section className="surface p-4 space-y-2">
         <span className="section-label">Templates</span>
+        {apagar.error && <p className="text-xs text-red-400">{(apagar.error as Error).message}</p>}
         {erro && <p className="text-xs text-red-400">Não foi possível ler os templates: {erro.message}</p>}
         {carregando && <p className="text-xs text-muted-foreground">Carregando…</p>}
         {!carregando && !erro && lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum template ainda.</p>}
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>
             <div className="flex items-center gap-2"><span className="font-semibold text-foreground">{t.nome}</span>{t.padrao && <span className="px-1.5 rounded bg-primary/15 text-primary text-[10px]">padrão</span>}{!t.ativo && <span className="text-[10px] text-muted-foreground">inativo</span>}
-              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button></span></div>
+              <span className="ml-auto flex gap-1"><button onClick={() => setF({ id: t.id, nome: t.nome, texto: t.texto, ativo: t.ativo, padrao: t.padrao })} className="px-2 py-0.5 rounded bg-secondary text-foreground">Editar</button><button onClick={() => alternar.mutate(t)} className="px-2 py-0.5 rounded bg-secondary text-muted-foreground">{t.ativo ? 'Desativar' : 'Ativar'}</button>{perfil?.papel === 'administrador' && <button onClick={() => { if (window.confirm(`Excluir o template "${t.nome}"? Não dá para desfazer.`)) apagar.mutate(t.id); }} className="px-2 py-0.5 rounded bg-red-500/15 text-red-400">Excluir</button>}</span></div>
             <p className="mt-1 text-muted-foreground whitespace-pre-wrap">{t.texto}</p>
           </div>
         ))}
