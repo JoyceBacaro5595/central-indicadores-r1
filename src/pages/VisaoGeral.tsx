@@ -350,6 +350,11 @@ export default function VisaoGeral() {
                       <K l="CPL" v={brl(r.cpl)} din />
                       <K l="MQL" v={n(r.mql)} m={pMql != null ? <><b>{pMql}%</b> dos leads</> : undefined} />
                     </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
+                      <K l="Receita" v={brl(r.faturamento)} din />
+                      <K l="CAC" v={brl(r.investimento != null && r.vendas != null ? r.investimento / Math.max(r.vendas, 1) : null)} din />
+                    </div>
                     <div className="rt-sub">Leads por dia <small>HubSpot · total do ciclo</small></div>
                     <Barras rows={diarioRgv} chave="leads" cor="var(--red)" classe="rt-bars-rgv" />
                   </>
