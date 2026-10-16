@@ -308,8 +308,8 @@ export default function Recuperacao() {
                 {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
                 </select>
                 {periodo === 'custom' && <>
-                <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+                <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => { const v = e.target.value; setDe(v); if (v && ate && v > ate) setAte(v); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => { const v = e.target.value; setAte(v); if (v && de && v < de) setDe(v); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
                 </>}
               </div>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-full md:w-72" />
