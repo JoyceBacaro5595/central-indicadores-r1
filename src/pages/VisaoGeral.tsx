@@ -157,8 +157,9 @@ export default function VisaoGeral() {
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
-  const perpBase = usePerpetuo(undefined, undefined, pode('perpetuo'));
   const hojeStr = ymd(agora);
+  // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
+  const perpBase = usePerpetuo(ymd(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 7)), hojeStr, pode('perpetuo'));
   const ciclo = perpBase.data?.ciclos?.find((c) => c.inicio <= hojeStr && hojeStr <= c.fim) ?? perpBase.data?.ciclos?.[perpBase.data.ciclos.length - 1];
   const perp = usePerpetuo(ciclo?.inicio, hojeStr, pode('perpetuo') && !!ciclo);
 
@@ -325,7 +326,7 @@ export default function VisaoGeral() {
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
-                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : perp.error ? <div className="rt-empty">Erro ao ler o funil: {String((perp.error as Error).message ?? perp.error)}</div> : !r ? <div className="rt-empty">Carregando…</div> : (
+                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <div className="rt-empty">Carregando…</div> : (
                   <>
                     <div className="rt-hero">
                       <Anel p={null} cor="var(--red)" />
