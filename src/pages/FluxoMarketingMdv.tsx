@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { PageBody, PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
 
-/* Fluxo Marketing da Máquina de Vendas: mesma ideia do Fluxo Marketing RGV, com o funil de eventos
-   (mídia Meta → cliques → compras no Meta → ingressos pagos → faturamento) por cidade/evento.
-   Fonte: RPC meta_eventos (Meta Ads + Guru). Não há etapas de CRM (MQL/SQL) para eventos. */
+/* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
+   título da visão com o investimento, faixa do funil em uma linha (cada etapa com número, barra, taxa e custo) e lista por cidade.
+   As etapas são as dos eventos: mídia Meta → cliques → visitas LP → checkouts → compras no Meta → ingressos pagos → faturamento.
+   Fonte: RPC meta_eventos (Meta Ads + Guru). Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas: ficam "—".
+   Não há etapas de CRM (MQL/SQL) para eventos, e as abas Criativos e Páginas do RGV não se aplicam aqui. */
 
 interface MetaEvento {
   cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number;
@@ -21,13 +23,43 @@ const brl2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleSt
 const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` : '—');
 const div = (a: number, b: number) => (b > 0 ? a / b : null);
 
-const Kpi = ({ rotulo, valor, sub }: { rotulo: string; valor: string; sub?: string }) => (
-  <div className="rounded-lg border border-border bg-card p-4">
-    <div className="text-xs text-muted-foreground">{rotulo}</div>
-    <div className="text-2xl font-bold mono mt-1">{valor}</div>
-    {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-  </div>
+const CONTA_MDV = { nome: 'MÁQUINA DE VENDAS', id: '171474008015977' };
+const f2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
+const log = (v: number, max: number) => (v > 0 && max > 0 ? Math.max(2, Math.min(100, (100 * Math.log10(v + 1)) / Math.log10(max + 1))) : 0);
+
+const CARD_FAIXA = 'flex-1 basis-0 min-w-[120px] p-2';
+const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
+const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap';
+const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap';
+
+const Linha = ({ k, v }: { k: string; v: string }) => (
+  <div className="flex flex-col"><span className="text-muted-foreground">{k}</span><span className="font-bold text-foreground">{v}</span></div>
 );
+
+function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
+  return (
+    <div className={CARD_FAIXA}>
+      <div className={TITULO_FAIXA}>{titulo}</div>
+      <div className={NUM_FAIXA}>{valor}</div>
+      <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-primary/80" style={{ width: `${largura}%` }} /></div>
+      <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">{linhas.map(([k, v]) => <Linha key={k} k={k} v={v} />)}</div>
+      <div className="mt-3 text-[10px] text-muted-foreground leading-tight">{custoRotulo}</div>
+      <div className={CUSTO_FAIXA}>{custo}</div>
+    </div>
+  );
+}
+
+function ContaPill() {
+  return (
+    <div className="inline-flex items-center gap-2 h-9 rounded-lg border border-border bg-secondary/40 px-3">
+      <span className="w-2 h-2 rounded-full bg-muted-foreground" title="Identificação da conta; não indica status de atualização" />
+      <span className="text-xs font-bold text-foreground">{CONTA_MDV.nome}</span>
+      <span className="text-[11px] text-muted-foreground mono">{CONTA_MDV.id}</span>
+    </div>
+  );
+}
+
+const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
 export default function FluxoMarketingMdv() {
   const [de, setDe] = useState(mesISO(-1));
@@ -38,57 +70,82 @@ export default function FluxoMarketingMdv() {
   const t = useMemo(() => dados.reduce((s, r) => ({
     inv: s.inv + Number(r.investimento || 0), imp: s.imp + Number(r.impressoes || 0), cli: s.cli + Number(r.cliques || 0),
     cmp: s.cmp + Number(r.compras_meta || 0), ing: s.ing + Number(r.ingressos_pagos || 0), fat: s.fat + Number(r.faturamento || 0),
-  }), { inv: 0, imp: 0, cli: 0, cmp: 0, ing: 0, fat: 0 }), [dados]);
-
-  const etapas = [
-    { nome: 'Impressões', v: t.imp }, { nome: 'Cliques', v: t.cli }, { nome: 'Compras no Meta', v: t.cmp }, { nome: 'Ingressos pagos (Guru)', v: t.ing },
-  ];
-  const max = Math.max(1, ...etapas.map((e) => e.v));
+    camp: s.camp + Number(r.campanhas || 0),
+  }), { inv: 0, imp: 0, cli: 0, cmp: 0, ing: 0, fat: 0, camp: 0 }), [dados]);
+  const max = Math.max(t.imp, 1);
 
   return (
-    <>
-      <PageHeader titulo="Fluxo Marketing MDV" subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas" onAtualizar={() => q.refetch()} atualizando={q.isFetching} />
-      <PageBody>
-        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
-          <label className="text-muted-foreground">Meses do evento</label>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="bg-secondary rounded px-2 py-1" />
-          <span className="text-muted-foreground">até</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="bg-secondary rounded px-2 py-1" />
+    <div className="min-h-screen bg-background">
+      <PageHeader
+        titulo="Máquina de Vendas · Fluxo Marketing MDV"
+        subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
+        onAtualizar={() => q.refetch()}
+        atualizando={q.isFetching}
+        acoes={<div className="hidden lg:flex items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
+      />
+      <PageBody className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="toggle-group">
+            {ABAS.map((a) => <button key={a.valor} className="toggle-item toggle-item-ativo">{a.rotulo}</button>)}
+          </div>
+          <div className="flex lg:hidden flex-wrap items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
         </div>
-        {q.error ? <p className="text-sm text-red-400">Erro ao ler os dados: {String((q.error as Error).message ?? q.error)}</p> : q.isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-              <Kpi rotulo="Investimento" valor={brl(t.inv)} sub={`${num(dados.reduce((s, r) => s + Number(r.campanhas || 0), 0))} campanhas`} />
-              <Kpi rotulo="Ingressos pagos" valor={num(t.ing)} sub={`CPA ${brl2(div(t.inv, t.ing))}`} />
-              <Kpi rotulo="Faturamento" valor={brl(t.fat)} sub={`ROAS ${div(t.fat, t.inv)?.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) ?? '—'}`} />
-              <Kpi rotulo="Compras no Meta" valor={num(t.cmp)} sub={`Custo ${brl2(div(t.inv, t.cmp))}`} />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <Kpi rotulo="CPM" valor={brl2(div(t.inv * 1000, t.imp))} />
-              <Kpi rotulo="CTR" valor={pct(t.cli, t.imp)} />
-              <Kpi rotulo="CPC" valor={brl2(div(t.inv, t.cli))} />
-              <Kpi rotulo="Clique → ingresso pago" valor={pct(t.ing, t.cli)} />
-            </div>
 
-            <h3 className="text-sm font-semibold mb-2">Funil</h3>
-            <div className="rounded-lg border border-border bg-card p-4 mb-5 space-y-2">
-              {etapas.map((e, i) => (
-                <div key={e.nome} className="flex items-center gap-3 text-sm">
-                  <div className="w-44 shrink-0 text-muted-foreground">{e.nome}</div>
-                  <div className="flex-1 h-5 bg-secondary rounded overflow-hidden"><div className="h-full bg-primary/70" style={{ width: `${Math.max(1, (e.v / max) * 100)}%` }} /></div>
-                  <div className="w-24 text-right mono">{num(e.v)}</div>
-                  <div className="w-16 text-right text-xs text-muted-foreground mono">{i > 0 ? pct(e.v, etapas[i - 1].v) : ''}</div>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="eyebrow">Funil de mídia · Máquina de Vendas</div>
+            <h2 className="text-xl md:text-2xl font-semibold leading-tight mt-1 text-foreground">Cidades</h2>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-muted-foreground">
+              <span>{nomeMes(de)} a {nomeMes(ate)} (mês do evento)</span>
+              <span><b className="text-foreground">{dados.length}</b> {dados.length === 1 ? 'cidade' : 'cidades'}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="eyebrow">Investimento no período</div>
+            <div className="text-2xl md:text-3xl font-semibold leading-none mt-1 text-foreground">{brl2(t.inv)}</div>
+            <div className="text-sm text-muted-foreground mt-1">CAC {brl2(div(t.inv, t.ing))}</div>
+          </div>
+        </div>
+
+        {q.error && <div className="surface p-4 text-sm text-red-400">Erro ao ler os dados: {String((q.error as Error).message ?? q.error)}</div>}
+        {q.isLoading && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+
+        {!q.isLoading && !q.error && (
+          <div className="space-y-1.5">
+            <div className="surface overflow-x-auto">
+              <div className="flex flex-nowrap divide-x divide-border min-w-[1100px]">
+                <div className={CARD_FAIXA}>
+                  <div className={TITULO_FAIXA}>Investimento</div>
+                  <div className="num-faixa num-faixa-brl leading-none mt-2 text-foreground whitespace-nowrap">{brl2(t.inv)}</div>
+                  <div className="h-1.5 mt-2.5" />
+                  <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">
+                    <Linha k="Campanhas" v={num(t.camp)} />
+                    <Linha k="CPM" v={brl2(div(t.inv * 1000, t.imp))} />
+                  </div>
+                  <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Máquina de Vendas</div>
+                  <div className={CUSTO_FAIXA}>&nbsp;</div>
                 </div>
-              ))}
-              <p className="text-[11px] text-muted-foreground pt-1">Compras no Meta e ingressos pagos são fontes diferentes, então a taxa entre elas é só uma referência.</p>
+                <Etapa titulo="Impressões" valor={num(t.imp)} largura={log(t.imp, max)} linhas={[['Cliques', num(t.cli)]]} custoRotulo="CPM" custo={brl2(div(t.inv * 1000, t.imp))} />
+                <Etapa titulo="Cliques no link" valor={num(t.cli)} largura={log(t.cli, max)} linhas={[['CTR', pct(t.cli, t.imp)], ['Meta de CTR', '1%']]} custoRotulo="CPC" custo={brl2(div(t.inv, t.cli))} />
+                <Etapa titulo="Visitas LP" valor="—" largura={0} linhas={[['Connect rate', '—']]} custoRotulo="Custo por visita" custo="—" />
+                <Etapa titulo="Checkouts" valor="—" largura={0} linhas={[['Visitas → checkout', '—']]} custoRotulo="Custo por checkout" custo="—" />
+                <Etapa titulo="Compras no Meta" valor={num(t.cmp)} largura={log(t.cmp, max)} linhas={[['Clique → compra', pct(t.cmp, t.cli)]]} custoRotulo="Custo por compra" custo={brl2(div(t.inv, t.cmp))} />
+                <Etapa titulo="Ingressos pagos (Guru)" valor={num(t.ing)} largura={log(t.ing, max)} linhas={[['Clique → ingresso', pct(t.ing, t.cli)], ['Ticket médio', brl2(div(t.fat, t.ing))]]} custoRotulo="CAC" custo={brl2(div(t.inv, t.ing))} />
+                <Etapa titulo="Faturamento" valor={brl(t.fat)} largura={log(t.fat, Math.max(t.fat, t.inv, 1))} linhas={[['ROAS', f2(div(t.fat, t.inv))]]} custoRotulo="Resultado − investimento" custo={brl(t.fat - t.inv)} />
+              </div>
             </div>
+            <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas, por isso aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
+          </div>
+        )}
 
+        {!q.isLoading && !q.error && (
+          <section>
             <h3 className="text-sm font-semibold mb-2">Por cidade e mês do evento</h3>
-            <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <div className="surface overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="text-left">
-                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CPA', 'Faturamento', 'ROAS'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
+                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CAC', 'Faturamento', 'ROAS'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -113,9 +170,9 @@ export default function FluxoMarketingMdv() {
                 </tbody>
               </table>
             </div>
-          </>
+          </section>
         )}
       </PageBody>
-    </>
+    </div>
   );
 }

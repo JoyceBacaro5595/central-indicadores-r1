@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageHeader } from '@/components/shared';
 
 interface Presenca {
   linha: string | null; cidade: string; mes_evento: string; data_evento: string | null; evento_id: number | null;
@@ -73,9 +73,7 @@ export default function Checkins() {
         titulo="Check-ins"
         subtitulo={`Esperados, presentes, quem ainda não chegou e cancelados · e-tickets da Guru${r?.atualizado_em ? ` · lido ${horaBR(r.atualizado_em)}` : ''}`}
         acoes={<>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
-          <span className="text-xs text-muted-foreground">a</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
         </>}
         onAtualizar={() => { eventos.refetch(); resumo.refetch(); lista.refetch(); }}
         atualizando={eventos.isFetching || lista.isFetching}

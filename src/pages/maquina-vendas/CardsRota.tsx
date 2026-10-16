@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiltroMulti } from '@/components/shared';
+import { FiltroMulti, FiltroUnico } from '@/components/shared';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -86,10 +86,10 @@ export default function CardsRota() {
       <div className="flex flex-wrap items-end gap-3 text-[10px] text-muted-foreground">
         <FiltroMulti rotulo="Cidade" opcoes={ROTA.cidades.map((c) => ({ valor: c.cidade, rotulo: c.cidade }))} valor={cidadesSel} onChange={setCidadesSel} />
         <FiltroMulti rotulo="Situação" opcoes={SITUACOES.filter(([v]) => v !== 'todas').map(([v, r]) => ({ valor: v, rotulo: r }))} valor={situacoes} onChange={setSituacoes} />
-        <label>Ordenar por<br /><select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={sel}>{ORDENS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
+        <FiltroUnico rotulo="Ordenar por" opcoes={ORDENS.map(([v, r]) => ({ valor: v, rotulo: r }))} valor={ordem} onChange={(v) => setOrdem(v as Ordem)} />
         <div role="group" aria-label="Formato de visualização" className="flex rounded-lg border border-border overflow-hidden">{VISOES.map(([v, r]) => <button key={v} type="button" aria-pressed={visao === v} onClick={() => escolherVisao(v)} className={`px-3 py-1.5 text-xs font-bold ${visao === v ? 'bg-primary text-primary-foreground' : 'bg-secondary/40 text-foreground hover:bg-secondary'}`}>{r}</button>)}</div>
-        {visao === 'card' && <label className="hidden lg:block">Cards por linha<br /><select value={porLinha} onChange={(e) => escolherPorLinha(Number(e.target.value))} className={sel} aria-label="Cards por linha">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>}
-        <span className="pb-2">{visiveis.length} de {linhas.length} cidades</span>
+        {visao === 'card' && <div className="hidden lg:block"><FiltroUnico rotulo="Cards por linha" opcoes={[1, 2, 3, 4, 5].map((n) => ({ valor: String(n), rotulo: String(n) }))} valor={String(porLinha)} onChange={(v) => escolherPorLinha(Number(v))} /></div>}
+        <span className="pb-1.5">{visiveis.length} de {linhas.length} cidades</span>
       </div>
       {visiveis.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma cidade com esses filtros.</p>}
       {visao === 'card' && (
