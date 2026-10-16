@@ -30,8 +30,8 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 100% / 0.09;
-    --input: 0 0% 100% / 0.09;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
     --ring: 0 72% 51%;
 
     --radius: 0.625rem;
@@ -48,7 +48,7 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 210 12% 80%;
-    --sidebar-border: 0 0% 100% / 0.09;
+    --sidebar-border: 0 0% 16%;
     --sidebar-ring: 0 72% 51%;
   }
 
@@ -398,3 +398,4 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 /* cor do produto: RGV Processos (azul), disponível quando o módulo entrar */
 :root[data-modulo="proc"] { --primary: 217 100% 62%; --accent: 217 100% 56%; --ring: 217 100% 62%; --primary-foreground: 0 0% 100%;
   --hl-a: hsl(217 85% 45%); --hl-b: hsl(217 80% 33%); --hl-border: hsl(217 90% 55% / 0.3); --hl-shadow: hsl(217 100% 62% / 0.25); }
+.mobile-view .kpi-value, .mobile-view .kpi-card-highlight .kpi-value { @apply text-sm; }
