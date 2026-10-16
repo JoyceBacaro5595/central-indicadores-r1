@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { PageBody, PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
 
 /* Fluxo Marketing da Máquina de Vendas: mesma ideia do Fluxo Marketing RGV, com o funil de eventos
    (mídia Meta → cliques → compras no Meta → ingressos pagos → faturamento) por cidade/evento.
@@ -51,9 +51,7 @@ export default function FluxoMarketingMdv() {
       <PageBody>
         <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
           <label className="text-muted-foreground">Meses do evento</label>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="bg-secondary rounded px-2 py-1" />
-          <span className="text-muted-foreground">até</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="bg-secondary rounded px-2 py-1" />
+          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
         </div>
         {q.error ? <p className="text-sm text-red-400">Erro ao ler os dados: {String((q.error as Error).message ?? q.error)}</p> : q.isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
           <>

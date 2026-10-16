@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { FiltroMulti, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
+import { FiltroMulti, FiltroPeriodo, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
 
@@ -233,8 +233,7 @@ export default function Perpetuo() {
               )}
             </select>
             {preset === 'custom' && <>
-            <input aria-label="Data inicial" type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
-            <input aria-label="Data final" type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
             </>}
           </div>
         }
@@ -270,8 +269,7 @@ export default function Perpetuo() {
               {data?.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo}</option>)}
             </select>
             {preset === 'custom' && <>
-            <input aria-label="Data inicial" type="date" value={de} onChange={(e) => mudarData('de', e.target.value)} className="input-r1 mono" />
-            <input aria-label="Data final" type="date" value={ate} onChange={(e) => mudarData('ate', e.target.value)} className="input-r1 mono" />
+            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
             </>}
           </div>
         </div>

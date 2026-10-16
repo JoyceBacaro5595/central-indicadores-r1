@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageHeader } from '@/components/shared';
 import CardsRota from './maquina-vendas/CardsRota';
 
 interface Evento {
@@ -113,9 +113,7 @@ export default function Eventos() {
         titulo="Eventos e metas por cidade"
         subtitulo="Calendário, capacidade, meta, realizado e ritmo necessário · Máquina de Vendas presencial"
         acoes={<>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
-          <span className="text-xs text-muted-foreground">a</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
         </>}
         onAtualizar={() => eventos.refetch()}
         atualizando={eventos.isFetching}

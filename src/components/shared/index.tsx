@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { ChevronDown, RefreshCw } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
 import AvisosSino from '@/components/AvisosSino';
 
@@ -211,6 +211,127 @@ export function FiltroMulti({ rotulo, opcoes, valor, onChange, variante = 'lista
               {o.contagem != null && <span className="ml-auto text-muted-foreground">{o.contagem}</span>}
             </label>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Fecha o menu ao clicar fora ou apertar Esc (usado pelos filtros em formato de botão). */
+function useMenu() {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAberto(false); };
+    document.addEventListener('mousedown', fora); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc); };
+  }, [aberto]);
+  return { aberto, setAberto, ref };
+}
+const BOTAO_FILTRO = 'inline-flex items-center gap-2 rounded-lg bg-secondary border border-border px-3 py-1.5 text-xs text-foreground hover:border-primary';
+
+/** Filtro de escolha única, no mesmo formato do FiltroMulti (ordenação, visão etc.). */
+export function FiltroUnico({ rotulo, opcoes, valor, onChange }: {
+  rotulo: string; opcoes: { valor: string; rotulo: string }[]; valor: string; onChange: (v: string) => void;
+}) {
+  const { aberto, setAberto, ref } = useMenu();
+  const atual = opcoes.find((o) => o.valor === valor)?.rotulo ?? valor;
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" aria-haspopup="listbox" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} className={BOTAO_FILTRO}>
+        <span className="text-muted-foreground font-semibold">{rotulo}</span>
+        <span className="font-bold">{atual}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      {aberto && (
+        <div role="listbox" aria-label={rotulo} className="absolute z-30 mt-1 min-w-52 max-h-72 overflow-auto rounded-xl border border-border bg-card p-1.5 shadow-xl">
+          {opcoes.map((o) => (
+            <button key={o.valor} type="button" role="option" aria-selected={o.valor === valor} onClick={() => { onChange(o.valor); setAberto(false); }}
+              className={`w-full text-left px-2 py-1.5 rounded-md text-xs hover:bg-secondary ${o.valor === valor ? 'font-bold text-foreground bg-secondary' : 'text-muted-foreground'}`}>{o.rotulo}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const DIAS_SEM = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const p2 = (n: number) => String(n).padStart(2, '0');
+const hojeSP = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+const somaDias = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const fmtDia = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+const fmtMes = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]}/${iso.slice(0, 4)}`;
+
+/** Filtro de período no padrão da Central. `modo="mes"` escolhe meses (datas sempre no dia 1) e `modo="dia"` escolhe dias, com atalhos.
+ *  Duas escolhas fecham o período: a primeira marca o início, a segunda o fim (se vier antes, as duas se invertem). */
+export function FiltroPeriodo({ rotulo = 'Período', modo, de, ate, onChange, atalhos = modo === 'dia' }: {
+  rotulo?: string; modo: 'mes' | 'dia'; de: string; ate: string; onChange: (de: string, ate: string) => void; atalhos?: boolean;
+}) {
+  const { aberto, setAberto, ref } = useMenu();
+  const [inicio, setInicio] = useState<string | null>(null); // primeiro clique aguardando o segundo
+  const [ano, setAno] = useState(Number((ate || de || hojeSP()).slice(0, 4)));
+  const [mes, setMes] = useState(Number((ate || de || hojeSP()).slice(5, 7)) - 1);
+  useEffect(() => { if (aberto) { setInicio(null); const b = de || hojeSP(); setAno(Number(b.slice(0, 4))); setMes(Number(b.slice(5, 7)) - 1); } }, [aberto]); // eslint-disable-line react-hooks/exhaustive-deps
+  const escolher = (iso: string) => {
+    if (!inicio) { setInicio(iso); return; }
+    const [a, b] = iso < inicio ? [iso, inicio] : [inicio, iso];
+    onChange(a, b); setInicio(null); setAberto(false);
+  };
+  const ini = inicio ?? de, fim = inicio ?? ate;
+  const resumo = modo === 'mes' ? `${fmtMes(de)} → ${fmtMes(ate)}` : `${fmtDia(de)} → ${fmtDia(ate)}`;
+  const hoje = hojeSP();
+  const prontos: [string, string, string][] = [
+    ['Hoje', hoje, hoje], ['Ontem', somaDias(hoje, -1), somaDias(hoje, -1)], ['7 dias', somaDias(hoje, -6), hoje], ['30 dias', somaDias(hoje, -29), hoje],
+    ['Este mês', `${hoje.slice(0, 7)}-01`, hoje],
+  ];
+  const primeiro = new Date(Date.UTC(ano, mes, 1)).getUTCDay();
+  const nDias = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const celula = 'h-8 rounded-md text-xs hover:bg-secondary';
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" aria-haspopup="dialog" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} className={BOTAO_FILTRO}>
+        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground font-semibold">{rotulo}</span>
+        <span className="font-bold tabular-nums">{resumo}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      {aberto && (
+        <div role="dialog" aria-label={rotulo} className="absolute right-0 z-30 mt-1 w-72 rounded-xl border border-border bg-card p-3 shadow-xl">
+          <div className="flex items-center justify-between mb-2">
+            <button type="button" aria-label="Anterior" onClick={() => (modo === 'mes' ? setAno(ano - 1) : mes === 0 ? (setMes(11), setAno(ano - 1)) : setMes(mes - 1))} className="p-1 rounded hover:bg-secondary"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="text-xs font-bold">{modo === 'mes' ? ano : `${MESES[mes]} de ${ano}`}</span>
+            <button type="button" aria-label="Próximo" onClick={() => (modo === 'mes' ? setAno(ano + 1) : mes === 11 ? (setMes(0), setAno(ano + 1)) : setMes(mes + 1))} className="p-1 rounded hover:bg-secondary"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+          {modo === 'mes' ? (
+            <div className="grid grid-cols-4 gap-1">
+              {MESES.map((m, i) => {
+                const iso = `${ano}-${p2(i + 1)}-01`;
+                const dentro = iso >= ini.slice(0, 7) + '-01' && iso <= fim.slice(0, 7) + '-01';
+                return <button key={m} type="button" onClick={() => escolher(iso)} className={`${celula} font-semibold ${dentro ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-foreground'}`}>{m}</button>;
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-muted-foreground mb-1">{DIAS_SEM.map((d, i) => <span key={i}>{d}</span>)}</div>
+              <div className="grid grid-cols-7 gap-0.5">
+                {Array.from({ length: primeiro }, (_, i) => <span key={`v${i}`} />)}
+                {Array.from({ length: nDias }, (_, i) => {
+                  const iso = `${ano}-${p2(mes + 1)}-${p2(i + 1)}`;
+                  const ponta = iso === ini || iso === fim; const dentro = iso >= ini && iso <= fim;
+                  return <button key={iso} type="button" onClick={() => escolher(iso)} className={`${celula} tabular-nums ${ponta ? 'bg-primary text-primary-foreground hover:bg-primary font-bold' : dentro ? 'bg-secondary text-foreground' : 'text-foreground'}`}>{i + 1}</button>;
+                })}
+              </div>
+            </>
+          )}
+          {atalhos && modo === 'dia' && (
+            <div className="flex flex-wrap gap-1 mt-3 pt-2 border-t border-border">
+              {prontos.map(([r, a, b]) => <button key={r} type="button" onClick={() => { onChange(a, b); setInicio(null); setAberto(false); }} className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground">{r}</button>)}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-2">{inicio ? 'Agora escolha o fim do período.' : 'Escolha o início e depois o fim.'}</p>
         </div>
       )}
     </div>
