@@ -5,3 +5,7 @@
 --   antes:  WHERE b.email = p.email AND b.produto_nome = p.produto_nome AND b.aprovada AND b.criado_em > p.criado_em
 --   depois: WHERE b.produto_nome = p.produto_nome AND b.aprovada AND b.transacao_id <> p.transacao_id
 --             AND (b.email = p.email OR (NULLIF(b.documento,'') IS NOT NULL AND b.documento = p.documento))
+
+-- Atualização (migration recuperacao_ja_comprou_por_todos_os_dados): a ligação passou a usar
+--   e-mail (sem diferenciar maiúsculas) OU CPF/CNPJ (só dígitos, mínimo 11) OU telefone (DDD + número, só dígitos, últimos 11).
+-- O telefone vem do payload da Guru (raw.guru_transaction), pois a mv de ingressos não o guarda.
