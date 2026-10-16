@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FiltroMulti } from '@/components/shared';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -27,8 +28,8 @@ const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.se
 export default function CardsRota() {
   const { pode } = useAuth();
   usePlanoRota();
-  const [busca, setBusca] = useState('');
-  const [situacao, setSituacao] = useState<Situacao>('todas');
+  const [cidadesSel, setCidadesSel] = useState<string[]>([]);
+  const [situacoes, setSituacoes] = useState<string[]>([]);
   const [ordem, setOrdem] = useState<Ordem>('data');
   const [visao, setVisao] = useState<Visao>(lerVisao);
   const escolherVisao = (v: Visao) => { setVisao(v); try { localStorage.setItem(CHAVE_VISAO, v); } catch { /* preferência só desta sessão */ } };
@@ -58,17 +59,13 @@ export default function CardsRota() {
     };
   });
 
-  const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const visiveis = linhas
-    .filter((l) => norm(l.c.cidade).includes(norm(busca.trim())))
+    .filter((l) => cidadesSel.length === 0 || cidadesSel.includes(l.c.cidade))
     .filter((l) => {
+      if (situacoes.length === 0) return true;
       const lotada = l.ocup != null && l.ocup >= l.cap;
-      if (situacao === 'abertas') return !lotada && l.dias >= 0;
-      if (situacao === 'lotadas') return lotada;
-      if (situacao === 'proximos7') return l.dias >= 0 && l.dias <= 7;
-      if (situacao === 'proximos14') return l.dias >= 0 && l.dias <= 14;
-      if (situacao === 'realizadas') return l.dias < 0;
-      return true;
+      const bate: Record<string, boolean> = { abertas: !lotada && l.dias >= 0, lotadas: lotada, proximos7: l.dias >= 0 && l.dias <= 7, proximos14: l.dias >= 0 && l.dias <= 14, realizadas: l.dias < 0 };
+      return situacoes.some((k) => bate[k]);
     })
     .sort((a, b) => {
       if (ordem === 'cidade') return a.c.cidade.localeCompare(b.c.cidade, 'pt-BR');
@@ -87,8 +84,8 @@ export default function CardsRota() {
         <CadastroEvento eventos={eventosHist.data ?? []} />
       </div>
       <div className="flex flex-wrap items-end gap-3 text-[10px] text-muted-foreground">
-        <label>Cidade<br /><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cidade" className={`${sel} w-40`} /></label>
-        <label>Situação<br /><select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)} className={sel}>{SITUACOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
+        <FiltroMulti rotulo="Cidade" opcoes={ROTA.cidades.map((c) => ({ valor: c.cidade, rotulo: c.cidade }))} valor={cidadesSel} onChange={setCidadesSel} />
+        <FiltroMulti rotulo="Situação" opcoes={SITUACOES.filter(([v]) => v !== 'todas').map(([v, r]) => ({ valor: v, rotulo: r }))} valor={situacoes} onChange={setSituacoes} />
         <label>Ordenar por<br /><select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={sel}>{ORDENS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></label>
         <div role="group" aria-label="Formato de visualização" className="flex rounded-lg border border-border overflow-hidden">{VISOES.map(([v, r]) => <button key={v} type="button" aria-pressed={visao === v} onClick={() => escolherVisao(v)} className={`px-3 py-1.5 text-xs font-bold ${visao === v ? 'bg-primary text-primary-foreground' : 'bg-secondary/40 text-foreground hover:bg-secondary'}`}>{r}</button>)}</div>
         {visao === 'card' && <label className="hidden lg:block">Cards por linha<br /><select value={porLinha} onChange={(e) => escolherPorLinha(Number(e.target.value))} className={sel} aria-label="Cards por linha">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>}

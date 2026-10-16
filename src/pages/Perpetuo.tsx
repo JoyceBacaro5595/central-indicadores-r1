@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
+import { FiltroMulti, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
 
@@ -638,8 +638,8 @@ function lerPorLinha(): PorLinha {
 function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { aba: Aba; secao: string; nome: string; itens: Item[] | null; metas: PerpetuoMetas | null; referencia: PerpetuoMetricas | null; ct?: PerpetuoVendasClubeTrator | null; defasado?: boolean }) {
   const [selecionado, setSelecionado] = useState<Item | null>(null);
   const [visao, setVisao] = useState<Visao>(aba === 'campanhas' ? 'tabela' : 'cards');
-  const [tipo, setTipo] = useState<string>('todas');
-  const [status, setStatus] = useState<string>('todas');
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<string[]>([]);
   const temTipo = !!itens?.some((i) => i.tipo); const temStatus = !!itens?.some((i) => i.status);
   const [ordem, setOrdem] = useState<Ordem>('investimento');
   const [filtro, setFiltro] = useState<Filtro>('todas');
@@ -652,14 +652,14 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { a
     const minimo = filtro === '20' ? 20 : filtro === '100' ? 100 : 0;
     const q = busca.trim().toLowerCase();
     const filtrados = itens.filter((i) => (minimo === 0 || (i.leads_crm ?? 0) >= minimo) && (!q || i.nome.toLowerCase().includes(q) || (i.nome_curto ?? '').toLowerCase().includes(q))
-      && (!temTipo || tipo === 'todas' || i.tipo === tipo) && (!temStatus || status === 'todas' || i.status === status));
+      && (!temTipo || tipos.length === 0 || tipos.includes(i.tipo ?? '')) && (!temStatus || statuses.length === 0 || statuses.includes(i.status ?? '')));
     const chave = (i: Item) => ordem === 'investimento' ? i.investimento : ordem === 'leads' ? i.leads_crm : ordem === 'mql' ? i.mql : ordem === 'vendas' ? i.vendas : i.cac;
     return [...filtrados].sort((a, b) => {
       const va = chave(a), vb = chave(b);
       if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
       return ordem === 'cac' ? va - vb : vb - va;
     });
-  }, [itens, filtro, busca, ordem, tipo, status, temTipo, temStatus]);
+  }, [itens, filtro, busca, ordem, tipos, statuses, temTipo, temStatus]);
 
   return (
     <section className="space-y-3">
@@ -688,20 +688,8 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { a
               <button key={v} onClick={() => setFiltro(v)} className={`toggle-item ${filtro === v ? 'toggle-item-ativo' : ''}`}>{rot}</button>
             ))}
           </div>
-          {temTipo && (
-            <div className="toggle-group">
-              {([['todas', 'Todas'], ['imagem', 'Imagem'], ['video', 'Vídeo']] as [string, string][]).map(([v, rot]) => (
-                <button key={v} onClick={() => setTipo(v)} className={`toggle-item ${tipo === v ? 'toggle-item-ativo' : ''}`}>{rot}</button>
-              ))}
-            </div>
-          )}
-          {temStatus && (
-            <div className="toggle-group">
-              {([['todas', 'Todas'], ['no_ar', 'No ar'], ['pausado', 'Pausadas']] as [string, string][]).map(([v, rot]) => (
-                <button key={v} onClick={() => setStatus(v)} className={`toggle-item ${status === v ? 'toggle-item-ativo' : ''}`}>{rot}</button>
-              ))}
-            </div>
-          )}
+          {temTipo && <FiltroMulti rotulo="Tipo" opcoes={[{ valor: 'imagem', rotulo: 'Imagem' }, { valor: 'video', rotulo: 'Vídeo' }]} valor={tipos} onChange={setTipos} />}
+          {temStatus && <FiltroMulti rotulo="Status" opcoes={[{ valor: 'no_ar', rotulo: 'No ar' }, { valor: 'pausado', rotulo: 'Pausadas' }]} valor={statuses} onChange={setStatuses} />}
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={`Buscar ${nome}`} className="input-r1 pl-8 w-56" />

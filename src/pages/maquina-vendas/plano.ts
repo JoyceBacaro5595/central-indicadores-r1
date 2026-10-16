@@ -18,6 +18,8 @@ const n = (v: number | null | undefined) => (v == null ? undefined : Number(v));
 export function usePlanoRota() {
   const q = useQuery({ queryKey: ['planejamento-rotas'], queryFn: () => r1Rpc<PlanoRota[]>('planejamento_rotas'), retry: false, staleTime: 5 * 60_000, refetchInterval: 60_000 });
   const p = (q.data ?? []).find((x) => x.rota === ROTA.nome);
+  /* Cidades e datas cadastradas no Planejamento valem no lugar da lista fixa do código (troca de cidade ou de data sem mexer em código). */
+  if (p?.cidades?.length) ROTA.cidades = p.cidades.map((c) => ({ cidade: c.cidade, data: c.data, inicio: c.inicio ?? c.data }));
   if (p) {
     const t = { investimento: n(p.investimento), vendas: n(p.vendas), cortesias: n(p.cortesias), totalPartic: n(p.total_partic), capacidade: n(p.capacidade),
       ticket: n(p.ticket), cac: n(p.cac), cacQualif: n(p.cac_qualif), qualif: n(p.qualif), cpm: n(p.cpm), ctr: n(p.ctr) };

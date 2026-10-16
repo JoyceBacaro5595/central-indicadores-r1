@@ -5,7 +5,7 @@ import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
 import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { Abas, PageHeader } from '@/components/shared';
+import { Abas, FiltroMulti, PageHeader } from '@/components/shared';
 import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
 
 interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
@@ -84,7 +84,8 @@ function csv(l: Pedido[]) {
 
 /* Filtros lembrados no navegador (sobrevivem a recarregar a página). Período em atalho é recalculado a cada abertura. */
 const PREF_KEY = 'central.recuperacao.filtros';
-type Pref = { situacao?: string; cidade?: string; tipo?: string; recomprados?: boolean; periodo?: string; de?: string; ate?: string; porPagina?: number };
+type Pref = { situacao?: string; cidade?: string | string[]; tipo?: string | string[]; recomprados?: boolean; periodo?: string; de?: string; ate?: string; porPagina?: number };
+const comoLista = (v: string | string[] | undefined): string[] => (Array.isArray(v) ? v : v ? [v] : []);
 const lerPref = (): Pref => { try { return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as Pref; } catch { return {}; } };
 const periodoInicial = (pref: Pref) => {
   const k = pref.periodo ?? 'todos';
@@ -100,9 +101,9 @@ export default function Recuperacao() {
   const PREF = useMemo(lerPref, []);
   const PERIODO_INICIAL = useMemo(() => periodoInicial(PREF), [PREF]);
   const [situacao, setSituacao] = useState<Situacao>(SITUACOES.some((x) => x.k === PREF.situacao) ? (PREF.situacao as Situacao) : 'pendente');
-  const [cidade, setCidade] = useState<string>(PREF.cidade ?? '');
+  const [cidades, setCidades] = useState<string[]>(comoLista(PREF.cidade));
   const [recomprados, setRecomprados] = useState(PREF.recomprados === true);
-  const [tipo, setTipo] = useState(PREF.tipo ?? '');
+  const [tipos, setTipos] = useState<string[]>(comoLista(PREF.tipo));
   const [busca, setBusca] = useState('');
   const [de, setDe] = useState(PERIODO_INICIAL.de);
   const [ate, setAte] = useState(PERIODO_INICIAL.ate);
@@ -130,13 +131,13 @@ export default function Recuperacao() {
   const textoMsg = tplEscolhido?.texto ?? MSG_PADRAO;
   const veDados = pode('dados_pessoais');
 
-  useEffect(() => { setFixos({}); }, [situacao, cidade, recomprados]);
+  useEffect(() => { setFixos({}); }, [situacao, cidades, recomprados]);
   const [porPagina, setPorPagina] = useState([10, 20, 50, 100].includes(PREF.porPagina ?? 0) ? (PREF.porPagina as number) : 10);
-  useEffect(() => { try { localStorage.setItem(PREF_KEY, JSON.stringify({ situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina })); } catch { /* sem armazenamento, segue sem lembrar */ } }, [situacao, cidade, tipo, recomprados, periodo, de, ate, porPagina]);
+  useEffect(() => { try { localStorage.setItem(PREF_KEY, JSON.stringify({ situacao, cidade: cidades, tipo: tipos, recomprados, periodo, de, ate, porPagina })); } catch { /* sem armazenamento, segue sem lembrar */ } }, [situacao, cidades, tipos, recomprados, periodo, de, ate, porPagina]);
   const [pagina, setPagina] = useState(0);
-  useEffect(() => { setPagina(0); }, [situacao, cidade, recomprados, tipo, de, ate, busca, porPagina]);
+  useEffect(() => { setPagina(0); }, [situacao, cidades, recomprados, tipos, de, ate, busca, porPagina]);
   const resumo = useQuery({ queryKey: ['recuperacao-resumo', de, ate], queryFn: () => r1Rpc<Resumo[]>('recuperacao_resumo_v2', { p_de: de || null, p_ate: ate || null }).then((r) => r[0]), refetchInterval: 5 * 60_000 });
-  const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, cidade, recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: cidade || null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
+  const fila = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
@@ -175,11 +176,11 @@ export default function Recuperacao() {
     const dia = (d: string) => (comFuso(d) ? new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : d.slice(0, 10));
     const qd = q.replace(/\D/g, '');
     return (base: Pedido[]) => {
-      const l = base.filter((p) => batePedidoTipo(p, tipo) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
+      const l = base.filter((p) => (tipos.length === 0 || tipos.some((k) => batePedidoTipo(p, k))) && (!de || dia(p.criado_em) >= de) && (!ate || dia(p.criado_em) <= ate));
       return q ? l.filter((p) => [p.nome_contato, p.email, p.produto_nome].some((x) => (x ?? '').toLowerCase().includes(q)) || (qd.length > 0 && tel(p.telefone).includes(qd))) : l;
     };
-  }, [busca, de, ate, tipo]);
-  const lista = useMemo(() => filtra(comFixos(fila.data ?? [], fixos, (id) => origemDe.has(id))), [fila.data, fixos, origemDe, filtra]);
+  }, [busca, de, ate, tipos]);
+  const lista = useMemo(() => filtra(comFixos(fila.data ?? [], fixos, (id) => origemDe.has(id))).filter((p) => cidades.length === 0 || cidades.includes(p.cidade_evento ?? '')), [fila.data, fixos, origemDe, filtra, cidades]);
   const porEvento = useMemo(() => {
     const m = new Map<string, { cidade: string | null; mes_evento: string; data_evento: string | null; n: number; valor: number }>();
     for (const p of filtra(filaTodas.data ?? [])) {
@@ -193,7 +194,7 @@ export default function Recuperacao() {
   /* Cards do topo: seguem cidade, ingresso, período e busca (a Situação não entra, porque cada card já é uma situação). */
   const cards = useMemo(() => {
     if (baseCards.isLoading || baseCards.isPlaceholderData) return undefined;
-    const l = filtra(baseCards.data ?? []).filter((p) => !cidade || p.cidade_evento === cidade);
+    const l = filtra(baseCards.data ?? []).filter((p) => cidades.length === 0 || cidades.includes(p.cidade_evento ?? ''));
     const soma = (x: Pedido[]) => x.reduce((acc, p) => acc + (Number(p.valor_bruto) || 0), 0);
     const mk = (x: Pedido[]) => ({ n: x.length, valor: soma(x), pct: l.length ? (x.length / l.length) * 100 : 0 });
     return {
@@ -204,7 +205,7 @@ export default function Recuperacao() {
       descartados: mk(l.filter((p) => p.situacao === 'descartado')),
       ja_compraram_depois: mk(l.filter((p) => p.ja_comprou_depois)),
     };
-  }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidade]);
+  }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidades]);
   /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
   const recPorEvento = useMemo(() => {
     const m = new Map<string, { total: number; rec: number }>();
@@ -217,11 +218,11 @@ export default function Recuperacao() {
     return m;
   }, [baseCards.data, filtra]);
   const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
-  const cidades = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
+  const cidades_ = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
     const blob = new Blob([csv(lista)], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `recuperacao-${situacao}${cidade ? `-${cidade}` : ''}.csv`; a.click(); URL.revokeObjectURL(a.href);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `recuperacao-${situacao}${cidades.length ? `-${cidades.join('+')}` : ''}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
   const totalPaginas = Math.max(1, Math.ceil(lista.length / porPagina));
   const paginaAtual = Math.min(pagina, totalPaginas - 1);
@@ -258,7 +259,7 @@ export default function Recuperacao() {
             <span className="section-label">Fila por evento</span>
             <div className="flex flex-wrap gap-2 mt-3">
               {porEvento.map((c) => (
-                <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidade(cidade === c.cidade ? '' : (c.cidade ?? ''))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidade === c.cidade ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
+                <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidades((l) => (l.includes(c.cidade ?? '') ? l.filter((x) => x !== c.cidade) : [...l, c.cidade ?? '']))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidades.includes(c.cidade ?? '') ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
                   <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
                   {(() => { const r2 = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`); const pct = r2 && r2.total ? ((r2.rec / r2.total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0'; return <div className="text-[10px] text-emerald-400 mt-0.5">Recuperados: {num(r2?.rec ?? 0)} · {pct}% dos {num(r2?.total ?? 0)} pedidos</div>; })()}
@@ -278,13 +279,8 @@ export default function Recuperacao() {
                 {SITUACOES.map((s) => <option key={s.k} value={s.k}>{s.r}</option>)}
                 </select>
                 </label>
-                <select value={cidade} onChange={(e) => setCidade(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground">
-                <option value="">Todas as cidades</option>
-                {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" title="Tipo de ingresso">
-                {TIPOS.map((t) => <option key={t.k} value={t.k}>{t.r}</option>)}
-                </select>
+                <FiltroMulti rotulo="Cidade" opcoes={cidades_.map((c) => ({ valor: c, rotulo: c }))} valor={cidades} onChange={setCidades} />
+                <FiltroMulti rotulo="Ingresso" opcoes={TIPOS.filter((t) => t.k).map((t) => ({ valor: t.k, rotulo: t.r }))} valor={tipos} onChange={setTipos} />
                 <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
                 <option value="custom">Personalizado</option>
                 {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}

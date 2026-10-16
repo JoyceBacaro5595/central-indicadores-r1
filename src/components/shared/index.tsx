@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ChevronDown, RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
 import AvisosSino from '@/components/AvisosSino';
 
@@ -147,4 +147,72 @@ export function Abas<T extends string>({ valor, onChange, itens }: { valor: T; o
 /** Aviso discreto (dados parciais, métrica não conectada etc.). */
 export function Aviso({ children }: { children: ReactNode }) {
   return <div className="surface p-3 text-xs text-muted-foreground leading-relaxed">{children}</div>;
+}
+
+/* ─── Filtro padrão: escolher 1, vários ou Todos (lista vazia = Todos) ─── */
+export interface OpcaoFiltro { valor: string; rotulo: string; cor?: string; contagem?: number }
+
+/** Filtro com seleção múltipla. `valor` vazio significa Todos. Em `chips` as opções ficam visíveis; em `lista` abrem num menu (para listas longas). */
+export function FiltroMulti({ rotulo, opcoes, valor, onChange, variante = 'lista' }: {
+  rotulo: string; opcoes: OpcaoFiltro[]; valor: string[]; onChange: (v: string[]) => void; variante?: 'lista' | 'chips';
+}) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAberto(false); };
+    document.addEventListener('mousedown', fora); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc); };
+  }, [aberto]);
+  const sel = valor.filter((v) => opcoes.some((o) => o.valor === v));
+  const alternar = (v: string) => {
+    const n = sel.includes(v) ? sel.filter((x) => x !== v) : [...sel, v];
+    onChange(n.length === opcoes.length ? [] : n);
+  };
+  const resumo = sel.length === 0 ? 'Todos' : sel.length === 1 ? (opcoes.find((o) => o.valor === sel[0])?.rotulo ?? sel[0]) : `${sel.length} selecionados`;
+  const ponto = (c?: string) => c ? <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c }} /> : null;
+
+  if (variante === 'chips') {
+    return (
+      <div role="group" aria-label={rotulo} className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold text-muted-foreground">{rotulo}</span>
+        <button type="button" aria-pressed={sel.length === 0} onClick={() => onChange([])}
+          className={`rounded-full border px-3 py-1 text-[11px] font-bold ${sel.length === 0 ? 'bg-primary text-primary-foreground border-transparent' : 'border-border text-muted-foreground hover:text-foreground'}`}>Todos</button>
+        {opcoes.map((o) => {
+          const on = sel.includes(o.valor);
+          return (
+            <button key={o.valor} type="button" aria-pressed={on} onClick={() => alternar(o.valor)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${on ? 'border-primary bg-secondary text-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+              {ponto(o.cor)}{o.rotulo}{o.contagem != null && <span className="text-muted-foreground">{o.contagem}</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" aria-haspopup="listbox" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}
+        className="inline-flex items-center gap-2 rounded-lg bg-secondary border border-border px-3 py-1.5 text-xs text-foreground hover:border-primary">
+        <span className="text-muted-foreground font-semibold">{rotulo}</span>
+        <span className="font-bold">{resumo}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      {aberto && (
+        <div role="listbox" aria-multiselectable="true" aria-label={rotulo} className="absolute z-30 mt-1 min-w-52 max-h-72 overflow-auto rounded-xl border border-border bg-card p-1.5 shadow-xl">
+          <label className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-bold hover:bg-secondary cursor-pointer">
+            <input type="checkbox" checked={sel.length === 0} onChange={() => onChange([])} /> Todos
+          </label>
+          {opcoes.map((o) => (
+            <label key={o.valor} className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-secondary cursor-pointer">
+              <input type="checkbox" checked={sel.includes(o.valor)} onChange={() => alternar(o.valor)} />
+              {ponto(o.cor)}<span className="truncate">{o.rotulo}</span>
+              {o.contagem != null && <span className="ml-auto text-muted-foreground">{o.contagem}</span>}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
