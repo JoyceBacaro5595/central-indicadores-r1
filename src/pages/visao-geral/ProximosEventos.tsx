@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { CAT_AGENDA, type EventoAgenda } from './agenda';
 import './painel.css';
 
@@ -42,7 +43,7 @@ export default function ProximosEventos({ eventos, fonte }: { eventos: EventoAge
             <div className="rt-next" style={{ ['--c' as string]: cat(prox.cat)[0] }}>
               <div className="tag">Próximo · {cat(prox.cat)[1]}</div>
               <div className="t">{prox.titulo}</div>
-              <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
+              <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}{prox.cat === 'mdv' && prox.local && <> · <Link to={`/central/planejamento?cidade=${encodeURIComponent(prox.local.replace(/ \(.*\)$/, ''))}`} className="underline">editar rota</Link></>}</div>
               <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
             </div>
             <ol className="rt-list" style={{ overflow: 'visible', flex: 'none' }}>

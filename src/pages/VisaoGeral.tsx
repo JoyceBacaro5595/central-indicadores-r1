@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { usePerpetuo } from '@/hooks/usePerpetuo';
+import { Link } from 'react-router-dom';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
+import { usePlanoRota } from './maquina-vendas/plano';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
 import AvisosSino from '@/components/AvisosSino';
@@ -122,6 +124,7 @@ const GRUPOS: { k: LinhaCanal['grupo']; r: string }[] = [{ k: 'comercial', r: 'C
 
 export default function VisaoGeral() {
   const { pode } = useAuth();
+  usePlanoRota();
   const [agora, setAgora] = useState(() => spNow());
   const [ampliado, setAmpliado] = useState(false);
   const [agenda, setAgenda] = useState<{ eventos: EventoAgenda[]; fonte: string } | null>(null);
@@ -272,7 +275,7 @@ export default function VisaoGeral() {
                     const pr = praca.find((q) => q.x === x), d = pr?.d;
                     return (
                       <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
-                        <div className="nm">{titulo(x.c.cidade)}</div>
+                        <div className="nm">{pode('eventos') ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(x.c.cidade)}`} onClick={(e) => e.stopPropagation()} title="Editar a cidade e a data da rota" className="hover:underline">{titulo(x.c.cidade)}</Link> : titulo(x.c.cidade)}</div>
                         <div className="pc" style={{ color: cor }}>{Math.round(p)}%</div>
                         <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
                         <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -43,6 +44,8 @@ export default function PlanoRotaForm() {
   const eventos = useQuery({ queryKey: ['plano-eventos'], queryFn: () => r1Rpc<EventoRota[]>('eventos_listar', { p_de: '2026-01-01', p_ate: '2027-12-01' }), refetchInterval: 60_000 });
   const auditoria = useQuery({ queryKey: ['planejamento-auditoria'], queryFn: () => r1Rpc<Auditoria[]>('planejamento_historico', { p_rota: null }), retry: false, refetchInterval: 60_000 });
   const rotas = useMemo(() => Array.from(new Set([ROTA.nome, ...(planos.data ?? []).map((p) => p.rota)])), [planos.data]);
+  const [busca] = useSearchParams();
+  const destaque = (busca.get('cidade') ?? '').toLowerCase();
   const [rota, setRota] = useState(ROTA.nome);
   const [nome, setNome] = useState(ROTA.nome);
   const [v, setV] = useState<Record<string, string>>({});
@@ -140,7 +143,7 @@ export default function PlanoRotaForm() {
         <div className="text-xs font-semibold text-foreground">Cidades da rota ({total})</div>
         <div className="mt-2 space-y-1.5">
           {cids.map((c, i) => (
-            <div key={i} className="grid grid-cols-[1fr_9rem_9rem_auto] gap-2 items-center">
+            <div key={i} ref={(el) => { if (el && destaque && c.cidade.toLowerCase() === destaque) el.scrollIntoView({ block: 'center' }); }} className={`grid grid-cols-[1fr_9rem_9rem_auto] gap-2 items-center rounded-lg ${destaque && c.cidade.toLowerCase() === destaque ? 'ring-2 ring-primary p-1' : ''}`}>
               <input className={campo} placeholder="Cidade" value={c.cidade} disabled={!editar} onChange={(e) => setCid(i, { cidade: e.target.value })} />
               <input className={campo} type="date" title="Data do evento" value={c.data} disabled={!editar} onChange={(e) => setCid(i, { data: e.target.value })} />
               <input className={campo} type="date" title="Início da captação (vazio = data menos os dias de captação)" value={c.inicio} disabled={!editar} onChange={(e) => setCid(i, { inicio: e.target.value })} />

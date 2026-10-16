@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Abas, FiltroMulti, PageBody, PageHeader } from '@/components/shared';
 import ProximosEventos from './visao-geral/ProximosEventos';
@@ -114,7 +115,7 @@ export default function Calendario() {
                   {selecionados.map((e, k) => (
                     <li key={k} className="flex items-center gap-3 py-2 text-xs">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cor(e.cat) }} />
-                      <span className="font-semibold text-foreground">{e.titulo}</span>
+                      <span className="font-semibold text-foreground">{e.cat === 'mdv' && e.local ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(e.local.replace(/ \(.*\)$/, ''))}`} title="Editar a cidade e a data da rota" className="hover:underline">{e.titulo}</Link> : e.titulo}</span>
                       <span className="text-muted-foreground">{[e.local, e.hora, e.fim !== e.inicio ? `${e.inicio.split('-').reverse().slice(0, 2).join('/')} a ${e.fim.split('-').reverse().slice(0, 2).join('/')}` : ''].filter(Boolean).join(' · ')}</span>
                       <span className="ml-auto text-[10px] text-muted-foreground">{(CAT_AGENDA[e.cat] || CAT_AGENDA.outros)[1]}</span>
                     </li>
