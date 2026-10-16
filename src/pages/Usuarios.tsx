@@ -32,6 +32,8 @@ const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
 ];
 
 /* Rótulos de reserva, usados só se o backend ainda não devolver o catálogo identity.recurso. */
+/** Recursos que existem no banco, mas já não têm tela no app. */
+const RECURSOS_SEM_TELA = new Set(['regras']);
 const RECURSOS: Record<string, string> = {
   painel: 'Visão geral (Central de ingressos)', eventos: 'Eventos e metas', relatorio: 'Relatório', exportar: 'Exportar CSV/PDF', presenca: 'Check-ins',
   recuperacao: 'Recuperação', dados_pessoais: 'Ver dados pessoais', perpetuo: 'Fluxo Marketing RGV (Perpétuo)', regras: 'Regras de segmentação',
@@ -389,7 +391,7 @@ export default function Usuarios() {
                 </tr>
               </thead>
               <tbody>
-                {(permissoes.data?.recursos ?? []).map(({ chave: rec, rotulo, descricao }) => (
+                {(permissoes.data?.recursos ?? []).filter((r) => !RECURSOS_SEM_TELA.has(r.chave)).map(({ chave: rec, rotulo, descricao }) => (
                   <tr key={rec} className="border-b border-border/60">
                     <td className="p-2 text-foreground" title={descricao ?? undefined}>{rotulo}</td>
                     {PAPEIS.map((p) => {
