@@ -51,7 +51,7 @@ function Tabela({ titulo, linhas, rotuloMeta = 'Previsto' }: { titulo: string; l
               <tr className="border-b border-border/40 last:border-0">
                 <th scope="row" className="text-left font-medium text-foreground py-1.5">
                   {r.filhos ? (
-                    <button type="button" aria-expanded={aberta} onClick={() => setAbertas((a) => ({ ...a, [r.rotulo]: !a[r.rotulo] }))} className="flex items-center gap-1 text-left font-medium hover:text-primary focus-visible:outline focus-visible:outline-2">
+                    <button type="button" title="Toque para ver a divisão por origem" aria-expanded={aberta} onClick={() => setAbertas((a) => ({ ...a, [r.rotulo]: !a[r.rotulo] }))} className="flex items-center gap-1 text-left font-medium hover:text-primary focus-visible:outline focus-visible:outline-2">
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aberta ? '' : '-rotate-90'}`} aria-hidden="true" />{r.rotulo}
                     </button>
                   ) : r.rotulo}
