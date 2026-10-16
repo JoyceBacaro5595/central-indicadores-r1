@@ -380,3 +380,8 @@
 *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.12); background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:active { background: rgba(255,255,255,.45); background-clip: padding-box; }
 *::-webkit-scrollbar-corner { background: transparent; }
+
+/* Cor de cada módulo = cor do modelo de evento em Próximos eventos (pedido da Joyce, 16/10).
+   Turnê Máquina de Vendas #FF8A1F, Método RGV #FE0026. Gerenciador, regras e usuários ficam na cor padrão. */
+:root[data-modulo="mdv"] { --primary: 29 100% 56%; --accent: 29 100% 50%; --ring: 29 100% 56%; --primary-foreground: 0 0% 100%; }
+:root[data-modulo="rgv"] { --primary: 352 100% 50%; --accent: 352 100% 45%; --ring: 352 100% 50%; --primary-foreground: 0 0% 100%; }
