@@ -9,7 +9,7 @@ create or replace function public.hubspot_eventos(p_inicio date default null, p_
  returns table(cidade text, mes_evento date, compradores bigint, compradores_hubspot bigint, compradores_qualificados bigint, leads bigint, leads_qualificados bigint, cortesias_geradas bigint, presencas_confirmadas bigint, ganhos bigint)
  language sql security definer set search_path to ''
 as $function$
-  select identity.exigir('painel');
+  select identity.exigir('eventos');
   select v.cidade, v.mes_evento, v.compradores, v.compradores_hubspot, v.compradores_qualificados, v.leads, v.leads_qualificados, v.cortesias_geradas, v.presencas_confirmadas, v.ganhos
   from marts.mv_evento_hubspot v
   where v.cidade is not null -- compradores sem evento ligado vêm com cidade nula e derrubavam a tela
