@@ -436,3 +436,8 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 .light .kpi-card { background: hsl(var(--secondary)); }
 .light .kpi-label { color: hsl(var(--muted-foreground)); }
 .light .surface table thead th { color: hsl(var(--muted-foreground)); }
+
+/* Respiro entre filtros e tabela em todas as telas (menos poluição visual) */
+.surface table { margin-top: 1.5rem; }
+.surface table thead th { padding-top: 0.25rem; padding-bottom: 0.75rem; }
+.surface .flex-col.gap-2 { gap: 0.75rem; }
