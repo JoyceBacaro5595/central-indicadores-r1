@@ -461,3 +461,12 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 .faixa-slot { background: linear-gradient(135deg, hsl(var(--primary) / 0.2) -30%, transparent 55%); }
 .light .kpi-card, .light .side-metric { background: hsl(var(--secondary)); border-color: hsl(var(--border)); }
 .light .faixa-slot { background: none; }
+
+/* Filtros e caixas de seleção: cores do tema, foco visível e opções legíveis no escuro */
+select, input[type="date"], input[type="month"] { color-scheme: dark; cursor: pointer; }
+.light select, .light input[type="date"], .light input[type="month"] { color-scheme: light; }
+select option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+input[type="checkbox"] { accent-color: hsl(var(--primary)); width: 1rem; height: 1rem; cursor: pointer; }
+input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
+select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+select:disabled, input:disabled { cursor: not-allowed; opacity: 0.6; }

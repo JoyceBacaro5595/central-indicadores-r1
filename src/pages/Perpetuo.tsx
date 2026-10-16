@@ -203,7 +203,11 @@ export default function Perpetuo() {
     const c = data?.ciclos.find((x) => x.ciclo === chave);
     if (c) { setDe(c.inicio); setAte(c.fim); }
   };
-  const mudarData = (campo: 'de' | 'ate', v: string) => { setPreset('custom'); if (campo === 'de') setDe(v); else setAte(v); };
+  const mudarData = (campo: 'de' | 'ate', v: string) => {
+    if (!v) return; // campo apagado: mantém a data anterior
+    setPreset('custom');
+    if (campo === 'de') { setDe(v); if (v > ate) setAte(v); } else { setAte(v); if (v < de) setDe(v); }
+  };
 
   const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;

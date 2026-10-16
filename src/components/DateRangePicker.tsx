@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Calendar } from 'lucide-react';
 
 interface DateRangePickerProps {
@@ -10,8 +10,12 @@ interface DateRangePickerProps {
 export function DateRangePicker({ startDate, endDate, onChange }: DateRangePickerProps) {
   const [start, setStart] = useState(startDate);
   const [end, setEnd] = useState(endDate);
+  useEffect(() => { setStart(startDate); setEnd(endDate); }, [startDate, endDate]);
+  const invalido = !start || !end || start > end;
+  const iso = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 
   const handleApply = () => {
+    if (invalido) return;
     onChange(start, end);
   };
 
@@ -31,8 +35,8 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
     } else if (days > 1) {
       startD.setDate(startD.getDate() - days);
     }
-    const s = startD.toISOString().slice(0, 10);
-    const e = endD.toISOString().slice(0, 10);
+    const s = iso(startD);
+    const e = iso(endD);
     setStart(s);
     setEnd(e);
     onChange(s, e);
@@ -59,7 +63,9 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
         </div>
         <button
           onClick={handleApply}
-          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:opacity-90 transition-opacity shadow-sm"
+          disabled={invalido}
+          title={invalido ? 'Confira as datas: o início precisa ser antes do fim' : undefined}
+          className="disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:opacity-90 transition-opacity shadow-sm"
         >
           Aplicar
         </button>
