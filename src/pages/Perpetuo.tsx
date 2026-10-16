@@ -406,13 +406,17 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
   );
 }
 
+/** CAC em número mesmo sem venda: com vendas, investimento / vendas; sem venda, o investimento do período é o menor CAC possível ("a partir de"). "—" só se faltar o investimento. */
+const cacTexto = (inv: number | null | undefined, vendas: number | null | undefined): string | null =>
+  inv == null || vendas == null ? null : vendas > 0 ? (fmtBrl(inv / vendas) ?? null) : (fmtBrl(inv) ? `a partir de ${fmtBrl(inv)}` : null);
+
 /** Card de vendas por produto. CAC = investimento de Perpétuo no período / vendas do próprio card; sem venda, "—". */
 function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa }: {
   titulo: string; vendas: number | null; fat: number | null; inv: number | null | undefined; base: number | null | undefined;
   taxaFech?: number | null; metaFech?: number | null; mTaxa?: string;
 }) {
   const largura = vendas != null && base ? Math.max(2, Math.min(100, (vendas / base) * 100)) : 0;
-  const cac = inv != null && vendas != null && vendas > 0 ? fmtBrl(inv / vendas) : null;
+  const cac = cacTexto(inv, vendas);
   const ticket = fat != null && vendas != null && vendas > 0 ? fmtBrl(fat / vendas) : null;
   const roas = fat != null && inv ? fmtRoas(fat / inv) : null;
   return (
@@ -432,7 +436,7 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
         <Linha empilhado k="ROAS" v={roas} motivo="Sem faturamento ou investimento no período." />
       </div>
       <div className="mt-3 text-[10px] text-muted-foreground leading-tight">CAC</div>
-      <div className={CUSTO_FAIXA}>{cac ?? <span className="text-muted-foreground">—</span>}</div>
+      <div className={CUSTO_FAIXA}>{cac == null ? <span className="text-muted-foreground">—</span> : cac.startsWith('a partir de ') ? <><span className="block text-[10px] font-normal text-muted-foreground">a partir de</span>{cac.slice(12)}</> : cac}</div>
     </div>
   );
 }
@@ -535,7 +539,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card. Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela tag do ciclo no negócio quando um ciclo está selecionado, e pela data de fechamento nos demais períodos{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card; sem nenhuma venda, aparece "a partir de" o investimento do período (o menor CAC possível). Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela tag do ciclo no negócio quando um ciclo está selecionado, e pela data de fechamento nos demais períodos{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
         {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
       </p>
     </div>
@@ -822,7 +826,7 @@ function Celula({ principal, secundaria, terciaria }: { principal: ReactNode | n
 function CelulaVendas({ qtd, fat, inv }: { qtd: number | null | undefined; fat: number | null | undefined; inv: number | null | undefined }) {
   const linha = 'text-muted-foreground mono mt-0.5 whitespace-nowrap text-[clamp(9px,0.8vw,12px)]';
   const semDado = qtd == null;
-  const cac = !semDado && inv != null ? (qtd > 0 ? fmtBrl(inv / qtd) : fmtBrl(0)) : null;
+  const cac = cacTexto(inv, qtd);
   const roas = !semDado && inv ? fmtRoas((fat ?? 0) / inv) : null;
   return (
     <div className="min-w-0">
@@ -918,7 +922,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           const total = ok ? (it.vendas ?? 0) + (it.clube ?? 0) + (it.trator ?? 0) : null;
           const fatTotal = ok && it.faturamento != null ? it.faturamento + (it.clubeFat ?? 0) + (it.tratorFat ?? 0) : null;
           const linha = (rot: string, qtd: number | null | undefined, fat: number | null | undefined, forte = false) => {
-            const cac = qtd != null && it.investimento != null ? fmtBrl(qtd > 0 ? it.investimento / qtd : 0) : null;
+            const cac = cacTexto(it.investimento, qtd);
             const roas = qtd != null && it.investimento ? fmtRoas((fat ?? 0) / it.investimento) : null;
             return (
               <tr className="border-t border-border/60">
@@ -1089,8 +1093,8 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
             {(() => {
               const ct = item.clube != null && item.trator != null;
               const total = ct ? (item.vendas ?? 0) + (item.clube ?? 0) + (item.trator ?? 0) : null;
-              const cac = total != null && total > 0 && item.investimento != null ? fmtBrl(item.investimento / total) : null;
-              const cacDe = (n: number | null | undefined) => (n != null && n > 0 && item.investimento != null ? fmtBrl(item.investimento / n) : null);
+              const cac = cacTexto(item.investimento, total);
+              const cacDe = (n: number | null | undefined) => cacTexto(item.investimento, n);
               const linha = (rot: string, v: number | null | undefined, extra?: ReactNode) => (
                 <div className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
                   <span className="text-foreground font-semibold pt-1">{rot}</span>
