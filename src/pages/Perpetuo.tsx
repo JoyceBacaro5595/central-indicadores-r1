@@ -406,9 +406,9 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
   );
 }
 
-/** CAC em número mesmo sem venda: com vendas, investimento / vendas; sem venda, o investimento do período é o menor CAC possível ("a partir de"). "—" só se faltar o investimento. */
+/** CAC em número mesmo sem venda: investimento / vendas, e com zero venda o divisor vale 1 (o investimento do período inteiro). "—" só se faltar o investimento ou a contagem de vendas. */
 const cacTexto = (inv: number | null | undefined, vendas: number | null | undefined): string | null =>
-  inv == null || vendas == null ? null : vendas > 0 ? (fmtBrl(inv / vendas) ?? null) : (fmtBrl(inv) ? `a partir de ${fmtBrl(inv)}` : null);
+  inv == null || vendas == null ? null : (fmtBrl(inv / Math.max(vendas, 1)) ?? null);
 
 /** Card de vendas por produto. CAC = investimento de Perpétuo no período / vendas do próprio card; sem venda, "—". */
 function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa }: {
@@ -436,7 +436,7 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
         <Linha empilhado k="ROAS" v={roas} motivo="Sem faturamento ou investimento no período." />
       </div>
       <div className="mt-3 text-[10px] text-muted-foreground leading-tight">CAC</div>
-      <div className={CUSTO_FAIXA}>{cac == null ? <span className="text-muted-foreground">—</span> : cac.startsWith('a partir de ') ? <><span className="block text-[10px] font-normal text-muted-foreground">a partir de</span>{cac.slice(12)}</> : cac}</div>
+      <div className={CUSTO_FAIXA}>{cac ?? <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }
@@ -539,7 +539,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card; sem nenhuma venda, aparece "a partir de" o investimento do período (o menor CAC possível). Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela tag do ciclo no negócio quando um ciclo está selecionado, e pela data de fechamento nos demais períodos{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
+        CAC de cada card de vendas = investimento de Perpétuo no período dividido pelas vendas do próprio card; sem nenhuma venda, o CAC mostrado é o investimento do período inteiro (como se fosse 1 venda). Clube R1 e Trator são negócios em Ganho do pipeline Clube R1, pela tag do ciclo no negócio quando um ciclo está selecionado, e pela data de fechamento nos demais períodos{semProduto > 0 ? `; ${fmtNum(semProduto)} sem produto entra só no total` : ''}
         {ct?.atualizado_em ? `. Base carregada em ${new Date(ct.atualizado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}.
       </p>
     </div>
