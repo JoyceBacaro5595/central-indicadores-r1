@@ -25,15 +25,11 @@ const Perpetuo = lazy(() => import("./pages/Perpetuo.tsx"));
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import RequireAuth from "./auth/RequireAuth.tsx";
 import AppShell from "./layout/AppShell.tsx";
-import { persistirCache, restaurarCache } from "./lib/cachePersistido.ts";
 
 /* Atualização em segundo plano: o dado anterior fica na tela (também ao trocar filtro) até o novo chegar; "Carregando" só na primeira vez. */
 const queryClient = new QueryClient({
   defaultOptions: { queries: { placeholderData: keepPreviousData, staleTime: 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false } },
 });
-
-restaurarCache(queryClient);
-persistirCache(queryClient);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

@@ -1,37 +1,69 @@
-import { dehydrate, hydrate, type QueryClient } from '@tanstack/react-query';
+import { dehydrate, hydrate, type DehydratedState, type QueryClient } from '@tanstack/react-query';
 
-/* Guarda no navegador o último resultado das leituras pesadas (sem dados pessoais), para a tela abrir na hora e atualizar por trás. */
-const CHAVE = 'r1-cache-v1';
+/* Guarda no navegador o último resultado das leituras pesadas (sem dados pessoais), para a tela abrir na hora e atualizar por trás.
+   O guardado pertence a um usuário e só volta para ele, com a permissão que ele tem agora. */
+const CHAVE = 'r1-cache-v2';
 const VALIDADE_MS = 6 * 3600_000;
-const PERMITIDAS = new Set([
-  'perpetuo-funil-v2', 'vg-eventos', 'vg-meta', 'vg-cidade-ingressos', 'vg-ingressos-canal',
-  'mv-eventos', 'mv-meta', 'mv-eventos-hist', 'mv-cadeiras', 'mv-meta-ano', 'eventos', 'meta-eventos', 'fmm-meta',
-]);
+/** Consulta guardada -> recurso que o usuário precisa ter para recebê-la de volta. */
+const RECURSO: Record<string, string> = {
+  'perpetuo-funil-v2': 'perpetuo',
+  'vg-eventos': 'eventos', 'vg-meta': 'eventos', 'vg-cidade-ingressos': 'eventos', 'vg-ingressos-canal': 'eventos',
+  'mv-eventos': 'eventos', 'mv-meta': 'eventos', 'mv-eventos-hist': 'eventos', 'mv-cadeiras': 'eventos', 'mv-meta-ano': 'eventos',
+  'eventos': 'eventos', 'meta-eventos': 'eventos', 'fmm-meta': 'eventos',
+};
 
-export function restaurarCache(qc: QueryClient) {
+let cliente: QueryClient | null = null;
+let usuario: string | null = null;
+let desligar: (() => void) | undefined;
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+function guardar() {
+  const qc = cliente;
+  if (!qc || !usuario) return;
   try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return;
-    const { t, estado } = JSON.parse(bruto);
-    if (Date.now() - t > VALIDADE_MS) { localStorage.removeItem(CHAVE); return; }
-    hydrate(qc, estado);
-  } catch { /* sem cache: carrega normal */ }
+    const agora = Date.now();
+    const estado = dehydrate(qc, {
+      shouldDehydrateQuery: (q) => q.state.status === 'success' && String(q.queryKey[0]) in RECURSO && agora - q.state.dataUpdatedAt < VALIDADE_MS,
+    });
+    localStorage.setItem(CHAVE, JSON.stringify({ u: usuario, estado }));
+  } catch { /* cheio ou bloqueado: segue sem guardar */ }
 }
 
-export function persistirCache(qc: QueryClient) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return qc.getQueryCache().subscribe(() => {
+/** Chamar depois que o perfil do usuário é conhecido: devolve o guardado dele e passa a guardar. */
+export function iniciarCache(qc: QueryClient, userId: string, permissoes: string[]) {
+  cliente = qc;
+  usuario = userId;
+  try {
+    const bruto = localStorage.getItem(CHAVE);
+    if (bruto) {
+      const { u, estado } = JSON.parse(bruto) as { u: string; estado: DehydratedState };
+      if (u === userId) {
+        const agora = Date.now();
+        hydrate(qc, {
+          ...estado,
+          queries: estado.queries.filter((q) => {
+            const recurso = RECURSO[String(q.queryKey[0])];
+            return !!recurso && permissoes.includes(recurso) && agora - q.state.dataUpdatedAt < VALIDADE_MS;
+          }),
+        });
+      } else {
+        localStorage.removeItem(CHAVE);
+      }
+    }
+  } catch { /* sem cache: carrega normal */ }
+  desligar?.();
+  desligar = qc.getQueryCache().subscribe(() => {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      try {
-        const estado = dehydrate(qc, { shouldDehydrateQuery: (q) => q.state.status === 'success' && PERMITIDAS.has(String(q.queryKey[0])) });
-        localStorage.setItem(CHAVE, JSON.stringify({ t: Date.now(), estado }));
-      } catch { /* cheio ou bloqueado: segue sem guardar */ }
-    }, 2000);
+    timer = setTimeout(guardar, 2000);
   });
 }
 
-/** Ao sair da conta, o resultado guardado não pode ficar para o próximo usuário. */
+/** Ao sair da conta (ou sessão expirada), nada fica para o próximo usuário: nem no navegador, nem na memória. */
 export function limparCachePersistido() {
+  clearTimeout(timer);
+  desligar?.();
+  desligar = undefined;
+  usuario = null;
   try { localStorage.removeItem(CHAVE); } catch { /* nada a limpar */ }
+  cliente?.clear();
 }
