@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { limparCachePersistido } from '@/lib/cachePersistido';
 
 // Cliente do Supabase r1-indicadores (login, perfis e RPCs da central).
 // A chave publicável é pública por natureza; o que protege os dados são as RPCs
@@ -26,6 +27,7 @@ export async function r1Rpc<T>(nome: string, params: Record<string, unknown> = {
     body: JSON.stringify(params),
   });
   if (res.status === 401) {
+    limparCachePersistido();
     await r1.auth.signOut();
     throw new Error('Sessão expirada. Entre de novo.');
   }
