@@ -8,7 +8,7 @@ import { AlertTriangle } from 'lucide-react';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import MaquinaOnline from './MaquinaOnline';
-import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { Abas, PageBody, PageHeader, subVisivel } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 const brl = (v: number | null | undefined) =>
@@ -27,10 +27,10 @@ function inicioMesISO() {
 
 function Kpi({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'}>
+    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'} title={sub && !subVisivel(sub) ? sub : undefined}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value mono">{value}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && subVisivel(sub) && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }
