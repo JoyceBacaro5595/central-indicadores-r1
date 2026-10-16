@@ -156,7 +156,7 @@ export default function AppShell() {
       </div>
 
       <div className="flex-1 min-w-0">
-        <Suspense fallback={<div role="status" className="p-8 text-sm text-muted-foreground">Carregando conteúdo…</div>}>
+        <Suspense fallback={<div role="status" aria-label="Carregando" className="p-8 space-y-3 animate-pulse"><div className="h-8 w-64 rounded-lg bg-secondary" /><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /></div><div className="h-64 rounded-xl bg-secondary" /></div>}>
           <Outlet />
         </Suspense>
       </div>
