@@ -593,11 +593,11 @@ function CardSemOrigem({ d }: { d: PerpetuoFunil }) {
       <p className="font-semibold text-foreground">Leads sem origem</p>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
         <div>
-          <div className="text-3xl font-serif text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
+          <div className="text-3xl font-bold text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
           <div className="text-xs text-muted-foreground">leads sem campanha na UTM</div>
         </div>
         <div>
-          <div className="text-3xl font-serif text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
+          <div className="text-3xl font-bold text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
           <div className="text-xs text-muted-foreground">dos leads no CRM{total != null ? ` (${fmtNum(total)})` : ''}</div>
         </div>
       </div>

@@ -318,8 +318,8 @@
 
   /* ─── Tipografia de destaque (Perpétuo RGV · Fluxo de Tráfego) ─── */
   .display {
-    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-    font-weight: 400;
+    font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.01em;
   }
   .text-gold { color: hsl(var(--gold)); }
@@ -452,3 +452,12 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 
 .faixa-slot > div:first-child { padding: 0.7rem clamp(0.4rem, 8cqw, 0.85rem); }
 .faixa-slot .text-\[10px\] { font-size: clamp(9px, 7.2cqw, 11px); }
+
+/* Fonte de números e títulos única: Bricolage (sem serifa, sem mono) */
+.font-serif, .font-mono { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif !important; font-variant-numeric: tabular-nums; }
+.text-gold { color: hsl(var(--primary)); }
+/* Cards no modelo do próximo evento: cor do produto saindo do canto sobre o grafite */
+.kpi-card, .side-metric, .funnel-box { background: linear-gradient(135deg, hsl(var(--primary) / 0.22) -30%, hsl(0 0% 10%) 58%); border: 1px solid hsl(0 0% 100% / 0.12); }
+.faixa-slot { background: linear-gradient(135deg, hsl(var(--primary) / 0.2) -30%, transparent 55%); }
+.light .kpi-card, .light .side-metric { background: hsl(var(--secondary)); border-color: hsl(var(--border)); }
+.light .faixa-slot { background: none; }
