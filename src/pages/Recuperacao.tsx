@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
@@ -7,6 +8,7 @@ import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { Abas, FiltroMulti, PageHeader } from '@/components/shared';
 import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
+import '@/pages/visao-geral/painel.css';
 
 interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
 interface Resumo {
@@ -199,7 +201,7 @@ export default function Recuperacao() {
     return Array.from(m.values()).sort((x, y) => y.n - x.n);
   }, [filaTodas.data, filtra]);
   /* Cards do topo: seguem cidade, ingresso, período e busca (a Situação não entra, porque cada card já é uma situação). */
-  const cards = useMemo(() => {
+  const cardsVivos = useMemo(() => {
     if (baseCards.isLoading || baseCards.isPlaceholderData) return undefined;
     const l = filtra(baseCards.data ?? []).filter((p) => cidades.length === 0 || cidades.includes(p.cidade_evento ?? ''));
     const soma = (x: Pedido[]) => x.reduce((acc, p) => acc + (Number(p.valor_bruto) || 0), 0);
@@ -213,6 +215,16 @@ export default function Recuperacao() {
       ja_compraram_depois: mk(l.filter((p) => p.ja_comprou_depois)),
     };
   }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidades]);
+  /* Na abertura mostra os últimos totais (só números, sem dados pessoais; ficam no navegador deste usuário) até os atuais chegarem. */
+  const chaveCards = `r1-rec-cards:${perfil?.user_id ?? ''}:${de}|${ate}|${cidades.join(',')}|${busca.trim()}|${tipos.join(',')}`;
+  const cards = useMemo(() => {
+    if (cardsVivos) return cardsVivos;
+    try { const b = perfil?.user_id ? localStorage.getItem(chaveCards) : null; return b ? (JSON.parse(b) as NonNullable<typeof cardsVivos>) : undefined; } catch { return undefined; }
+  }, [cardsVivos, chaveCards, perfil?.user_id]);
+  useEffect(() => {
+    if (!cardsVivos || !perfil?.user_id) return;
+    try { localStorage.setItem(chaveCards, JSON.stringify(cardsVivos)); } catch { /* sem espaço ou bloqueado: segue sem guardar */ }
+  }, [cardsVivos, chaveCards, perfil?.user_id]);
   /* Pop-up do card "Compraram depois": mesmos filtros dos cards, uma linha por pedido que saiu da fila porque a pessoa já tem compra paga. */
   const compraramLista = useMemo(() => filtra(baseCards.data ?? []).filter((p) => (cidades.length === 0 || cidades.includes(p.cidade_evento ?? '')) && p.ja_comprou_depois), [baseCards.data, filtra, cidades]);
   /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
@@ -255,11 +267,11 @@ export default function Recuperacao() {
         {(resumo.error || fila.error) && <div className="surface p-4 text-sm text-red-400">{((resumo.error ?? fila.error) as Error).message}</div>}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.na_fila.valor)} · {cards.na_fila.pct.toFixed(0)}%</div>}</div>
-          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.contatados.valor)} · {cards.contatados.pct.toFixed(0)}%</div>}</div>
-          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.recuperados.valor)} · {cards.recuperados.pct.toFixed(0)}%</div>}</div>
-          <button type="button" onClick={() => setTabelaCompraram(true)} className="kpi-card text-left cursor-pointer hover:bg-secondary/40" aria-haspopup="dialog" title="Ver os pedidos, um por linha"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">já têm compra paga do mesmo produto (e-mail, CPF/CNPJ ou telefone); saem da fila sozinhos. Clique para ver a tabela</div></button>
-          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.descartados.valor)} · {cards.descartados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila.n) : <span className="rt-sk inline-block w-10 h-5 align-middle" aria-label="Carregando" />}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.na_fila.valor)} · {cards.na_fila.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados.n) : <span className="rt-sk inline-block w-10 h-5 align-middle" aria-label="Carregando" />}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.contatados.valor)} · {cards.contatados.pct.toFixed(0)}%</div>}</div>
+          <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados.n) : <span className="rt-sk inline-block w-10 h-5 align-middle" aria-label="Carregando" />}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.recuperados.valor)} · {cards.recuperados.pct.toFixed(0)}%</div>}</div>
+          <button type="button" onClick={() => setTabelaCompraram(true)} className="kpi-card text-left cursor-pointer hover:bg-secondary/40" aria-haspopup="dialog" title="Ver os pedidos, um por linha"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : <span className="rt-sk inline-block w-10 h-5 align-middle" aria-label="Carregando" />}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">já têm compra paga do mesmo produto (e-mail, CPF/CNPJ ou telefone); saem da fila sozinhos. Clique para ver a tabela</div></button>
+          <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados.n) : <span className="rt-sk inline-block w-10 h-5 align-middle" aria-label="Carregando" />}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.descartados.valor)} · {cards.descartados.pct.toFixed(0)}%</div>}</div>
         </div>
 
         {!filaTodas.isPlaceholderData && porEvento.length > 0 && (
@@ -315,7 +327,7 @@ export default function Recuperacao() {
               <th className="pb-2 font-semibold">Pedido</th><th className="pb-2 font-semibold">Comprador</th><th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Tipo de ingresso</th><th className="pb-2 font-semibold text-right">Valor</th><th className="pb-2 font-semibold">Pagamento</th><th className="pb-2 font-semibold">Origem</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Ações</th>
             </tr></thead>
             <tbody>
-              {(fila.isLoading || fila.isPlaceholderData) && <tr><td colSpan={9} className="py-3 text-muted-foreground" role="status">Carregando os pedidos deste filtro…</td></tr>}
+              {(fila.isLoading || fila.isPlaceholderData) && [0, 1, 2, 3, 4, 5].map((i) => <tr key={`sk${i}`} role="status" aria-label="Carregando os pedidos deste filtro"><td colSpan={9} className="py-2"><div className="rt-sk h-4 w-full" /></td></tr>)}
               {!fila.isLoading && !fila.isPlaceholderData && lista.length === 0 && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum pedido nesta situação e período.</td></tr>}
               {(fila.isPlaceholderData ? [] : lista.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)).map((p) => {
                 const w = veDados ? whats(p, textoMsg, atendente) : null;
@@ -507,7 +519,7 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
         <span className="section-label">Templates</span>
         {apagar.error && <p className="text-xs text-red-400">{(apagar.error as Error).message}</p>}
         {erro && <p className="text-xs text-red-400">Não foi possível ler os templates: {erro.message}</p>}
-        {carregando && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {carregando && <EsqBloco linhas={2} h="2em" />}
         {!carregando && !erro && lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum template ainda.</p>}
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>

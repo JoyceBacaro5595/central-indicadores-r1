@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
@@ -111,7 +112,7 @@ export default function FluxoMarketingMdv() {
         </div>
 
         {q.error && <div className="surface p-4 text-sm text-red-400">Erro ao ler os dados: {String((q.error as Error).message ?? q.error)}</div>}
-        {q.isLoading && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+        {q.isLoading && <EsqBloco linhas={2} h="6em" />}
 
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
