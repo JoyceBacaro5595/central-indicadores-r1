@@ -41,8 +41,8 @@ const act = (a: any[], tipos: string[]) => {
   return v;
 };
 
-/** Primeiro token que o Meta aceita; se nenhum for aceito, devolve o primeiro para o erro do Meta aparecer no log. */
-async function escolherToken(sql: any): Promise<string> {
+/** Primeiro token com acesso à conta de anúncios (não só válido em /me); se nenhum for aceito, devolve o primeiro para o erro do Meta aparecer no log. */
+async function escolherToken(sql: any, conta: string): Promise<string> {
   const cand: string[] = [];
   try {
     const [r] = await sql`select decrypted_secret as s from vault.decrypted_secrets where name = 'token_meta_ads'`;
@@ -50,7 +50,7 @@ async function escolherToken(sql: any): Promise<string> {
   } catch { /* sem cofre: segue com os segredos da função */ }
   for (const n of ["META_ADS_TOKEN", "META_TOKEN_API"]) { const v = Deno.env.get(n); if (v && !cand.includes(v)) cand.push(v); }
   for (const t of cand) {
-    try { const b = await (await fetch(`${G}/me?fields=id&access_token=${encodeURIComponent(t)}`)).json(); if (!b.error) return t; } catch { /* tenta o próximo */ }
+    try { const b = await (await fetch(`${G}/act_${conta}?fields=id&access_token=${encodeURIComponent(t)}`)).json(); if (!b.error) return t; } catch { /* tenta o próximo */ }
   }
   return cand[0] ?? "";
 }
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     const [k] = await sql`select decrypted_secret as s from vault.decrypted_secrets where name = 'guru_sync_key'`;
     const esp = k?.s ?? "";
     if (!(esp.length > 0 && dado.length === esp.length && dado === esp)) return json({ ok: false, erro: "exige x-guru-sync-key" }, 403);
-    const token = await escolherToken(sql);
+    const token = await escolherToken(sql, conta);
     if (!token) return json({ ok: false, erro: "Nenhum token do Meta configurado (cofre token_meta_ads ou segredos META_ADS_TOKEN / META_TOKEN_API)" }, 500);
 
     const [lg] = await sql`insert into raw.log_ingestao (fonte, entidade, tipo_carga) values ('meta', 'ads', 'mensal') returning id`;
