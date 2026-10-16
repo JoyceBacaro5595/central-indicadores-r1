@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Esq, EsqLinhas } from '@/components/Esqueleto';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
@@ -129,9 +130,9 @@ export default function Eventos() {
           <div className="kpi-card"><div className="kpi-label">Ingressos realizados</div><div className="kpi-value mono">{num(tot.realizado)}</div></div>
           <div className="kpi-card"><div className="kpi-label">Soma das metas</div><div className="kpi-value mono">{tot.meta ? num(tot.meta) : '—'}</div><div className="text-[10px] text-muted-foreground mt-1">{tot.meta ? `${((100 * tot.realizado) / tot.meta).toFixed(0)}% atingido` : 'defina as metas abaixo'}</div></div>
           <div className="kpi-card"><div className="kpi-label">Faturamento bruto</div><div className="kpi-value mono">{brl(tot.fat)}</div></div>
-          <div className="kpi-card"><div className="kpi-label">Meta Ads</div><div className="kpi-value mono">{meta.isLoading ? '…' : brl(totM.inv)}</div><div className="text-[10px] text-muted-foreground mt-1">{totM.inv > 0 ? `ROAS ${(totM.fat / totM.inv).toFixed(2)}x` : 'sem campanhas ligadas'}</div></div>
-          <div className="kpi-card"><div className="kpi-label">Compradores qualificados</div><div className="kpi-value mono">{hub.isLoading ? '…' : num(totH.qual)}</div><div className="text-[10px] text-muted-foreground mt-1">{totH.comp ? `${((100 * totH.qual) / totH.comp).toFixed(0)}% de ${num(totH.comp)} · ${num(totH.hs)} no HubSpot` : 'faixa de faturamento do HubSpot'}</div></div>
-          {vePresenca && <div className="kpi-card"><div className="kpi-label">Presentes (check-in)</div><div className="kpi-value mono">{presenca.isLoading ? '…' : num(totP.presentes)}</div><div className="text-[10px] text-muted-foreground mt-1">{totP.esperados ? `${((100 * totP.presentes) / totP.esperados).toFixed(0)}% de ${num(totP.esperados)} e-tickets` : 'e-tickets da Guru'}</div></div>}
+          <div className="kpi-card"><div className="kpi-label">Meta Ads</div><div className="kpi-value mono">{meta.isLoading ? <Esq h="1.2em" w="4em" /> : brl(totM.inv)}</div><div className="text-[10px] text-muted-foreground mt-1">{totM.inv > 0 ? `ROAS ${(totM.fat / totM.inv).toFixed(2)}x` : 'sem campanhas ligadas'}</div></div>
+          <div className="kpi-card"><div className="kpi-label">Compradores qualificados</div><div className="kpi-value mono">{hub.isLoading ? <Esq h="1.2em" w="4em" /> : num(totH.qual)}</div><div className="text-[10px] text-muted-foreground mt-1">{totH.comp ? `${((100 * totH.qual) / totH.comp).toFixed(0)}% de ${num(totH.comp)} · ${num(totH.hs)} no HubSpot` : 'faixa de faturamento do HubSpot'}</div></div>
+          {vePresenca && <div className="kpi-card"><div className="kpi-label">Presentes (check-in)</div><div className="kpi-value mono">{presenca.isLoading ? <Esq h="1.2em" w="4em" /> : num(totP.presentes)}</div><div className="text-[10px] text-muted-foreground mt-1">{totP.esperados ? `${((100 * totP.presentes) / totP.esperados).toFixed(0)}% de ${num(totP.esperados)} e-tickets` : 'e-tickets da Guru'}</div></div>}
         </div>
 
         <section className="surface p-4 overflow-x-auto">
@@ -154,7 +155,7 @@ export default function Eventos() {
               <th className="pb-2 font-semibold text-right">Realizado</th><th className="pb-2 font-semibold text-right">Últ. 7d</th><th className="pb-2 font-semibold text-right">Ritmo atual → necessário</th><th className="pb-2 font-semibold text-right">Faturamento</th><th className="pb-2 font-semibold text-right">Meta Ads · ROAS</th><th className="pb-2 font-semibold text-right">Qualificados · HubSpot</th>{vePresenca && <th className="pb-2 font-semibold text-right">Presença</th>}<th className="pb-2 font-semibold">Situação</th>
             </tr></thead>
             <tbody>
-              {eventos.isLoading && <tr><td colSpan={colunas} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+              {eventos.isLoading && <EsqLinhas colunas={colunas} />}
               {!eventos.isLoading && lista.length === 0 && <tr><td colSpan={colunas} className="py-3 text-muted-foreground">Nenhum evento no período.</td></tr>}
               {lista.map((e) => (
                 <>
@@ -194,7 +195,7 @@ export default function Eventos() {
                 <th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold text-right">Leads</th><th className="pb-2 font-semibold text-right">Qualificados</th><th className="pb-2 font-semibold text-right">Cortesias geradas</th><th className="pb-2 font-semibold text-right">Presença confirmada</th><th className="pb-2 font-semibold text-right">Compradores qualif.</th>
               </tr></thead>
               <tbody>
-                {hub.isLoading && <tr><td colSpan={6} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+                {hub.isLoading && <EsqLinhas colunas={6} />}
                 {!hub.isLoading && (hub.data ?? []).filter((h) => h.leads > 0 || h.compradores_hubspot > 0).length === 0 && <tr><td colSpan={6} className="py-3 text-muted-foreground">Nenhum dado do HubSpot no período (o sync roda de hora em hora).</td></tr>}
                 {(hub.data ?? []).filter((h) => h.leads > 0 || h.compradores_hubspot > 0).map((h) => (
                   <tr key={`${h.cidade}-${h.mes_evento}`} className="border-t border-border">
@@ -219,7 +220,7 @@ export default function Eventos() {
                 <th className="pb-2 font-semibold">Faixa anual</th><th className="pb-2 font-semibold text-right">Compradores</th><th className="pb-2 font-semibold text-right">Ingressos</th><th className="pb-2 font-semibold text-right">Leads do formulário</th>
               </tr></thead>
               <tbody>
-                {faixas.isLoading && <tr><td colSpan={4} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+                {faixas.isLoading && <EsqLinhas colunas={4} />}
                 {(faixas.data ?? []).map((f) => (
                   <tr key={String(f.faixa)} className={`border-t border-border ${f.faixa == null ? 'text-muted-foreground' : ''}`}>
                     <td className="py-2 font-semibold">{f.faixa_rotulo}</td>
@@ -243,7 +244,7 @@ export default function Eventos() {
                 <th className="pb-2 font-semibold text-right">Compraram 2+</th><th className="pb-2 font-semibold text-right">Sem participante</th><th className="pb-2 font-semibold text-right">Presentes</th><th className="pb-2 font-semibold text-right">Compradores presentes</th>
               </tr></thead>
               <tbody>
-                {jornada.isLoading && <tr><td colSpan={8} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+                {jornada.isLoading && <EsqLinhas colunas={8} />}
                 {!jornada.isLoading && (jornada.data ?? []).length === 0 && <tr><td colSpan={8} className="py-3 text-muted-foreground">Nenhum e-ticket no período.</td></tr>}
                 {(jornada.data ?? []).map((j) => (
                   <tr key={`${j.cidade}-${j.mes_evento}`} className="border-t border-border">

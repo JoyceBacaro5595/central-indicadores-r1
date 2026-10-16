@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
@@ -517,7 +518,7 @@ function Templates({ lista, erro, carregando }: { lista: Template[]; erro: Error
         <span className="section-label">Templates</span>
         {apagar.error && <p className="text-xs text-red-400">{(apagar.error as Error).message}</p>}
         {erro && <p className="text-xs text-red-400">Não foi possível ler os templates: {erro.message}</p>}
-        {carregando && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {carregando && <EsqBloco linhas={2} h="2em" />}
         {!carregando && !erro && lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum template ainda.</p>}
         {lista.map((t) => (
           <div key={t.id} className={`rounded border border-border p-3 text-xs ${t.ativo ? '' : 'opacity-60'}`}>

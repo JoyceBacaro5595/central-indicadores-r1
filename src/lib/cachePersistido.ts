@@ -10,6 +10,10 @@ const RECURSO: Record<string, string> = {
   'vg-eventos': 'eventos', 'vg-meta': 'eventos', 'vg-cidade-ingressos': 'eventos', 'vg-ingressos-canal': 'eventos',
   'mv-eventos': 'eventos', 'mv-meta': 'eventos', 'mv-eventos-hist': 'eventos', 'mv-cadeiras': 'eventos', 'mv-meta-ano': 'eventos',
   'eventos': 'eventos', 'meta-eventos': 'eventos', 'fmm-meta': 'eventos',
+  /* só totais por cidade/ciclo (sem nome, e-mail ou telefone) */
+  'mv-hub': 'eventos', 'mv-meta-v2': 'eventos', 'fmm-meta-v2': 'eventos', 'hubspot-eventos': 'eventos', 'qualificacao-faixas': 'eventos',
+  'plano-eventos': 'eventos', 'planejamento-rotas': 'eventos', 'mv-presenca': 'presenca', 'checkins-resumo': 'presenca',
+  'vg-black10x': 'painel', 'central-vendas-cidade-canal': 'painel', 'recuperacao-resumo': 'recuperacao',
 };
 
 let cliente: QueryClient | null = null;
