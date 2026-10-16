@@ -348,8 +348,9 @@
   }
 
   .mono {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.93em;
+    font-family: 'Rethink Sans', 'DM Sans', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
   /* ─── Scrollbar ─── */
@@ -399,3 +400,21 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 :root[data-modulo="proc"] { --primary: 217 100% 62%; --accent: 217 100% 56%; --ring: 217 100% 62%; --primary-foreground: 0 0% 100%;
   --hl-a: hsl(217 85% 45%); --hl-b: hsl(217 80% 33%); --hl-border: hsl(217 90% 55% / 0.3); --hl-shadow: hsl(217 100% 62% / 0.25); }
 .mobile-view .kpi-value, .mobile-view .kpi-card-highlight .kpi-value { @apply text-sm; }
+
+/* Números dos indicadores sempre na fonte de destaque, mesmo com a classe .mono */
+.kpi-value.mono, .side-metric-value.mono, .funnel-value.mono, .kpi-card .mono, .kpi-card-highlight .mono { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi-card { background: hsl(var(--card-elevated)); border-color: hsl(0 0% 100% / 0.09); }
+.kpi-label { font-size: 11px; color: hsl(var(--muted-foreground)); }
+/* destaque no estilo do próximo evento: cor do produto saindo do canto sobre o grafite */
+.kpi-card-highlight { background: linear-gradient(135deg, hsl(var(--primary)) -60%, hsl(0 0% 10%) 60%); border: 1px solid hsl(0 0% 100% / 0.16); box-shadow: none; }
+.kpi-card-highlight .kpi-label { color: hsl(0 0% 100% / 0.7); }
+.section-label, .eyebrow { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; }
+.section-label { font-size: 0.8rem; color: hsl(0 0% 100% / 0.74); }
+.dashboard-header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+.surface, .surface-elevated { background: hsl(var(--card)); border-color: hsl(0 0% 100% / 0.09); box-shadow: none; }
+.surface table thead th { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.surface table td { font-variant-numeric: tabular-nums; }
+.light .kpi-card, .light .surface, .light .surface-elevated { border-color: hsl(var(--border)); }
+.light .kpi-card { background: hsl(var(--card)); }
+.light .section-label { color: hsl(var(--muted-foreground)); }
+.light .kpi-card-highlight { background: linear-gradient(135deg, var(--hl-a, hsl(0 68% 48%)), var(--hl-b, hsl(0 55% 38%))); border-color: var(--hl-border, hsl(0 50% 40% / 0.3)); }
