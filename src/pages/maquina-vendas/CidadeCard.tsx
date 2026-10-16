@@ -88,6 +88,7 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
   const qualPct = l.qual != null && l.h?.compradores_hubspot ? (100 * l.qual) / l.h.compradores_hubspot : null;
   const pp = l.ocup == null ? null : (100 * l.ocup) / meta.totalPartic; const pi = l.inv == null ? null : (100 * l.inv) / meta.investimento;
   const efic = pp != null && pi ? pp / pi : null;
+  const metaI = l.metaIng ?? meta.totalPartic; const pctIng = l.ocup != null && metaI ? (100 * l.ocup) / metaI : null;
   const lotado = l.ocup != null && l.ocup >= l.cap;
   const dd = (k: keyof CidadeIng) => (det ? (det[k] as number) : null);
   const outras = det ? det.cortesias - det.cortesia_cs - det.cortesia_comercial - det.cortesia_social_selling - det.cortesia_seller : null;
@@ -157,10 +158,13 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
           <h4 className="text-lg font-extrabold text-foreground">{l.c.cidade}</h4>
           <p className="text-xs text-muted-foreground">Evento {dm(l.data)}</p>
         </div>
+        <div className="flex flex-col items-end gap-1">
         <div className="flex gap-1.5">
           {lotado && <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-red-500/15 text-red-400 border-red-500/40">LOTADO</span>}
           {l.dias > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${l.dias <= 7 ? 'bg-amber-500/15 text-amber-400 border-amber-500/40' : 'bg-blue-500/15 text-blue-400 border-blue-500/40'}`}>faltam {l.dias} {l.dias === 1 ? 'dia' : 'dias'}</span>}
           {l.dias === 0 && <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/40">hoje!</span>}
+        </div>
+        {pctIng != null && <span className={`text-xs font-bold tabular-nums ${TOM[tom(pctIng)]}`} title="Ingressos vendidos sobre a meta de ingressos">{pctIng.toFixed(0)}% da meta de ingressos</span>}
         </div>
       </div>
 
