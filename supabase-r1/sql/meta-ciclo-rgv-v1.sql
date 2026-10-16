@@ -33,3 +33,5 @@ begin
 end $$;
 revoke execute on function public.meta_ciclo_listar() from public, anon;
 revoke execute on function public.meta_ciclo_salvar(text, jsonb) from public, anon;
+grant execute on function public.meta_ciclo_listar() to authenticated, service_role;
+grant execute on function public.meta_ciclo_salvar(text, jsonb) to authenticated, service_role;

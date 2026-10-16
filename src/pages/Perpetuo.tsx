@@ -221,11 +221,11 @@ export default function Perpetuo() {
 
   const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;
-  /* Metas do plano: as que a RPC do funil devolve; sem elas, as cadastradas no calendário para o ciclo escolhido (ou o ciclo que contém o fim do período). */
+  /* Metas do plano: as cadastradas no calendário para o ciclo escolhido; sem elas, as que a RPC do funil devolve (ou o ciclo que contém o fim do período). */
   const metaCiclo = useMetaCiclo();
   const cicloDasMetas = cicloTag ?? data?.ciclos.find((c) => c.inicio <= ate && ate <= c.fim)?.ciclo ?? null;
   const cadastrada = cicloDasMetas ? metaCiclo.data?.find((m) => m.ciclo === cicloDasMetas) : undefined;
-  const metas: PerpetuoMetas | null = data?.metas ?? (cadastrada ? { ...cadastrada, fonte: 'Cadastro no Calendário' } : null);
+  const metas: PerpetuoMetas | null = cadastrada ? { ...cadastrada, fonte: 'Cadastro no Calendário' } : data?.metas ?? null;
 
   return (
     <div className="min-h-screen bg-background">
