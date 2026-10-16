@@ -208,7 +208,7 @@ export default function Central() {
                   <YAxis tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="comuns" name="Comuns" stackId="a" fill="hsl(0 65% 50%)" />
+                  <Bar dataKey="comuns" name="Comuns" stackId="a" fill="hsl(var(--primary))" />
                   <Bar dataKey="vip" name="VIP" stackId="a" fill="hsl(45 70% 55%)" />
                   <Bar dataKey="cortesias" name="Cortesias" stackId="a" fill="hsl(220 10% 45%)" />
                 </BarChart>

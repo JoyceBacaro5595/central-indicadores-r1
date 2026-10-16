@@ -136,9 +136,9 @@
 
   .kpi-card-highlight {
     @apply rounded-xl px-4 py-4 relative overflow-hidden;
-    background: linear-gradient(135deg, hsl(0 68% 48%), hsl(0 55% 38%));
-    border: 1px solid hsl(0 50% 40% / 0.3);
-    box-shadow: 0 4px 24px -4px hsl(0 72% 51% / 0.25);
+    background: linear-gradient(135deg, var(--hl-a, hsl(0 68% 48%)), var(--hl-b, hsl(0 55% 38%)));
+    border: 1px solid var(--hl-border, hsl(0 50% 40% / 0.3));
+    box-shadow: 0 4px 24px -4px var(--hl-shadow, hsl(0 72% 51% / 0.25));
   }
 
   .kpi-label {
@@ -383,5 +383,8 @@
 
 /* Cor de cada módulo = cor do modelo de evento em Próximos eventos (pedido da Joyce, 16/10).
    Turnê Máquina de Vendas #FF8A1F, Método RGV #FE0026. Gerenciador, regras e usuários ficam na cor padrão. */
-:root[data-modulo="mdv"] { --primary: 29 100% 56%; --accent: 29 100% 50%; --ring: 29 100% 56%; --primary-foreground: 0 0% 100%; }
-:root[data-modulo="rgv"] { --primary: 352 100% 50%; --accent: 352 100% 45%; --ring: 352 100% 50%; --primary-foreground: 0 0% 100%; }
+:root[data-modulo="mdv"] { --primary: 29 100% 56%; --accent: 29 100% 50%; --ring: 29 100% 56%; --primary-foreground: 228 30% 6%;
+  --hl-a: hsl(29 92% 38%); --hl-b: hsl(29 85% 28%); --hl-border: hsl(29 90% 45% / 0.3); --hl-shadow: hsl(29 100% 56% / 0.25); }
+/* vermelho do RGV um pouco mais fundo para o texto branco dos botões passar de 4,5:1 */
+:root[data-modulo="rgv"] { --primary: 352 100% 46%; --accent: 352 100% 42%; --ring: 352 100% 50%; --primary-foreground: 0 0% 100%;
+  --hl-a: hsl(352 90% 42%); --hl-b: hsl(352 80% 32%); --hl-border: hsl(352 90% 45% / 0.3); --hl-shadow: hsl(352 100% 50% / 0.25); }
