@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { PageBody, PageHeader } from '@/components/shared';
+import { FiltroMulti, PageBody, PageHeader } from '@/components/shared';
 import { CAT_AGENDA, PLANILHA_ID, lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
 
 /* Calendário R1 (pedido da Joyce, 14/10): os eventos da planilha "R1 | Agenda 2026" (aba Calendário MKT), lidos ao vivo no navegador,
@@ -37,6 +37,7 @@ export default function Calendario() {
 
   const visiveis = useMemo(() => eventos.filter((e) => !ocultas.has(e.cat)), [eventos, ocultas]);
   const usadas = useMemo(() => Array.from(new Set(eventos.map((e) => e.cat))), [eventos]);
+  const selecionadas = useMemo(() => (ocultas.size === 0 ? [] : usadas.filter((c) => !ocultas.has(c))), [ocultas, usadas]);
 
   // semanas do mês (domingo a sábado), com os dias dos meses vizinhos para completar a grade
   const semanas = useMemo(() => {
@@ -46,7 +47,6 @@ export default function Calendario() {
   }, [ref]);
   const doDia = (iso: string) => visiveis.filter((e) => e.inicio <= iso && (e.fim || e.inicio) >= iso);
   const mover = (p: number) => setRef((r) => { const d = new Date(r.a, r.m + p, 1); return { a: d.getFullYear(), m: d.getMonth() }; });
-  const alternar = (c: string) => setOcultas((s) => { const n = new Set(s); if (n.has(c)) n.delete(c); else n.add(c); return n; });
   const selecionados = dia ? doDia(dia) : [];
 
   return (
@@ -67,28 +67,21 @@ export default function Calendario() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2" aria-label="Filtrar por categoria">
-            {usadas.map((c) => {
-              const off = ocultas.has(c);
-              return (
-                <button key={c} type="button" onClick={() => alternar(c)} aria-pressed={!off} className={`inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[11px] font-semibold ${off ? 'opacity-40' : ''}`}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: cor(c) }} />{(CAT_AGENDA[c] || CAT_AGENDA.outros)[1]}
-                </button>
-              );
-            })}
-          </div>
+          <FiltroMulti rotulo="Produto" variante="chips" valor={selecionadas}
+            opcoes={usadas.map((c) => ({ valor: c, rotulo: (CAT_AGENDA[c] || CAT_AGENDA.outros)[1], cor: cor(c) }))}
+            onChange={(v) => setOcultas(new Set(v.length ? usadas.filter((c) => !v.includes(c)) : []))} />
 
           {eventos.length === 0 ? <p className="text-sm text-muted-foreground">{erro ? 'Não consegui ler a planilha agora. Confira se ela está compartilhada com quem tem o link.' : 'Carregando a agenda…'}</p> : (
-            <div className="rounded-xl border border-border overflow-hidden">
-              <div className="grid grid-cols-7 bg-secondary/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="rounded-xl border border-border overflow-hidden w-full max-w-full">
+              <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] bg-secondary/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {SEM.map((s) => <div key={s} className="p-2 text-center">{s}</div>)}
               </div>
               {semanas.map((sem, i) => (
-                <div key={i} className="grid grid-cols-7 border-t border-border">
+                <div key={i} className="grid grid-cols-[repeat(7,minmax(0,1fr))] border-t border-border">
                   {sem.map((d) => {
                     const iso = ymd(d), fora = d.getMonth() !== ref.m, evs = doDia(iso), ehHoje = iso === hoje;
                     return (
-                      <button key={iso} type="button" onClick={() => setDia(iso === dia ? null : iso)} className={`min-h-24 p-1.5 text-left align-top border-l first:border-l-0 border-border hover:bg-secondary/40 ${fora ? 'opacity-40' : ''} ${iso === dia ? 'bg-secondary/60' : ''}`}>
+                      <button key={iso} type="button" onClick={() => setDia(iso === dia ? null : iso)} className={`min-h-24 min-w-0 overflow-hidden p-1.5 text-left align-top border-l first:border-l-0 border-border hover:bg-secondary/40 ${fora ? 'opacity-40' : ''} ${iso === dia ? 'bg-secondary/60' : ''}`}>
                         <div className={`text-[11px] font-bold mb-1 ${ehHoje ? 'inline-flex w-5 h-5 items-center justify-center rounded-full bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{d.getDate()}</div>
                         <div className="space-y-0.5">
                           {evs.slice(0, 3).map((e, k) => (
