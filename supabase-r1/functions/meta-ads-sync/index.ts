@@ -91,6 +91,8 @@ Deno.serve(async (req) => {
         link_click: r.inline_link_clicks != null ? String(r.inline_link_clicks) : null,
         omni_purchase: (() => { const v = act(r.actions, ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"]); return v == null ? null : String(v); })(),
         reach: r.reach != null ? String(r.reach) : null,
+        lpv: (() => { const v = act(r.actions, ["landing_page_view"]); return v == null ? null : String(v); })(),
+        checkouts: (() => { const v = act(r.actions, ["initiate_checkout", "omni_initiated_checkout", "offsite_conversion.fb_pixel_initiate_checkout"]); return v == null ? null : String(v); })(),
       },
       carga_id: logId,
     }));
