@@ -262,19 +262,18 @@ export default function VisaoGeral() {
                   <div className="rt-empty">{canalQ.isError ? 'A divisão por canal (Comercial, CS, Seller, Social Selling) ainda não existe no banco: aguarda a criação da função de ingressos por canal.' : 'Carregando a divisão por canal…'}</div>
                 )}
 
-                <div className="rt-sub">Ocupação por praça <small>(vendas + cortesias) / capacidade · vendas + cortesias · dias p/ evento</small></div>
+                <div className="rt-sub">Ocupação por praça</div>
                 <div className={`rt-cities${ampliado ? ' rt-ext' : ''}`}>
-                  {ampliado && (
-                    <div className="cty cty-h"><div className="nm">Praça</div><div /><div className="ct">Ocup.</div><div className="rit">Vend.+cort.</div><div className="dl">Prazo</div>
-                      <div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></div>
-                  )}
+                  <div className="cty cty-h"><div className="nm">Praça</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div><div className="dl">Prazo</div>
+                    {ampliado && <><div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></>}
+                  </div>
                   {cidades.map(({ x, dias }) => {
                     const p = x.cap ? (x.real / x.cap) * 100 : 0, cor = p >= 60 ? 'var(--green)' : p >= 30 ? 'var(--orange)' : '#ff5c72';
                     const pr = praca.find((q) => q.x === x), d = pr?.d;
                     return (
                       <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
                         <div className="nm">{titulo(x.c.cidade)}</div>
-                        <div className="br"><i style={{ width: `${Math.min(100, p)}%`, background: cor }} /></div>
+                        <div className="pc" style={{ color: cor }}>{Math.round(p)}%</div>
                         <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
                         <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
                         <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>

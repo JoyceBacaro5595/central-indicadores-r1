@@ -169,3 +169,12 @@
 .rt-modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:calc(var(--u)*1.5)}
 .rt-modal-box{width:min(96vw,calc(var(--u)*118));max-height:92vh;overflow:auto;border-radius:calc(var(--u)*1.1)}
 .rt-modal-box .rt-card{min-height:0;cursor:default}
+
+/* Ocupação por praça em tabela (sem barras): % em destaque, cor por faixa, cabeçalho fixo e linhas separadas */
+.cty{padding:.35em 0;border-top:1px solid rgba(255,255,255,.06)}
+.cty.cty-h{border-top:0;padding-top:0;color:var(--ink-3);font-size:.78em;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.cty .pc{text-align:right;font-weight:800;font-size:1.05em;font-variant-numeric:tabular-nums}
+.cty.cty-h .pc{font-weight:600;font-size:inherit}
+.cty{grid-template-columns:8.4em 3.4em 5.6em 4.8em 3.6em}
+.rt-ext .cty{grid-template-columns:8.4em 3.4em 5.6em 5.6em 4.2em repeat(3,minmax(4em,.7fr)) minmax(6.5em,1.1fr) repeat(3,minmax(4em,.7fr))}
+@media (max-width:640px){.cty{grid-template-columns:7em 3.2em 1fr 4.6em}.cty .dl{display:none}.rt-ext .cty{grid-template-columns:8em 4em 5em 6em 5em repeat(7,6em)}.rt-ext .cty .dl{display:block}}
