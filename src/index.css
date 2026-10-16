@@ -2,27 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Rethink+Sans:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 228 22% 6%;
-    --foreground: 210 20% 93%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
 
-    --card: 228 18% 9%;
+    --card: 0 0% 7.5%;
     --card-foreground: 210 20% 93%;
 
-    --popover: 228 18% 10%;
+    --popover: 0 0% 8.5%;
     --popover-foreground: 210 20% 93%;
 
     --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 14% 13%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 210 12% 75%;
 
-    --muted: 228 12% 16%;
-    --muted-foreground: 220 10% 44%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
 
     --accent: 0 60% 48%;
     --accent-foreground: 0 0% 100%;
@@ -30,25 +30,25 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 14% 12%;
-    --input: 228 14% 12%;
+    --border: 0 0% 100% / 0.09;
+    --input: 0 0% 100% / 0.09;
     --ring: 0 72% 51%;
 
     --radius: 0.625rem;
 
     /* Extended palette */
-    --card-elevated: 228 16% 11%;
+    --card-elevated: 0 0% 10%;
     --gold: 42 62% 66%;
     --glow-primary: 0 72% 51% / 0.08;
     --glow-success: 160 60% 45% / 0.08;
 
-    --sidebar-background: 228 18% 7%;
+    --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 210 12% 80%;
     --sidebar-primary: 0 72% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 228 14% 13%;
+    --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 210 12% 80%;
-    --sidebar-border: 228 14% 12%;
+    --sidebar-border: 0 0% 100% / 0.09;
     --sidebar-ring: 0 72% 51%;
   }
 
@@ -104,7 +104,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Rethink Sans', 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
 }
 
@@ -388,3 +388,13 @@
 /* vermelho do RGV um pouco mais fundo para o texto branco dos botões passar de 4,5:1 */
 :root[data-modulo="rgv"] { --primary: 352 100% 46%; --accent: 352 100% 42%; --ring: 352 100% 50%; --primary-foreground: 0 0% 100%;
   --hl-a: hsl(352 90% 42%); --hl-b: hsl(352 80% 32%); --hl-border: hsl(352 90% 45% / 0.3); --hl-shadow: hsl(352 100% 50% / 0.25); }
+
+/* ===== Visual Sala R1 em todo o app: títulos e números em Bricolage Grotesque ===== */
+h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; letter-spacing: -0.01em; }
+.kpi-card, .surface { border-radius: 0.9rem; }
+.kpi-label { font-weight: 600; letter-spacing: 0.08em; }
+.kpi-value { @apply text-2xl; font-weight: 700; }
+.kpi-card-highlight .kpi-value { @apply text-3xl; }
+/* cor do produto: RGV Processos (azul), disponível quando o módulo entrar */
+:root[data-modulo="proc"] { --primary: 217 100% 62%; --accent: 217 100% 56%; --ring: 217 100% 62%; --primary-foreground: 0 0% 100%;
+  --hl-a: hsl(217 85% 45%); --hl-b: hsl(217 80% 33%); --hl-border: hsl(217 90% 55% / 0.3); --hl-shadow: hsl(217 100% 62% / 0.25); }
