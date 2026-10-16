@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { FiltroMulti, FiltroPeriodo, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
+import { FiltroMulti, FiltroPeriodo, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
 
@@ -670,22 +670,14 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { a
             ))}
           </div>
           {visao === 'cards' && (
-            <div className="toggle-group" role="group" aria-label="Peças por linha" title="Peças por linha">
-              {POR_LINHA.map((n) => (
-                <button key={n} onClick={() => escolherPorLinha(n)} className={`toggle-item ${porLinha === n ? 'toggle-item-ativo' : ''}`} aria-label={`${n} por linha`}>{n}</button>
-              ))}
-            </div>
+            <FiltroUnico rotulo="Peças por linha" opcoes={POR_LINHA.map((n) => ({ valor: String(n), rotulo: String(n) }))} valor={String(porLinha)} onChange={(v) => escolherPorLinha(Number(v) as PorLinha)} />
           )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">Ordenar por
             <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="select-r1">
               {ORDENS.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
             </select>
           </label>
-          <div className="toggle-group">
-            {([['todas', 'Todas'], ['20', '20+ leads'], ['100', '100+ leads']] as [Filtro, string][]).map(([v, rot]) => (
-              <button key={v} onClick={() => setFiltro(v)} className={`toggle-item ${filtro === v ? 'toggle-item-ativo' : ''}`}>{rot}</button>
-            ))}
-          </div>
+          <FiltroUnico rotulo="Leads" opcoes={[{ valor: 'todas', rotulo: 'Todas' }, { valor: '20', rotulo: '20+ leads' }, { valor: '100', rotulo: '100+ leads' }]} valor={filtro} onChange={(v) => setFiltro(v as Filtro)} />
           {temTipo && <FiltroMulti rotulo="Tipo" opcoes={[{ valor: 'imagem', rotulo: 'Imagem' }, { valor: 'video', rotulo: 'Vídeo' }]} valor={tipos} onChange={setTipos} />}
           {temStatus && <FiltroMulti rotulo="Status" opcoes={[{ valor: 'no_ar', rotulo: 'No ar' }, { valor: 'pausado', rotulo: 'Pausadas' }]} valor={statuses} onChange={setStatuses} />}
           <div className="relative">
