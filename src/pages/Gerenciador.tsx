@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
@@ -125,7 +126,7 @@ export default function Gerenciador() {
         {estado.error && <div className="surface p-4 text-sm text-red-400">{(estado.error as Error).message}</div>}
         {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
         {aviso && <div className="surface p-3 text-xs text-emerald-400">{aviso}</div>}
-        {estado.isLoading && <div className="surface p-4 text-sm text-muted-foreground">Carregando…</div>}
+        {estado.isLoading && <div className="surface p-4"><EsqBloco linhas={3} /></div>}
 
         {d && (
           <>

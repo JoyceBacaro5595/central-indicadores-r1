@@ -64,6 +64,6 @@ export const HISTORICO: { cidade: string; data: string }[] = [
 ];
 
 /** A base grava as cidades sem acento e com iniciais maiúsculas ("Brasilia", "Vitoria Da Conquista"); aqui compara sem acento e sem caixa. */
-export const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+export const norm = (s: string | null | undefined) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 export const mesmoEvento = (a: { cidade: string; mes_evento: string }, c: { cidade: string; data: string }) =>
   norm(a.cidade) === norm(c.cidade) && a.mes_evento.slice(0, 7) === c.data.slice(0, 7);
