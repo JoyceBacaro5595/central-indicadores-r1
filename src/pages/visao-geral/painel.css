@@ -29,7 +29,7 @@
 .rt-sync.old .rt-sync-v{color:var(--amber)}
 
 /* grade */
-.rt-grid{flex:1;min-height:0;display:grid;grid-template-columns:22fr 30fr 24fr 24fr;gap:calc(var(--u)*1.1)}
+.rt-grid{flex:1;min-height:0;display:grid;grid-template-columns:36fr 32fr 32fr;gap:calc(var(--u)*1.1)}
 .rt-card{background:var(--card);border:1px solid var(--line);border-radius:calc(var(--u)*1.1);padding:calc(var(--u)*1.3);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .rt-h small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .rt-h{display:flex;justify-content:space-between;align-items:baseline;gap:1em;margin-bottom:calc(var(--u)*1)}

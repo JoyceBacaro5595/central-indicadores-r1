@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { FiltroMulti, PageBody, PageHeader } from '@/components/shared';
+import { Abas, FiltroMulti, PageBody, PageHeader } from '@/components/shared';
+import ProximosEventos from './visao-geral/ProximosEventos';
 import { CAT_AGENDA, PLANILHA_ID, lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
 
 /* Calendário R1 (pedido da Joyce, 14/10): os eventos da planilha "R1 | Agenda 2026" (aba Calendário MKT), lidos ao vivo no navegador,
@@ -20,6 +21,7 @@ export default function Calendario() {
   const [erro, setErro] = useState(false);
   const [ocultas, setOcultas] = useState<Set<string>>(new Set());
   const [dia, setDia] = useState<string | null>(null);
+  const [aba, setAba] = useState<'proximos' | 'calendario'>('proximos');
 
   useEffect(() => {
     let vivo = true;
@@ -54,6 +56,8 @@ export default function Calendario() {
       <PageHeader titulo="Calendário" subtitulo="Agenda do grupo: turnê, RGV, Clube, Black Friday e agenda do Ricardo" />
       <PageBody>
         <div className="space-y-4">
+          <Abas valor={aba} onChange={setAba} itens={[{ valor: 'proximos', rotulo: 'Próximos eventos' }, { valor: 'calendario', rotulo: 'Calendário' }]} />
+          {aba === 'calendario' && (
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => mover(-1)} aria-label="Mês anterior" className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:text-foreground text-muted-foreground"><ChevronLeft className="w-4 h-4" /></button>
@@ -66,12 +70,14 @@ export default function Calendario() {
               <a href={`https://docs.google.com/spreadsheets/d/${PLANILHA_ID}/edit`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">Editar na planilha <ExternalLink className="w-3 h-3" /></a>
             </div>
           </div>
-
+          )}
           <FiltroMulti rotulo="Produto" valor={selecionadas}
             opcoes={usadas.map((c) => ({ valor: c, rotulo: (CAT_AGENDA[c] || CAT_AGENDA.outros)[1], cor: cor(c) }))}
             onChange={(v) => setOcultas(new Set(v.length ? usadas.filter((c) => !v.includes(c)) : []))} />
 
-          {eventos.length === 0 ? <p className="text-sm text-muted-foreground">{erro ? 'Não consegui ler a planilha agora. Confira se ela está compartilhada com quem tem o link.' : 'Carregando a agenda…'}</p> : (
+          {aba === 'proximos' && eventos.length > 0 && <ProximosEventos eventos={visiveis} fonte={erro ? 'último cache' : fonte} />}
+
+          {aba === 'calendario' && (eventos.length === 0 ? <p className="text-sm text-muted-foreground">{erro ? 'Não consegui ler a planilha agora. Confira se ela está compartilhada com quem tem o link.' : 'Carregando a agenda…'}</p> : (
             <div className="rounded-xl border border-border overflow-hidden w-full max-w-full">
               <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] bg-secondary/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {SEM.map((s) => <div key={s} className="p-2 text-center">{s}</div>)}
@@ -98,9 +104,9 @@ export default function Calendario() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
 
-          {dia && (
+          {aba === 'calendario' && dia && (
             <section className="rounded-xl border border-border p-4 space-y-2">
               <h2 className="text-sm font-extrabold text-foreground">{(() => { const d = new Date(`${dia}T12:00:00`); return `${SEM[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`; })()}</h2>
               {selecionados.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum evento neste dia.</p> : (

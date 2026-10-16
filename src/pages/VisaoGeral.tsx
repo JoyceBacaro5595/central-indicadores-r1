@@ -11,7 +11,7 @@ import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
    com o mesmo layout, cores e cards do HTML original. Os números vêm do banco (Guru, HubSpot, Meta) e a agenda vem da planilha
-   "R1 | Agenda 2026" lida ao vivo. Ao clicar em Próximos eventos, a Turnê Máquina de Vendas se amplia com o detalhamento. */
+   "R1 | Agenda 2026" lida ao vivo. Ao clicar no card da Turnê Máquina de Vendas, ele se amplia com o detalhamento. Os Próximos eventos agora ficam no Calendário. */
 
 const TZ = 'America/Sao_Paulo';
 const DAY = 864e5;
@@ -316,34 +316,6 @@ export default function VisaoGeral() {
         </header>
 
         <main className="rt-grid">
-          {(
-            <section className="rt-card rt-ev" style={pode('eventos') ? { cursor: 'pointer' } : undefined} role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrir(); }}>
-              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
-              {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
-                <>
-                  <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
-                    <div className="tag">Próximo · {(CAT[prox.cat] || CAT.outros)[1]}</div>
-                    <div className="t">{prox.titulo}</div>
-                    <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
-                    <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
-                  </div>
-                  <ol className="rt-list">
-                    {fut.slice(1, 25).map((e, i) => {
-                      const d = dt(e.inicio), c = (CAT[e.cat] || CAT.outros)[0], dd = Math.round((d.getTime() - h0.getTime()) / DAY);
-                      return (
-                        <li key={`${e.inicio}-${e.titulo}-${i}`}>
-                          <div className="d"><b>{String(d.getDate()).padStart(2, '0')}</b><span>{MESC[d.getMonth()]}</span></div>
-                          <div className="n"><b><i className="dot" style={{ ['--c' as string]: c }} />{e.titulo}</b><span>{[SEM[d.getDay()] + (e.fim && e.fim !== e.inicio ? ` a ${fmtD(e.fim)}` : ''), e.local, e.hora].filter(Boolean).join(' · ')}</span></div>
-                          <div className={`q${dd <= 0 ? ' hoje' : ''}`}>{dd <= 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}</div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              )}
-            </section>
-          )}
-
           {turne(false)}
 
           {(
