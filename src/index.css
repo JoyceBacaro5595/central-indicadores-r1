@@ -418,3 +418,21 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 .light .kpi-card { background: hsl(var(--card)); }
 .light .section-label { color: hsl(var(--muted-foreground)); }
 .light .kpi-card-highlight { background: linear-gradient(135deg, var(--hl-a, hsl(0 68% 48%)), var(--hl-b, hsl(0 55% 38%))); border-color: var(--hl-border, hsl(0 50% 40% / 0.3)); }
+
+/* ===== Modelo Sala R1 nas demais telas: cards com ponto de cor, tiles de indicador e títulos em destaque ===== */
+.surface, .surface-elevated { border-radius: 1.1rem; background: hsl(0 0% 7.5%); }
+.section-label { display: inline-flex; align-items: center; gap: 0.5em; font-size: 1.05rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; text-transform: none; color: hsl(var(--foreground)); }
+.section-label::before { content: ''; flex: none; width: 0.6em; height: 0.6em; border-radius: 50%; background: hsl(var(--primary)); }
+.kpi-card { border: 0; border-radius: 0.8rem; background: hsl(0 0% 10%); transition: none; }
+.kpi-card:hover { transform: none; box-shadow: none; }
+.kpi-label { text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.08em; font-weight: 600; color: hsl(0 0% 100% / 0.5); }
+.kpi-value { line-height: 1.1; }
+.kpi-card-highlight { border-radius: 0.9rem; }
+.surface table tbody tr { border-color: hsl(0 0% 100% / 0.09); }
+.surface table thead th { color: hsl(0 0% 100% / 0.5); }
+.toggle-item-ativo { box-shadow: inset 0 -2px 0 hsl(var(--primary)); }
+.light .surface, .light .surface-elevated { background: hsl(var(--card)); }
+.light .section-label { color: hsl(var(--foreground)); }
+.light .kpi-card { background: hsl(var(--secondary)); }
+.light .kpi-label { color: hsl(var(--muted-foreground)); }
+.light .surface table thead th { color: hsl(var(--muted-foreground)); }
