@@ -713,12 +713,14 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { a
           </div>
         )
       ) : (
-        <div className="surface overflow-hidden">
-          <div>
+        <div className="surface overflow-x-auto">
+          <div className="min-w-[1360px]">
             <div>
-              {/* cabeçalho das colunas */}
-              <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
-                <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">leads Meta</div></div>
+              {/* cabeçalho das colunas: nome da peça, Investimento e Leads Meta separados */}
+              <div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
+                <div><div className="font-bold text-foreground capitalize">{nome}</div><div className="text-muted-foreground">nome e status</div></div>
+                <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">Meta Ads</div></div>
+                <div><div className="font-bold text-foreground">Leads Meta</div><div className="text-muted-foreground">e custo por lead</div></div>
                 {ETAPAS.map((e) => {
                   const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
                   return (
@@ -765,18 +767,23 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
 
 function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
+  const cpl = it.investimento != null && it.leads_pixel ? fmtBrl(it.investimento / it.leads_pixel, 2) : null;
   return (
     <div className="px-3 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
-        <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
-        <span className="ml-auto flex items-center gap-1.5 shrink-0">
-          {it.atribuicao_completa === false && <span className="tag" title={motivoItem(it, aba)}>funil CRM não atribuído</span>}
-          {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
-        </span>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 mt-2 pl-6">
-        <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
+      <div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_repeat(10,minmax(0,1fr))] gap-2 items-start">
+        <div className="min-w-0 flex items-start gap-2">
+          <span className="text-xs text-muted-foreground w-5 shrink-0 pt-0.5">{pos}</span>
+          <div className="min-w-0">
+            <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground text-left hover:underline focus-visible:outline focus-visible:outline-2 line-clamp-2 break-words" title={it.nome}>{it.nome}</button>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <Status valor={it.status} />
+              {it.atribuicao_completa === false && <span className="tag" title={motivoItem(it, aba)}>funil CRM não atribuído</span>}
+              {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
+            </div>
+          </div>
+        </div>
+        <Celula principal={fmtBrlCurto(it.investimento)} />
+        <Celula principal={it.leads_pixel != null ? fmtNum(it.leads_pixel) : null} secundaria={it.leads_pixel != null ? (cpl ? `CPL ${cpl}` : 'sem custo por lead') : null} />
         {ETAPAS.map((e) => {
           const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
           const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
