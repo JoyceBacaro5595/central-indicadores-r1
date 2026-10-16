@@ -12,7 +12,8 @@ as $function$
   select identity.exigir('painel');
   select v.cidade, v.mes_evento, v.compradores, v.compradores_hubspot, v.compradores_qualificados, v.leads, v.leads_qualificados, v.cortesias_geradas, v.presencas_confirmadas, v.ganhos
   from marts.mv_evento_hubspot v
-  where (p_inicio is null or v.mes_evento >= date_trunc('month', p_inicio)::date) and (p_fim is null or v.mes_evento <= p_fim)
+  where v.cidade is not null -- compradores sem evento ligado vêm com cidade nula e derrubavam a tela
+    and (p_inicio is null or v.mes_evento >= date_trunc('month', p_inicio)::date) and (p_fim is null or v.mes_evento <= p_fim)
   order by v.mes_evento, v.cidade;
 $function$;
 select cron.schedule('evento-hubspot-cache', '*/30 * * * *', $c$select marts.refresh_evento_hubspot()$c$);
