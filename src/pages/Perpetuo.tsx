@@ -79,26 +79,35 @@ const PONTO: Record<Exclude<Situacao, 'sem-meta' | 'nd'>, string> = { meta: 'bg-
 type Etapa = {
   chave: string; rotulo: string; curto: string; sub: string;
   valor: (m: PerpetuoMetricas) => number | null | undefined;
-  taxa?: { rotulo: string; v: (m: PerpetuoMetricas) => number | null | undefined; meta: keyof PerpetuoMetas };
+  taxa?: { rotulo: string; v: (m: PerpetuoMetricas) => number | null | undefined; meta: keyof PerpetuoMetas; /** metas do plano (taxa entre etapas) que se multiplicam até esta etapa, para a meta sobre MQL */ cadeia?: (keyof PerpetuoMetas)[] };
   custo: { rotulo: string; v: (m: PerpetuoMetricas) => number | null | undefined };
 };
 /** Custo da etapa respeitando o gate do backend. */
 const custoDe = (e: Etapa, m: PerpetuoMetricas) => (custosValidos(m) ? e.custo.v(m) : null);
+/** Taxa da etapa sobre MQL (e não sobre a etapa anterior), para o Marketing acompanhar tudo na mesma base. */
+const sobreMql = (n: number | null | undefined, m: PerpetuoMetricas) => (n == null || !m.mql ? null : (100 * n) / m.mql);
 const ETAPAS: Etapa[] = [
   { chave: 'leads', rotulo: 'Lead no CRM', curto: 'Leads', sub: 'CRM', valor: (m) => m.leads_crm, custo: { rotulo: 'Custo por lead', v: (m) => m.cpl } },
   { chave: 'mql', rotulo: 'MQL', curto: 'MQL', sub: 'perfil', valor: (m) => m.mql,
     taxa: { rotulo: 'MQL', v: (m) => m.taxa_mql, meta: 'qualificacao_mql' as keyof PerpetuoMetas }, custo: { rotulo: 'Custo por MQL', v: (m) => m.cpmql } },
   { chave: 'contato', rotulo: 'Contato efetivo', curto: 'Contato', sub: 'conexão', valor: (m) => m.contato_efetivo,
-    taxa: { rotulo: 'Conexão', v: (m) => m.taxa_contato, meta: 'conexao' }, custo: { rotulo: 'Custo por contato', v: (m) => m.custo_contato ?? divide(m.investimento, m.contato_efetivo) } },
+    taxa: { rotulo: 'Conexão (% do MQL)', v: (m) => sobreMql(m.contato_efetivo, m), meta: 'conexao', cadeia: ['conexao'] }, custo: { rotulo: 'Custo por contato', v: (m) => m.custo_contato ?? divide(m.investimento, m.contato_efetivo) } },
   { chave: 'sql', rotulo: 'SQL', curto: 'SQL', sub: 'qualificação', valor: (m) => m.sql,
-    taxa: { rotulo: 'Qualificação', v: (m) => m.taxa_sql, meta: 'qualificacao' }, custo: { rotulo: 'Custo por SQL', v: (m) => m.custo_sql ?? divide(m.investimento, m.sql) } },
+    taxa: { rotulo: 'Qualificação (% do MQL)', v: (m) => sobreMql(m.sql, m), meta: 'qualificacao', cadeia: ['conexao', 'qualificacao'] }, custo: { rotulo: 'Custo por SQL', v: (m) => m.custo_sql ?? divide(m.investimento, m.sql) } },
   { chave: 'agendado', rotulo: 'Agendamento marcado', curto: 'Ag. marcado', sub: 'agendamento', valor: (m) => m.reunioes_agendadas,
-    taxa: { rotulo: 'Agendamento', v: (m) => m.taxa_agendamento, meta: 'agendamento' }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => m.custo_agendado ?? divide(m.investimento, m.reunioes_agendadas) } },
+    taxa: { rotulo: 'Agendamento (% do MQL)', v: (m) => sobreMql(m.reunioes_agendadas, m), meta: 'agendamento', cadeia: ['conexao', 'qualificacao', 'agendamento'] }, custo: { rotulo: 'Custo por ag. marcado', v: (m) => m.custo_agendado ?? divide(m.investimento, m.reunioes_agendadas) } },
   { chave: 'realizado', rotulo: 'Agendamento realizado', curto: 'Ag. realizado', sub: 'comparecimento', valor: (m) => m.reunioes_realizadas,
-    taxa: { rotulo: 'Comparecimento', v: (m) => m.taxa_comparecimento, meta: 'comparecimento' }, custo: { rotulo: 'Custo por ag. realizado', v: (m) => m.custo_reuniao } },
+    taxa: { rotulo: 'Comparecimento (% do MQL)', v: (m) => sobreMql(m.reunioes_realizadas, m), meta: 'comparecimento', cadeia: ['conexao', 'qualificacao', 'agendamento', 'comparecimento'] }, custo: { rotulo: 'Custo por ag. realizado', v: (m) => m.custo_reuniao } },
   { chave: 'venda', rotulo: 'Vendas RGV', curto: 'Vendas RGV', sub: 'fechamento', valor: (m) => m.vendas,
-    taxa: { rotulo: 'Fechamento', v: (m) => m.taxa_fechamento, meta: 'fechamento' }, custo: { rotulo: 'Custo por venda (CAC)', v: (m) => m.cac } },
+    taxa: { rotulo: 'Fechamento (% do MQL)', v: (m) => sobreMql(m.vendas, m), meta: 'fechamento', cadeia: ['conexao', 'qualificacao', 'agendamento', 'comparecimento', 'fechamento'] }, custo: { rotulo: 'Custo por venda (CAC)', v: (m) => m.cac } },
 ];
+/** Meta da etapa sobre MQL = produto das metas entre etapas até ela (ex.: conexão 33% × qualificação 45% = 14,9% do MQL). */
+function metaEtapa(metas: PerpetuoMetas | null | undefined, t: NonNullable<Etapa['taxa']>): number | null {
+  const ks = t.cadeia ?? [t.meta];
+  let r = 1;
+  for (const k of ks) { const v = metaDe(metas, k); if (v == null) return null; r *= v / 100; }
+  return r * 100;
+}
 const metaDe = (metas: PerpetuoMetas | null | undefined, k: keyof PerpetuoMetas) => (metas ? (metas[k] as number | null | undefined) ?? null : null);
 
 /* ─── textos por aba ─── */
@@ -371,7 +380,7 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
   const v = e.valor(m);
   const largura = v != null && base ? Math.max(2, Math.min(100, (v / base) * 100)) : 0;
   const taxa = e.taxa?.v(m);
-  const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+  const meta = e.taxa ? metaEtapa(metas, e.taxa) : null;
   const custo = custoDe(e, m);
   const mTaxa = motivoTaxa(m);
   return (
@@ -394,7 +403,7 @@ function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: Perp
         ) : (
           <>
             <Linha empilhado k={e.taxa!.rotulo} v={fmtPct(taxa)} forte motivo={mTaxa} tipo="pct" />
-            <Linha empilhado k="Meta" v={meta != null ? `${fmtPct(meta, 0)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+            <Linha empilhado k="Meta" v={meta != null ? `${fmtPct(meta, 1)}${taxa != null ? ` · ${pp(taxa - meta)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
           </>
         )}
       </div>
@@ -428,7 +437,7 @@ function CardVendas({ titulo, vendas, fat, inv, base, taxaFech, metaFech, mTaxa 
         {taxaFech !== undefined && (
           <>
             <Linha empilhado k="Fechamento" v={fmtPct(taxaFech)} forte motivo={mTaxa} tipo="pct" />
-            <Linha empilhado k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 0)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
+            <Linha empilhado k="Meta" v={metaFech != null ? `${fmtPct(metaFech, 1)}${taxaFech != null ? ` · ${pp(taxaFech - metaFech)}` : ''}` : null} motivo="Plano de metas do ciclo ainda não cadastrado." tipo="pct" />
           </>
         )}
         <Linha empilhado k="ROAS" v={roas} motivo="Sem faturamento ou investimento no período." />
@@ -521,7 +530,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
           </Slot>
           {etapas.map((e, k) => <Slot key={e.chave} i={k + 1}><CardEtapa e={e} m={m} metas={metas} /></Slot>)}
           <Slot i={etapas.length + 1}><CardVendas titulo="Vendas RGV" vendas={rgv} fat={m.faturamento} inv={inv} base={m.leads_crm}
-            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaDe(metas, venda.taxa!.meta)} mTaxa={motivoTaxa(m)} /></Slot>
+            taxaFech={venda.taxa!.v(m) ?? null} metaFech={metaEtapa(metas, venda.taxa!)} mTaxa={motivoTaxa(m)} /></Slot>
           <Slot i={etapas.length + 2}><CardVendas titulo="Vendas Clube R1" vendas={clube} fat={ct ? ct.clube_r1.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
           <Slot i={etapas.length + 3}><CardVendas titulo="Vendas Trator" vendas={trator} fat={ct ? ct.trator.faturamento : null} inv={inv} base={m.leads_crm} /></Slot>
           <Slot i={etapas.length + 4} ultimo><CardVendas titulo="Total de vendas" vendas={total} fat={fatTotal} inv={inv} base={m.leads_crm} /></Slot>
@@ -707,18 +716,20 @@ function Lista({ aba, secao, nome, itens, metas, referencia, ct, defasado }: { a
           </div>
         )
       ) : (
-        <div className="surface overflow-hidden">
-          <div>
+        <div className="surface overflow-x-auto">
+          <div className="min-w-[1360px]">
             <div>
-              {/* cabeçalho das colunas */}
-              <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
-                <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">leads Meta</div></div>
+              {/* cabeçalho das colunas: nome da peça, Investimento e Leads Meta separados */}
+              <div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_repeat(10,minmax(0,1fr))] gap-2 px-3 py-3 border-b border-border bg-secondary/30 text-[clamp(10px,0.85vw,12px)] leading-tight">
+                <div><div className="font-bold text-foreground capitalize">{nome}</div><div className="text-muted-foreground">nome e status</div></div>
+                <div><div className="font-bold text-foreground">Investimento</div><div className="text-muted-foreground">Meta Ads</div></div>
+                <div><div className="font-bold text-foreground">Leads Meta</div><div className="text-muted-foreground">e custo por lead</div></div>
                 {ETAPAS.map((e) => {
-                  const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+                  const meta = e.taxa ? metaEtapa(metas, e.taxa) : null;
                   return (
                     <div key={e.chave}>
                       <div className="font-bold text-foreground">{e.curto}</div>
-                      <div className="text-muted-foreground">{e.taxa && meta != null ? `meta ${fmtPct(meta, 0)}` : e.sub}</div>
+                      <div className="text-muted-foreground">{e.taxa && meta != null ? `meta ${fmtPct(meta, 1)}` : e.sub}</div>
                     </div>
                   );
                 })}
@@ -759,21 +770,26 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
 
 function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
+  const cpl = custosValidos(it) ? fmtBrl(it.cpl_pixel) : null;
   return (
     <div className="px-3 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="text-xs text-muted-foreground w-5 shrink-0">{pos}</span>
-        <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground truncate text-left hover:underline focus-visible:outline focus-visible:outline-2" title={it.nome}>{it.nome}</button><Status valor={it.status} />
-        <span className="ml-auto flex items-center gap-1.5 shrink-0">
-          {it.atribuicao_completa === false && <span className="tag" title={motivoItem(it, aba)}>funil CRM não atribuído</span>}
-          {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
-        </span>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(10,minmax(0,1fr))] gap-2 mt-2 pl-6">
-        <Celula principal={fmtBrlCurto(it.investimento)} secundaria={it.leads_pixel != null ? `${fmtNum(it.leads_pixel)} leads Meta` : null} />
+      <div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_repeat(10,minmax(0,1fr))] gap-2 items-start">
+        <div className="min-w-0 flex items-start gap-2">
+          <span className="text-xs text-muted-foreground w-5 shrink-0 pt-0.5">{pos}</span>
+          <div className="min-w-0">
+            <button type="button" onClick={aoAbrir} className="text-sm font-bold text-foreground text-left hover:underline focus-visible:outline focus-visible:outline-2 line-clamp-2 break-words" title={it.nome}>{it.nome}</button>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <Status valor={it.status} />
+              {it.atribuicao_completa === false && <span className="tag" title={motivoItem(it, aba)}>funil CRM não atribuído</span>}
+              {it.cobertura && (it.cobertura.midia_completa === false || it.cobertura.crm_completo === false || it.cobertura.historico_completo === false) && <span className="tag" title="Período com dias sem coleta completa de mídia, CRM ou histórico">dados parciais</span>}
+            </div>
+          </div>
+        </div>
+        <Celula principal={fmtBrlCurto(it.investimento)} />
+        <Celula principal={it.leads_pixel != null ? fmtNum(it.leads_pixel) : null} secundaria={it.leads_pixel != null ? (cpl ? `CPL ${cpl}` : 'sem custo por lead') : null} />
         {ETAPAS.map((e) => {
           const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
-          const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+          const meta = e.taxa ? metaEtapa(metas, e.taxa) : null;
           const sit = e.taxa ? situacao(taxa, meta, v) : 'nd';
           const chip = e.taxa ? (
             <span className={`inline-block rounded px-1.5 py-0.5 mono text-[11px] font-semibold ${e.chave === 'mql' ? 'text-muted-foreground' : COR[sit]}`}>{fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} />}</span>
@@ -892,7 +908,7 @@ function CardItem({ it, pos, aba, metas, referencia, aoAbrir }: { aoAbrir: () =>
           <tbody>
             {ETAPAS.map((e) => {
               const v = e.valor(it); const taxa = e.taxa?.v(it); const custo = custoDe(e, it);
-              const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+              const meta = e.taxa ? metaEtapa(metas, e.taxa) : null;
               const sit = e.taxa && e.chave !== 'mql' ? situacao(taxa, meta, v) : 'nd';
               const corTaxa = sit === 'meta' ? 'text-emerald-400' : sit === 'perto' ? 'text-amber-400' : sit === 'longe' ? 'text-red-400' : sit === 'poucos' ? 'text-muted-foreground' : 'text-foreground/80';
               return (
@@ -961,7 +977,7 @@ const COMO_LER: [string, string][] = [
   ['Lead no CRM', 'Negócios do HubSpot (pipelines Principal e Boletos) contados pela data de criação do lead; "Leads no Meta" são os leads reportados pelo pixel/formulário do Meta.'],
   ['MQL', 'Regra validada para implementação: negócios de campanhas com [FF] que estão ou passaram pela etapa MQL ou seguintes, incluindo a continuidade no pipeline Boletos.'],
   ['Venda', 'Regra validada para implementação: produto RGV, excluindo RGV Processos, na etapa Ganho do pipeline Principal ou Boletos. Em tramitação no Boletos ainda não é venda.'],
-  ['Taxas', 'Cada uma sobre a etapa anterior, colorida contra a meta do plano do ciclo que contém o fim do período (ciclo 45: conexão 33% dos MQLs, qualificação 45%, agendamento 76%, comparecimento 72%, fechamento 32%). Sem plano cadastrado, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
+  ['Taxas', 'Cada uma sobre o total de MQLs do período, colorida contra a meta acumulada do plano do ciclo que contém o fim do período (ciclo 45, metas entre etapas: conexão 33%, qualificação 45%, agendamento 76%, comparecimento 72%, fechamento 32%; sobre MQL: 33%, 14,9%, 11,3%, 8,1%, 2,6%). Sem plano cadastrado, as taxas ficam neutras. Menos de 5 casos fica cinza.'],
   ['Etapa alcançada', 'Cada etapa conta negócios distintos que chegaram nela ou além, inclusive os perdidos depois; reentrada não duplica.'],
   ['Datas', 'O período segue o filtro escolhido (ciclo ou datas). A consulta vai até o último dia fechado; dias abertos entram quando o lote diário é publicado (06:10 de Brasília, após HubSpot e Meta fecharem o mesmo corte). O critério de datas e comparação das taxas será identificado após validação.'],
   ['Peça criativa', 'Anúncios com a mesma arte somados em todas as datas, campanhas e anúncios. A arte é o AD no nome do anúncio ([RGV][VD][FEED][AD11][data] = VD AD11; VD = vídeo, IMG = imagem; marcações como CORTES ou PABLO separam a peça). Anúncios fora desse padrão aparecem com o nome original. O lead do CRM por peça virá pelo nome do anúncio na UTM e ainda não está atribuído.'],
@@ -1068,14 +1084,14 @@ function Detalhes({ item, aba, aoFechar, metas, referencia }: { item: Item | nul
           <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground">Do lead à venda</h4>
           <div className="divide-y divide-border">
             {ETAPAS.map(e => {
-              const qtd = e.valor(item); const taxa = e.taxa ? e.taxa.v(item) : null; const meta = e.taxa ? metaDe(metas, e.taxa.meta) : null;
+              const qtd = e.valor(item); const taxa = e.taxa ? e.taxa.v(item) : null; const meta = e.taxa ? metaEtapa(metas, e.taxa) : null;
               const custo = custoDe(e, item); const ref = referencia ? custoDe(e, referencia) : null;
               const sit = e.taxa ? situacao(taxa, meta, qtd) : 'nd';
               return <div key={e.chave} className="grid grid-cols-[1.2fr_2fr] gap-x-3 py-2 text-xs">
                 <span className="text-foreground font-semibold pt-1">{e.rotulo}</span>
                 <div className="space-y-1">
                   <div className="rounded bg-secondary/60 px-2 py-1 mono text-sm font-bold text-foreground">{fmtNum(qtd) ?? <Zero motivo={mItem} />}</div>
-                  {e.taxa && <div className="text-muted-foreground">{e.taxa.rotulo} <b className={taxa != null && sit !== 'nd' ? COR[sit] : 'text-foreground'}>{fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} />}</b>{meta != null && <> · meta {fmtPct(meta, 0)}</>}</div>}
+                  {e.taxa && <div className="text-muted-foreground">{e.taxa.rotulo} <b className={taxa != null && sit !== 'nd' ? COR[sit] : 'text-foreground'}>{fmtPct(taxa) ?? <Zero tipo="pct" motivo={mTaxa} />}</b>{meta != null && <> · meta {fmtPct(meta, 1)}</>}</div>}
                   <div className="text-muted-foreground">{e.custo.rotulo} <b className="text-foreground">{fmtBrl(custo) ?? <Zero tipo="brl" motivo={qtd === 0 ? `Sem ${e.curto.toLowerCase()} no período: custo por etapa não calculável.` : MOTIVO_CUSTO} />}</b>{ref != null && <> · {aba === 'campanhas' ? 'total' : 'campanha'} {fmtBrl(ref)}</>}</div>
                 </div>
               </div>;
