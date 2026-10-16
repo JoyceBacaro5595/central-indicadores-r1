@@ -82,8 +82,8 @@ export default function FluxoMarketingMdv() {
       <PageHeader
         titulo="Máquina de Vendas · Fluxo Marketing MDV"
         subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
-        onAtualizar={() => q.refetch()}
-        atualizando={q.isFetching}
+        onAtualizar={() => { q.refetch(); q2.refetch(); }}
+        atualizando={q.isFetching || q2.isFetching}
         acoes={<div className="hidden lg:flex items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
       />
       <PageBody className="space-y-5">
