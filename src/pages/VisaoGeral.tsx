@@ -162,6 +162,8 @@ export default function VisaoGeral() {
   const ciclo = perpBase.data?.ciclos?.find((c) => c.inicio <= hojeStr && hojeStr <= c.fim) ?? perpBase.data?.ciclos?.[perpBase.data.ciclos.length - 1];
   const perp = usePerpetuo(ciclo?.inicio, hojeStr, pode('perpetuo') && !!ciclo);
 
+  const bfQ = useQuery({ queryKey: ['vg-black10x'], queryFn: () => r1Rpc<{ ingressos: number; receita: number; reembolsos: number; ultima_carga: string; investido: number; lpv: number; checkouts: number; meta_ate: string | null; janela_inicio: string; janela_fim: string; diario: { dia: string; ingressos: number }[] }>('black10x_painel', {}), refetchInterval: 5 * 60_000, enabled: pode('painel'), retry: false });
+  const bf = bfQ.data;
   const eventos = eventosQ.data ?? [];
   const rota = useMemo(() => ROTA.cidades.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
@@ -344,7 +346,21 @@ export default function VisaoGeral() {
 
               <section className="rt-card rt-bf">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FFD43B' }} />Black Friday 10X</span><small /></div>
-                <div className="rt-empty">Sem dados do painel Black Friday. Os inscritos (pagos e gratuitos) ainda ficam só no Dashboard da Lovable e não chegam ao banco desta central.</div>
+                {!pode('painel') ? <div className="rt-empty">Sem permissão para ver o painel.</div> : bfQ.error ? <div className="rt-empty">Erro ao ler o Black Friday 10X: {String((bfQ.error as Error).message ?? bfQ.error)}</div> : !bf ? <div className="rt-empty">Carregando…</div> : (
+                  <>
+                    <div className="rt-hero">
+                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">venda até <b>{fmtD(bf.janela_fim)}</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
+                    </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Receita" v={brl(bf.receita)} din />
+                      <K l="Investido" v={brl(bf.investido)} din />
+                      <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
+                    </div>
+                    <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
+                    <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
+                    <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>
+                  </>
+                )}
               </section>
             </>
           )}
