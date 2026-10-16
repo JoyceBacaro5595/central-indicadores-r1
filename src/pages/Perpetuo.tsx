@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, usePerpetuoVendasClubeTrator, useMetaCiclo, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { FiltroMulti, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
@@ -221,7 +221,11 @@ export default function Perpetuo() {
 
   const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;
-  const metas = data?.metas ?? null;
+  /* Metas do plano: as que a RPC do funil devolve; sem elas, as cadastradas no calendário para o ciclo escolhido (ou o ciclo que contém o fim do período). */
+  const metaCiclo = useMetaCiclo();
+  const cicloDasMetas = cicloTag ?? data?.ciclos.find((c) => c.inicio <= ate && ate <= c.fim)?.ciclo ?? null;
+  const cadastrada = cicloDasMetas ? metaCiclo.data?.find((m) => m.ciclo === cicloDasMetas) : undefined;
+  const metas: PerpetuoMetas | null = data?.metas ?? (cadastrada ? { ...cadastrada, fonte: 'Cadastro no Calendário' } : null);
 
   return (
     <div className="min-h-screen bg-background">
@@ -755,13 +759,16 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
     ['conexão', metas?.conexao, 0], ['qualificação', metas?.qualificacao, 0], ['agendamento', metas?.agendamento, 0],
     ['comparecimento', metas?.comparecimento, 0], ['fechamento', metas?.fechamento, 0], ['MQL → venda', metas?.mql_venda, 2],
   ];
+  const extras: [string, string][] = [];
+  if (metas?.investimento != null) extras.push(['investimento', metas.investimento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })]);
+  if (metas?.vendas != null) extras.push(['vendas', String(metas.vendas)]);
   const tem = partes.some(([, v]) => v != null);
   return (
     <div className="surface px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span title={metas?.fonte ?? undefined}><b className="text-foreground">Metas</b> · Plano do ciclo{metas?.ciclo ? ` ${metas.ciclo}` : ''}:</span>
       {tem ? partes.map(([k, v, casas]) => (
         <span key={k}>{k} <b className="text-foreground">{fmtPct(v, casas) ?? <Zero tipo="pct" />}</b></span>
-      )) : <NaoDisponivel motivo="O plano de metas do ciclo ainda não está cadastrado no Supabase; quando a RPC devolver `metas`, a régua e as cores das taxas passam a usar o plano." />}
+      )).concat(extras.map(([k, v]) => <span key={k}>{k} <b className="text-foreground">{v}</b></span>)) : <NaoDisponivel motivo="Plano de metas do ciclo ainda não cadastrado. Cadastre no Calendário, na data do ciclo." />}
       <span className="ml-auto flex flex-wrap items-center gap-3">
         {([['meta', 'na meta'], ['perto', 'até 10% abaixo'], ['longe', 'mais de 10% abaixo'], ['poucos', 'menos de 5 casos']] as [keyof typeof PONTO, string][]).map(([s, rot]) => (
           <span key={s} className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${PONTO[s]}`} />{rot}</span>
