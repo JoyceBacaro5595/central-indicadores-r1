@@ -120,10 +120,6 @@ export default function Eventos() {
       />
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
-        <CardsRota />
-        {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
-        {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
-
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div className="kpi-card"><div className="kpi-label">Eventos no período</div><div className="kpi-value mono">{num(lista.length)}</div></div>
           <div className="kpi-card"><div className="kpi-label">Ingressos realizados</div><div className="kpi-value mono">{num(tot.realizado)}</div></div>
@@ -133,6 +129,9 @@ export default function Eventos() {
           <div className="kpi-card"><div className="kpi-label">Compradores qualificados</div><div className="kpi-value mono">{hub.isLoading ? '…' : num(totH.qual)}</div><div className="text-[10px] text-muted-foreground mt-1">{totH.comp ? `${((100 * totH.qual) / totH.comp).toFixed(0)}% de ${num(totH.comp)} · ${num(totH.hs)} no HubSpot` : 'faixa de faturamento do HubSpot'}</div></div>
           {vePresenca && <div className="kpi-card"><div className="kpi-label">Presentes (check-in)</div><div className="kpi-value mono">{presenca.isLoading ? '…' : num(totP.presentes)}</div><div className="text-[10px] text-muted-foreground mt-1">{totP.esperados ? `${((100 * totP.presentes) / totP.esperados).toFixed(0)}% de ${num(totP.esperados)} e-tickets` : 'e-tickets da Guru'}</div></div>}
         </div>
+        <CardsRota />
+        {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
+        {erro && <div className="surface p-3 text-xs text-red-400">{erro}</div>}
 
         <section className="surface p-4 overflow-x-auto">
           <div className="flex items-center justify-between">
