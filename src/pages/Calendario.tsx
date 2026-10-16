@@ -67,7 +67,7 @@ export default function Calendario() {
             </div>
           </div>
 
-          <FiltroMulti rotulo="Produto" variante="chips" valor={selecionadas}
+          <FiltroMulti rotulo="Produto" valor={selecionadas}
             opcoes={usadas.map((c) => ({ valor: c, rotulo: (CAT_AGENDA[c] || CAT_AGENDA.outros)[1], cor: cor(c) }))}
             onChange={(v) => setOcultas(new Set(v.length ? usadas.filter((c) => !v.includes(c)) : []))} />
 
