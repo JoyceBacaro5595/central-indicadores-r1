@@ -475,7 +475,7 @@ function useTamanhoFaixa() {
       window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
     };
     return (
-      <div className="faixa-slot relative min-w-0" style={{ flex: `${pesos[i]} 1 0%`, minWidth: 150 }}>
+      <div className="faixa-slot relative min-w-0" style={{ flex: `${pesos[i]} 1 0%` }}>
         {children}
         <div onPointerDown={arrastar} onDoubleClick={() => setPesos(PESOS_PADRAO)}
           className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize touch-none hover:bg-violet-400/40 z-10" title="Arraste para ajustar a largura" />
@@ -499,7 +499,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
   return (
     <div className="space-y-1.5">
       <div className="surface overflow-hidden">
-        <div ref={linhaRef} className="flex flex-nowrap divide-x divide-border overflow-x-auto" style={altura != null ? { minHeight: altura } : undefined}>
+        <div ref={linhaRef} className="flex flex-nowrap divide-x divide-border" style={altura != null ? { minHeight: altura } : undefined}>
           <Slot i={0}>
           <div className="min-w-0 p-2 h-full">
             <div className={TITULO_FAIXA}>Investimento</div>
