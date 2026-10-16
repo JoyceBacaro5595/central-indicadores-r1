@@ -58,16 +58,21 @@ export function TabelaRota({ linhas, detalhe, mesmo }: { linhas: LinhaRota[]; de
   );
 }
 
-/** Metas do funil por cidade (mesmas do detalhe da cidade). */
-const FUNIL_META = { cliques: 13889, connect: 75, visitas: 10417, checkouts: 250, convPagina: 2.4, convCheckout: 40 };
-const COR = {
-  ok: 'bg-emerald-500/25 border-emerald-500/60', warn: 'bg-amber-500/25 border-amber-500/60', bad: 'bg-red-500/25 border-red-500/60', neutro: 'bg-secondary/30 border-dashed border-border',
-} as const;
+/** Taxas-alvo entre etapas (as mesmas do detalhe da cidade). As metas de cada etapa saem da meta de vendas ativa (META.vendas, que o plano da rota
+ *  sobrescreve), trabalhando de trás para frente: checkouts = vendas / conv. checkout; visitas = checkouts / conv. página; cliques = visitas / connect rate. */
+const TAXA = { connect: 75, convPagina: 2.4, convCheckout: 40 };
+const metasFunil = () => {
+  const checkouts = META.vendas / (TAXA.convCheckout / 100);
+  const visitas = checkouts / (TAXA.convPagina / 100);
+  return { checkouts, visitas, cliques: visitas / (TAXA.connect / 100) };
+};
+const BARRA = { ok: 'bg-emerald-400', warn: 'bg-amber-400', bad: 'bg-red-400', neutro: 'bg-border' } as const;
 
 /** Visão funil (gestor de tráfego): CPM → Cliques → Visitas LP → Checkouts → Vendas, cada etapa mais baixa que a anterior, com a meta,
  *  o % atingido (verde ≥100%, âmbar ≥70%, vermelho abaixo) e a conversão entre etapas. Embaixo, os indicadores financeiros com a meta.
  *  Etapas que a Central ainda não coleta (Visitas LP, Checkouts) ficam "—", nunca zero. */
 export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
+  const FM = metasFunil();
   return (
     <div className="grid gap-4 grid-cols-1">
       {linhas.map((l) => {
@@ -79,29 +84,29 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
         const ticket = div(l.fat, l.vendas);
         const etapas: { r: string; v: number | null; f: (x: number | null) => string; meta: number | null; menor?: boolean; sub?: string }[] = [
           { r: 'CPM', v: cpm, f: brl, meta: META.cpm, menor: true, sub: impr != null ? `${num(impr)} impressões` : undefined },
-          { r: 'Cliques no link', v: cliq, f: num, meta: FUNIL_META.cliques },
-          { r: 'Visitas LP', v: null, f: num, meta: FUNIL_META.visitas },
-          { r: 'Checkouts', v: null, f: num, meta: FUNIL_META.checkouts },
+          { r: 'Cliques no link', v: cliq, f: num, meta: FM.cliques },
+          { r: 'Visitas LP', v: null, f: num, meta: FM.visitas },
+          { r: 'Checkouts', v: null, f: num, meta: FM.checkouts },
           { r: 'Vendas', v: l.vendas, f: num, meta: META.vendas },
         ];
         const chips: { r: string; v: number | null; meta: string; menor?: boolean; m: number }[] = [
           { r: 'CTR', v: ctr, meta: pct(META.ctr, 2), m: META.ctr },
-          { r: 'Connect rate', v: null, meta: pct(FUNIL_META.connect, 0), m: FUNIL_META.connect },
-          { r: 'Visit. → checkout', v: null, meta: pct(FUNIL_META.convPagina, 1), m: FUNIL_META.convPagina },
-          { r: 'Conv. venda', v: convVenda, meta: pct(FUNIL_META.convCheckout, 0), m: FUNIL_META.convCheckout },
+          { r: 'Connect rate', v: null, meta: pct(TAXA.connect, 0), m: TAXA.connect },
+          { r: 'Visit. → checkout', v: null, meta: pct(TAXA.convPagina, 1), m: TAXA.convPagina },
+          { r: 'Conv. venda', v: convVenda, meta: pct(TAXA.convCheckout, 0), m: TAXA.convCheckout },
         ];
         const kpis: { r: string; v: string; meta: string; t: keyof typeof TOM }[] = [
           { r: 'Investimento', v: brl(inv), meta: brl(META.investimento), t: 'neutro' },
           { r: 'Ticket médio', v: brl(ticket), meta: brl(META.ticket), t: tom(ticket != null ? (100 * ticket) / META.ticket : null) },
           { r: 'Receita', v: brl(l.fat), meta: brl(META.receita), t: tom(l.fat != null ? (100 * l.fat) / META.receita : null) },
-          { r: 'Conv. página', v: '—', meta: pct(FUNIL_META.convPagina, 1), t: 'neutro' },
+          { r: 'Conv. página', v: '—', meta: pct(TAXA.convPagina, 1), t: 'neutro' },
           { r: 'CPA', v: brl(cpa), meta: brl(META.cac), t: tom(cpa != null ? (100 * cpa) / META.cac : null, true) },
-          { r: 'Pacing do investimento', v: inv != null ? pct((100 * inv) / META.investimento, 0) : '—', meta: '100%', t: 'neutro' },
+          { r: 'Verba usada', v: inv != null ? pct((100 * inv) / META.investimento, 0) : '—', meta: '100%', t: 'neutro' },
         ];
         return (
-          <div key={l.c.cidade} className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4">
+          <div key={l.c.cidade} className="rounded-xl border border-border bg-secondary/10 p-5 space-y-4">
             <div className="flex items-baseline justify-between gap-2 flex-wrap">
-              <h4 className="text-base font-extrabold text-foreground font-display">{l.c.cidade}</h4>
+              <h4 className="text-lg font-extrabold text-foreground font-mono">{l.c.cidade}</h4>
               <span className="text-[10px] text-muted-foreground">Evento {dm(l.data)}{l.dias > 0 ? ` · faltam ${l.dias} ${l.dias === 1 ? 'dia' : 'dias'}` : l.dias === 0 ? ' · hoje' : ' · concluído'}</span>
             </div>
             <div className="overflow-x-auto">
@@ -113,12 +118,13 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
                   return (
                     <div key={e.r} className="flex items-center flex-1 min-w-0">
                       <div className="flex-1 min-w-0 flex items-center justify-center" style={{ height: 150 }}>
-                        <div className={`w-full rounded-md border flex flex-col items-center justify-center text-center px-1 ${COR[t]}`} style={{ height: `${altura}%` }}
+                        <div className={`relative overflow-hidden w-full rounded-md border border-border bg-secondary/40 flex flex-col items-center justify-center text-center px-1 ${e.v == null ? 'border-dashed' : ''}`} style={{ height: `${altura}%` }}
                           title={e.v == null ? 'Ainda não coletado do Meta' : undefined}>
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{e.r}</span>
-                          <span className={`text-lg font-extrabold tabular-nums font-display ${TOM[t]}`}>{e.f(e.v)}</span>
+                          <span className={`text-lg font-extrabold tabular-nums font-mono ${TOM[t]}`}>{e.f(e.v)}</span>
                           <span className="text-[9px] text-muted-foreground">meta {e.f(e.meta)}{p != null ? ` · ${p.toFixed(0)}%` : ''}</span>
                           {e.sub && <span className="text-[9px] text-muted-foreground">{e.sub}</span>}
+                          <span className={`absolute left-0 bottom-0 h-1 ${BARRA[t]}`} style={{ width: `${Math.min(100, p ?? 0)}%` }} />
                         </div>
                       </div>
                       {i < chips.length && (() => {
@@ -140,7 +146,7 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
               {kpis.map((x) => (
                 <div key={x.r} className="text-center">
                   <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{x.r}</div>
-                  <div className={`text-sm font-extrabold tabular-nums font-display ${TOM[x.t]}`}>{x.v}</div>
+                  <div className={`text-sm font-extrabold tabular-nums font-mono ${TOM[x.t]}`}>{x.v}</div>
                   <div className="text-[9px] text-muted-foreground">meta {x.meta}</div>
                 </div>
               ))}
