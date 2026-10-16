@@ -11,7 +11,7 @@ as $function$
   select p.transacao_id, b.transacao_id, b.criado_em, b.aprovado_em, b.canal, b.produto_nome, b.oferta_nome, b.cidade_evento,
     b.tipo_ingresso, b.qtd_ingressos::integer, b.valor_bruto, b.cupom, b.utm_campaign, b.link,
     case when b.email_igual then 'e-mail' when b.doc_igual then 'CPF/CNPJ' else 'telefone' end,
-    b.criado_em < p.criado_em
+    coalesce(b.aprovado_em, b.criado_em) < p.criado_em
   from marts.vw_recuperacao_carrinho p
   join lateral (
     select * from (
