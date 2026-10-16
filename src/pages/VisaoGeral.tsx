@@ -50,6 +50,17 @@ interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip'
 interface MetaEvento { cidade: string; mes_evento: string; investimento: number }
 type Dia = { dia: string; [k: string]: number | string | null | undefined };
 
+/** Estrutura do card enquanto os números chegam: a moldura aparece na hora e só os dados entram depois. */
+function Esqueleto() {
+  return (
+    <div className="rt-sk-g" role="status" aria-label="Carregando">
+      <div className="rt-sk" style={{ height: '5em' }} />
+      <div className="rt-sk-3"><div className="rt-sk" style={{ height: '3.2em' }} /><div className="rt-sk" style={{ height: '3.2em' }} /><div className="rt-sk" style={{ height: '3.2em' }} /></div>
+      <div className="rt-sk" style={{ height: '9em' }} />
+    </div>
+  );
+}
+
 function K({ l, v, m, cls, bar, din }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean }) {
   return (
     <div className="k">
@@ -244,7 +255,7 @@ export default function VisaoGeral() {
               {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
                 : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
-            {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <div className="rt-empty">Carregando…</div> : (
+            {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <Esqueleto /> : (
               <>
                 {ampliado ? (
                   <div className="rt-kpis rt-kpis-4">
@@ -328,7 +339,7 @@ export default function VisaoGeral() {
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
-                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <div className="rt-empty">Carregando…</div> : (
+                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
                   <>
                     <div className="rt-hero">
                       <Anel p={null} cor="var(--red)" />
