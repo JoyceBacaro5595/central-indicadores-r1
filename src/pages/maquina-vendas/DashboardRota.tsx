@@ -256,7 +256,7 @@ export default function DashboardRota({ detalhe, eventosHist, eventos, meta, hub
       <Bloco titulo="Ainda não replicado neste Dashboard">
         <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
           <li>FORM_NATIVO por rota, gráficos de rosca (campanhas, públicos, criativos), Métricas Avançadas e Tabela por cidade: dependem de dados por campanha, público e anúncio das campanhas de evento.</li>
-          <li>Funil completo (cliques no link, visitas à LP, checkouts): falta coletar esses campos das campanhas de evento.</li>
+          <li>Funil completo por campanha de evento (hoje a visão é por cidade).</li>
                     <li>Seletor de período e filtro por cidade clicando na linha do tempo.</li>
         </ul>
         {carregando && <Aviso t="Carregando dados…" />}

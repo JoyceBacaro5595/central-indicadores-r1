@@ -10,7 +10,7 @@ export interface CidadeIng {
 
 /* Card de uma cidade, no padrão dos cards da Lovable (funil + rodapé) com os indicadores das tabelas por cidade.
    Onde a Central ainda não coleta o dado aparece "—", nunca zero. */
-interface Linha { c: { cidade: string; data: string }; ev: unknown; m: { investimento: number; impressoes: number; cliques: number } | null; h: { compradores_hubspot: number } | null; inv: number | null; vendas: number | null; cort: number | null; fat: number | null; ocup: number | null; cap: number; qual: number | null; dias: number; data: string; pres: number | null; esp: number | null; metaIng: number | null; metaFat: number | null; cad: { comuns: number; vip: number; cortesias: number } | null }
+interface Linha { c: { cidade: string; data: string }; ev: unknown; m: { investimento: number; impressoes: number; cliques: number; lpv?: number | null; checkouts?: number | null } | null; h: { compradores_hubspot: number } | null; inv: number | null; vendas: number | null; cort: number | null; fat: number | null; ocup: number | null; cap: number; qual: number | null; dias: number; data: string; pres: number | null; esp: number | null; metaIng: number | null; metaFat: number | null; cad: { comuns: number; vip: number; cortesias: number } | null }
 type Fmt = { num: (v: number | null | undefined) => string; brl: (v: number | null | undefined) => string; pct: (v: number | null | undefined, c?: number) => string; dm: (iso: string) => string };
 type MetaCfg = { investimento: number; vendas: number; cortesias: number; totalPartic: number; ticket: number; receita: number; cac: number; cacQualif: number; qualif: number; cpm: number; ctr: number }
 const div = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? null : a / b);
@@ -82,6 +82,9 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
   const ctr = impr ? (100 * (cliq ?? 0)) / impr : null;
   const ticket = div(l.fat, l.vendas); const cac = div(l.inv, l.vendas); const cacQ = div(l.inv, l.qual);
   const roas = div(l.fat, l.inv);
+  const lpv = l.m?.lpv ?? null; const chk = l.m?.checkouts ?? null;
+  const connect = cliq && lpv != null ? (100 * lpv) / cliq : null; const convPag = lpv && chk != null ? (100 * chk) / lpv : null;
+  const convChk = chk && l.vendas != null ? (100 * l.vendas) / chk : null;
   const qualPct = l.qual != null && l.h?.compradores_hubspot ? (100 * l.qual) / l.h.compradores_hubspot : null;
   const pp = l.ocup == null ? null : (100 * l.ocup) / meta.totalPartic; const pi = l.inv == null ? null : (100 * l.inv) / meta.investimento;
   const efic = pp != null && pi ? pp / pi : null;
@@ -96,12 +99,12 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
       { rotulo: 'Investimento', atual: l.inv, meta: meta.investimento, f: brl, menorMelhor: true },
       { rotulo: 'CPM', atual: cpm, meta: meta.cpm, f: brl, menorMelhor: true },
       { rotulo: 'CTR', atual: ctr, meta: meta.ctr, f: p2 },
-      { rotulo: 'Cliques no link', atual: null, meta: FUNIL.cliques, f: n2, nota: 'não coletado' },
-      { rotulo: 'Connect rate', atual: null, meta: FUNIL.connect, f: p1, nota: 'não coletado' },
-      { rotulo: 'Visitas LP', atual: null, meta: FUNIL.visitas, f: n2, nota: 'não coletado' },
-      { rotulo: 'Conversão página', atual: null, meta: FUNIL.convPagina, f: p1, nota: 'não coletado' },
-      { rotulo: 'Checkouts', atual: null, meta: FUNIL.checkouts, f: n2, nota: 'não coletado' },
-      { rotulo: 'Conversão checkout', atual: null, meta: FUNIL.convCheckout, f: p1, nota: 'não coletado' },
+      { rotulo: 'Cliques no link', atual: cliq, meta: FUNIL.cliques, f: n2 },
+      { rotulo: 'Connect rate', atual: connect, meta: FUNIL.connect, f: p1, nota: 'sem dado do Meta' },
+      { rotulo: 'Visitas LP', atual: lpv, meta: FUNIL.visitas, f: n2, nota: 'sem dado do Meta' },
+      { rotulo: 'Conversão página', atual: convPag, meta: FUNIL.convPagina, f: p1, nota: 'sem dado do Meta' },
+      { rotulo: 'Checkouts', atual: chk, meta: FUNIL.checkouts, f: n2, nota: 'sem dado do Meta' },
+      { rotulo: 'Conversão checkout', atual: convChk, meta: FUNIL.convCheckout, f: p1, nota: 'sem dado do Meta' },
     ] },
     { titulo: 'Ingressos', linhas: [
       { rotulo: 'ING - Vendas', atual: l.vendas, meta: meta.vendas, f: n2 },
