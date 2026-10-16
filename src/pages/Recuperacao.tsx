@@ -24,7 +24,7 @@ interface Registro { transacao_id: string; situacao: string | null; observacao: 
 type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
-interface CompraDetalhe { transacao_id: string; compra_id: string; compra_em: string; aprovado_em: string | null; compra_canal: string | null; compra_produto: string | null; compra_oferta: string | null; compra_cidade: string | null; compra_tipo: string | null; compra_qtd: number | null; compra_valor: number | null; compra_cupom: string | null; compra_utm_campaign: string | null; compra_link: string | null }
+interface CompraDetalhe { transacao_id: string; compra_id: string; compra_em: string; aprovado_em: string | null; compra_canal: string | null; compra_produto: string | null; compra_oferta: string | null; compra_cidade: string | null; compra_tipo: string | null; compra_qtd: number | null; compra_valor: number | null; compra_cupom: string | null; compra_utm_campaign: string | null; compra_link: string | null; ligado_por: string | null; compra_antes: boolean | null }
 const ORIGEM_ROTULO: Record<string, string> = { social_selling: 'Social Selling', recuperado: 'Recuperado', mesmo_link: 'Comprou mesmo link, sem recuperação', outro_link: 'Comprou com outro link, sem recuperação' };
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.split('-'); return `${m}/${y}`; };
@@ -120,6 +120,7 @@ export default function Recuperacao() {
   };
   const [obs, setObs] = useState<Record<string, string>>({});
   const [detalheId, setDetalheId] = useState<string | null>(null);
+  const [tabelaCompraram, setTabelaCompraram] = useState(false);
   const [errosStatus, setErrosStatus] = useState<Record<string, string>>({});
   /* Linhas que o atendente mexeu ficam na tela (na mesma posição) até trocar de filtro, mesmo saindo da situação filtrada. */
   const [fixos, setFixos] = useState<Record<string, { p: Pedido; i: number }>>({});
@@ -143,7 +144,7 @@ export default function Recuperacao() {
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
-  const compras = useQuery({ queryKey: ['recuperacao-compra-detalhe'], queryFn: () => r1Rpc<CompraDetalhe[]>('recuperacao_compra_detalhe_v1'), refetchInterval: 5 * 60_000, retry: false });
+  const compras = useQuery({ queryKey: ['recuperacao-compra-detalhe'], queryFn: () => r1Rpc<CompraDetalhe[]>('recuperacao_compra_detalhe_v2'), refetchInterval: 5 * 60_000, retry: false });
   const compraDe = useMemo(() => new Map((compras.data ?? []).map((c) => [c.transacao_id, c])), [compras.data]);
   const cps = useQuery({ queryKey: ['recuperacao-cp'], queryFn: () => r1Rpc<{ transacao_id: string; cp: string | null }[]>('recuperacao_cp_pedido_v1'), refetchInterval: 5 * 60_000, retry: false });
   const cpDe = useMemo(() => new Map((cps.data ?? []).map((c) => [c.transacao_id, c.cp])), [cps.data]);
@@ -212,6 +213,8 @@ export default function Recuperacao() {
       ja_compraram_depois: mk(l.filter((p) => p.ja_comprou_depois)),
     };
   }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidades]);
+  /* Pop-up do card "Compraram depois": mesmos filtros dos cards, uma linha por pedido que saiu da fila porque a pessoa já tem compra paga. */
+  const compraramLista = useMemo(() => filtra(baseCards.data ?? []).filter((p) => (cidades.length === 0 || cidades.includes(p.cidade_evento ?? '')) && p.ja_comprou_depois), [baseCards.data, filtra, cidades]);
   /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
   const recPorEvento = useMemo(() => {
     const m = new Map<string, { total: number; rec: number }>();
@@ -255,7 +258,7 @@ export default function Recuperacao() {
           <div className="kpi-card"><div className="kpi-label">Não contatados</div><div className="kpi-value mono">{cards ? num(cards.na_fila.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.na_fila.valor)} · {cards.na_fila.pct.toFixed(0)}%</div>}</div>
           <div className="kpi-card"><div className="kpi-label">Em contato</div><div className="kpi-value mono">{cards ? num(cards.contatados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.contatados.valor)} · {cards.contatados.pct.toFixed(0)}%</div>}</div>
           <div className="kpi-card"><div className="kpi-label">Recuperados</div><div className="kpi-value mono text-emerald-400">{cards ? num(cards.recuperados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.recuperados.valor)} · {cards.recuperados.pct.toFixed(0)}%</div>}</div>
-          <div className="kpi-card"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">mesmo e-mail e produto, pedido aprovado depois; saem da fila sozinhos</div></div>
+          <button type="button" onClick={() => setTabelaCompraram(true)} className="kpi-card text-left cursor-pointer hover:bg-secondary/40" aria-haspopup="dialog" title="Ver os pedidos, um por linha"><div className="kpi-label">Compraram depois</div><div className="kpi-value mono">{cards ? num(cards.ja_compraram_depois.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.ja_compraram_depois.valor)} · {cards.ja_compraram_depois.pct.toFixed(0)}%</div>}<div className="text-[10px] text-muted-foreground">já têm compra paga do mesmo produto (e-mail, CPF/CNPJ ou telefone); saem da fila sozinhos. Clique para ver a tabela</div></button>
           <div className="kpi-card"><div className="kpi-label">Sem Interesse</div><div className="kpi-value mono">{cards ? num(cards.descartados.n) : '…'}</div>{cards && <div className="text-[11px] text-muted-foreground mt-1">{brl(cards.descartados.valor)} · {cards.descartados.pct.toFixed(0)}%</div>}</div>
         </div>
 
@@ -387,7 +390,8 @@ export default function Recuperacao() {
                     return (
                       <div className="rounded-lg border border-border p-3 text-xs space-y-1">
                         <div className="font-bold text-foreground">Compra realizada{o ? ` · ${ORIGEM_ROTULO[o.origem] ?? o.origem}` : ''}</div>
-                        <div className="text-muted-foreground">Comprou em: <span className="mono text-foreground">{quando(c.aprovado_em ?? c.compra_em)}</span></div>
+                        <div className="text-muted-foreground">Comprou em: <span className="mono text-foreground">{quando(c.aprovado_em ?? c.compra_em)}</span>{c.compra_antes != null && ` (${c.compra_antes ? 'antes' : 'depois'} do pedido)`}</div>
+                        {c.ligado_por && <div className="text-muted-foreground">Ligado por: <span className="text-foreground">{c.ligado_por}</span></div>}
                         <div className="text-muted-foreground">Cidade: <span className="text-foreground">{c.compra_cidade ?? '—'}</span></div>
                         <div className="text-muted-foreground">Produto: <span className="text-foreground">{c.compra_produto ?? '—'}{c.compra_oferta ? ` · ${c.compra_oferta}` : ''}</span></div>
                         <div className="text-muted-foreground">Ingresso: <span className="text-foreground">{[c.compra_tipo, c.compra_qtd ? `${c.compra_qtd} ingresso${c.compra_qtd > 1 ? 's' : ''}` : null, c.compra_valor != null ? brl(c.compra_valor) : null].filter(Boolean).join(' · ') || '—'}</span></div>
@@ -409,6 +413,46 @@ export default function Recuperacao() {
             </div>
           );
         })()}
+        {tabelaCompraram && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setTabelaCompraram(false)} onKeyDown={(e) => { if (e.key === 'Escape') setTabelaCompraram(false); }} role="presentation">
+            <div role="dialog" aria-modal="true" aria-label="Pedidos que já compraram" className="surface-elevated rounded-xl w-full max-w-6xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-foreground">Compraram depois · {num(compraramLista.length)} pedidos</h3>
+                  <p className="text-[11px] text-muted-foreground">Cada linha é um pedido da recuperação cuja pessoa já tem compra paga do mesmo produto.</p>
+                </div>
+                <button autoFocus onClick={() => setTabelaCompraram(false)} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold shrink-0">Fechar</button>
+              </div>
+              <div className="overflow-auto p-4">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-muted-foreground text-left">
+                    {['Pedido da recuperação', 'Comprador', 'Evento', 'Compra paga', 'Cidade', 'Ingresso', 'Valor', 'Canal', 'Ligado por', 'Venda'].map((h) => <th key={h} className="pb-2 pr-3 font-semibold whitespace-nowrap">{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {compraramLista.map((p) => {
+                      const c = compraDe.get(p.transacao_id);
+                      return (
+                        <tr key={p.transacao_id} className="border-t border-border align-top">
+                          <td className="py-2 pr-3 whitespace-nowrap"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · {brl(p.valor_bruto)}</div></td>
+                          <td className="py-2 pr-3"><div className="font-semibold text-foreground">{p.nome_contato ?? '—'}</div><div className="text-muted-foreground">{p.email ?? '—'}</div><div className="mono text-muted-foreground">{p.telefone ?? '—'}</div></td>
+                          <td className="py-2 pr-3"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{p.produto_nome}</div></td>
+                          <td className="py-2 pr-3 whitespace-nowrap"><div className="mono text-foreground">{c ? quando(c.aprovado_em ?? c.compra_em) : '—'}</div>{c && <div className="text-muted-foreground">{c.compra_antes ? 'antes do pedido' : 'depois do pedido'}</div>}</td>
+                          <td className="py-2 pr-3 text-foreground">{c?.compra_cidade ?? '—'}</td>
+                          <td className="py-2 pr-3"><div className="text-foreground">{c?.compra_tipo ?? '—'}</div><div className="text-muted-foreground">{c?.compra_qtd ? `${num(c.compra_qtd)} ${c.compra_qtd === 1 ? 'ingresso' : 'ingressos'}` : ''}</div></td>
+                          <td className="py-2 pr-3 mono whitespace-nowrap text-foreground">{c?.compra_valor != null ? brl(c.compra_valor) : '—'}</td>
+                          <td className="py-2 pr-3 text-foreground">{[c?.compra_canal, c?.compra_cupom ? `cupom ${c.compra_cupom}` : null].filter(Boolean).join(' · ') || '—'}</td>
+                          <td className="py-2 pr-3 text-foreground whitespace-nowrap">{c?.ligado_por ?? '—'}</td>
+                          <td className="py-2">{c?.compra_link ? <a href={c.compra_link} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold whitespace-nowrap">Abrir na Guru</a> : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                    {compraramLista.length === 0 && <tr><td colSpan={10} className="py-6 text-center text-muted-foreground">Nenhum pedido neste filtro.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </>)}
       </main>
     </div>

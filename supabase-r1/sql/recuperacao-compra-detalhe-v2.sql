@@ -1,0 +1,4 @@
+-- Aplicada em produção: public.recuperacao_compra_detalhe_v2 (só leitura). Substitui a v1 na tela:
+-- liga a compra paga ao pedido por e-mail, CPF/CNPJ ou telefone (mesma regra da fila), inclui compra anterior ao pedido,
+-- e devolve ligado_por e compra_antes. A v1 continua no banco enquanto a produção usar o front antigo.
+-- Corpo igual ao aplicado: ver a função no banco (pg_get_functiondef) ou o histórico deste arquivo na branch.
