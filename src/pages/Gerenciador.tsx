@@ -5,6 +5,7 @@ import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 import AlertasSaude from '@/components/AlertasSaude';
+import TokensIntegracoes from '@/components/TokensIntegracoes';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Parametro { chave: string; valor: number; rotulo: string; descricao: string | null; grupo: string; atualizado_em: string }
@@ -129,6 +130,9 @@ export default function Gerenciador() {
         {d && (
           <>
             {notas.error && <p role="alert" className="text-red-400">Não foi possível carregar Observações: {(notas.error as Error).message}</p>}
+            <Secao titulo="Tokens das integrações">
+              <TokensIntegracoes />
+            </Secao>
             <Secao titulo="Limites das integrações">
               <div className="text-sm" title={notas.data?.find(n => n.chave === 'hubspot_historico_lote')?.observacoes}>HubSpot · até 50 negócios por lote com histórico</div>
               {observacoes('limite', 'hubspot_historico_lote')}
