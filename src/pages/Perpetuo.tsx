@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ImageOff, ExternalLink } from 'lucide-react';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
-import { FiltroMulti, FiltroPeriodo, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
+import { FiltroMulti, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
 import lpFotos from '@/data/lpFotos.json';
 
@@ -242,7 +242,8 @@ export default function Perpetuo() {
               )}
             </select>
             {preset === 'custom' && <>
-            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => mudarData('de', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => mudarData('ate', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
             </>}
           </div>
         }
@@ -278,7 +279,8 @@ export default function Perpetuo() {
               {data?.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo}</option>)}
             </select>
             {preset === 'custom' && <>
-            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => mudarData('de', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => mudarData('ate', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
             </>}
           </div>
         </div>

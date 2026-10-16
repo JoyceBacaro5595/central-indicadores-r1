@@ -5,7 +5,7 @@ import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
 import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { Abas, FiltroMulti, FiltroPeriodo, PageHeader } from '@/components/shared';
+import { Abas, FiltroMulti, PageHeader } from '@/components/shared';
 import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
 
 interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
@@ -294,7 +294,8 @@ export default function Recuperacao() {
                 {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
                 </select>
                 {periodo === 'custom' && <>
-                <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+                <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => setDe(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => setAte(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
                 </>}
               </div>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-full md:w-72" />

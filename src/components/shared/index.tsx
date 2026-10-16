@@ -1,6 +1,7 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
+import { presets } from '@/lib/periodos';
 import AvisosSino from '@/components/AvisosSino';
 
 /* ─── Componentes visuais compartilhados da Central ─── */
@@ -267,72 +268,39 @@ const fmtMes = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]}/${iso.sli
 
 /** Filtro de período no padrão da Central. `modo="mes"` escolhe meses (datas sempre no dia 1) e `modo="dia"` escolhe dias, com atalhos.
  *  Duas escolhas fecham o período: a primeira marca o início, a segunda o fim (se vier antes, as duas se invertem). */
-export function FiltroPeriodo({ rotulo = 'Período', modo, de, ate, onChange, atalhos = modo === 'dia' }: {
+/** Período no modelo oficial (o mesmo da Recuperação de carrinho): menu com atalhos e, em Personalizado, De e Até. No modo mês os atalhos viram meses inteiros. */
+export function FiltroPeriodo({ rotulo = 'Período', modo, de, ate, onChange }: {
   rotulo?: string; modo: 'mes' | 'dia'; de: string; ate: string; onChange: (de: string, ate: string) => void; atalhos?: boolean;
 }) {
-  const { aberto, setAberto, ref } = useMenu();
-  const [inicio, setInicio] = useState<string | null>(null); // primeiro clique aguardando o segundo
-  const [ano, setAno] = useState(Number((ate || de || hojeSP()).slice(0, 4)));
-  const [mes, setMes] = useState(Number((ate || de || hojeSP()).slice(5, 7)) - 1);
-  useEffect(() => { if (aberto) { setInicio(null); const b = de || hojeSP(); setAno(Number(b.slice(0, 4))); setMes(Number(b.slice(5, 7)) - 1); } }, [aberto]); // eslint-disable-line react-hooks/exhaustive-deps
-  const escolher = (iso: string) => {
-    if (!inicio) { setInicio(iso); return; }
-    const [a, b] = iso < inicio ? [iso, inicio] : [inicio, iso];
-    onChange(a, b); setInicio(null); setAberto(false);
+  const lista = useMemo(presets, []);
+  const mes = (d: string) => `${d.slice(0, 7)}-01`;
+  const ajusta = (d: string, a: string): [string, string] => (modo === 'mes' ? [mes(d), mes(a)] : [d, a]);
+  const achado = lista.find((p) => { const [d, a] = ajusta(p.de, p.ate); return d === de && a === ate; });
+  const [custom, setCustom] = useState(false);
+  const chave = custom || !achado ? 'custom' : achado.chave;
+  const escolher = (c: string) => {
+    if (c === 'custom') { setCustom(true); return; }
+    const p = lista.find((x) => x.chave === c);
+    if (!p) return;
+    setCustom(false);
+    const [d, a] = ajusta(p.de, p.ate);
+    onChange(d, a);
   };
-  const ini = inicio ?? de, fim = inicio ?? ate;
-  const resumo = modo === 'mes' ? `${fmtMes(de)} → ${fmtMes(ate)}` : `${fmtDia(de)} → ${fmtDia(ate)}`;
-  const hoje = hojeSP();
-  const prontos: [string, string, string][] = [
-    ['Hoje', hoje, hoje], ['Ontem', somaDias(hoje, -1), somaDias(hoje, -1)], ['7 dias', somaDias(hoje, -6), hoje], ['30 dias', somaDias(hoje, -29), hoje],
-    ['Este mês', `${hoje.slice(0, 7)}-01`, hoje],
-  ];
-  const primeiro = new Date(Date.UTC(ano, mes, 1)).getUTCDay();
-  const nDias = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
-  const celula = 'h-8 rounded-md text-xs hover:bg-secondary';
+  const campo = 'bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground';
+  const tipo = modo === 'mes' ? 'month' : 'date';
+  const v = (d: string) => (modo === 'mes' ? d.slice(0, 7) : d);
+  const dado = (x: string) => (modo === 'mes' ? `${x}-01` : x);
   return (
-    <div ref={ref} className="relative">
-      <button type="button" aria-haspopup="dialog" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} className={BOTAO_FILTRO}>
-        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-muted-foreground font-semibold">{rotulo}</span>
-        <span className="font-bold tabular-nums">{resumo}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-      </button>
-      {aberto && (
-        <div role="dialog" aria-label={rotulo} className="absolute right-0 z-30 mt-1 w-72 rounded-xl border border-border bg-card p-3 shadow-xl">
-          <div className="flex items-center justify-between mb-2">
-            <button type="button" aria-label="Anterior" onClick={() => (modo === 'mes' ? setAno(ano - 1) : mes === 0 ? (setMes(11), setAno(ano - 1)) : setMes(mes - 1))} className="p-1 rounded hover:bg-secondary"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-xs font-bold">{modo === 'mes' ? ano : `${MESES[mes]} de ${ano}`}</span>
-            <button type="button" aria-label="Próximo" onClick={() => (modo === 'mes' ? setAno(ano + 1) : mes === 11 ? (setMes(0), setAno(ano + 1)) : setMes(mes + 1))} className="p-1 rounded hover:bg-secondary"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-          {modo === 'mes' ? (
-            <div className="grid grid-cols-4 gap-1">
-              {MESES.map((m, i) => {
-                const iso = `${ano}-${p2(i + 1)}-01`;
-                const dentro = iso >= ini.slice(0, 7) + '-01' && iso <= fim.slice(0, 7) + '-01';
-                return <button key={m} type="button" onClick={() => escolher(iso)} className={`${celula} font-semibold ${dentro ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-foreground'}`}>{m}</button>;
-              })}
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-muted-foreground mb-1">{DIAS_SEM.map((d, i) => <span key={i}>{d}</span>)}</div>
-              <div className="grid grid-cols-7 gap-0.5">
-                {Array.from({ length: primeiro }, (_, i) => <span key={`v${i}`} />)}
-                {Array.from({ length: nDias }, (_, i) => {
-                  const iso = `${ano}-${p2(mes + 1)}-${p2(i + 1)}`;
-                  const ponta = iso === ini || iso === fim; const dentro = iso >= ini && iso <= fim;
-                  return <button key={iso} type="button" onClick={() => escolher(iso)} className={`${celula} tabular-nums ${ponta ? 'bg-primary text-primary-foreground hover:bg-primary font-bold' : dentro ? 'bg-secondary text-foreground' : 'text-foreground'}`}>{i + 1}</button>;
-                })}
-              </div>
-            </>
-          )}
-          {atalhos && modo === 'dia' && (
-            <div className="flex flex-wrap gap-1 mt-3 pt-2 border-t border-border">
-              {prontos.map(([r, a, b]) => <button key={r} type="button" onClick={() => { onChange(a, b); setInicio(null); setAberto(false); }} className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground">{r}</button>)}
-            </div>
-          )}
-          <p className="text-[10px] text-muted-foreground mt-2">{inicio ? 'Agora escolha o fim do período.' : 'Escolha o início e depois o fim.'}</p>
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <select aria-label={rotulo} title={rotulo} value={chave} onChange={(e) => escolher(e.target.value)} className={campo}>
+        <option value="custom">Personalizado</option>
+        {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
+      </select>
+      {chave === 'custom' && (
+        <>
+          <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type={tipo} value={v(de)} max={ate ? v(ate) : undefined} onChange={(e) => e.target.value && onChange(dado(e.target.value), dado(e.target.value) > ate ? dado(e.target.value) : ate)} className={campo} /></label>
+          <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type={tipo} value={v(ate)} min={de ? v(de) : undefined} onChange={(e) => e.target.value && onChange(dado(e.target.value) < de ? dado(e.target.value) : de, dado(e.target.value))} className={campo} /></label>
+        </>
       )}
     </div>
   );
