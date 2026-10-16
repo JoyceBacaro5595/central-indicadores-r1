@@ -1,0 +1,7 @@
+-- Aplicada em produção (migration recuperacao_ja_comprou_por_cpf_ou_antes), pedido da Joyce em 16/10.
+-- marts.vw_recuperacao_carrinho.ja_comprou_depois passa a significar "já tem compra paga do mesmo produto":
+-- liga por e-mail OU CPF e vale também compra anterior à tentativa (caso Dayane Furtado, Manaus).
+-- Trecho trocado dentro da definição da view:
+--   antes:  WHERE b.email = p.email AND b.produto_nome = p.produto_nome AND b.aprovada AND b.criado_em > p.criado_em
+--   depois: WHERE b.produto_nome = p.produto_nome AND b.aprovada AND b.transacao_id <> p.transacao_id
+--             AND (b.email = p.email OR (NULLIF(b.documento,'') IS NOT NULL AND b.documento = p.documento))
