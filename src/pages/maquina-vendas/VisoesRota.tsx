@@ -2,7 +2,7 @@ import type { CidadeIng } from './CidadeCard';
 import { META, num, brl, pct, dm } from './DashboardRota';
 
 export interface LinhaRota {
-  c: { cidade: string; data: string }; m: { investimento: number; impressoes: number; cliques: number } | null; h: { compradores_hubspot: number } | null;
+  c: { cidade: string; data: string }; m: { investimento: number; impressoes: number; cliques: number; lpv?: number | null; checkouts?: number | null } | null; h: { compradores_hubspot: number } | null;
   inv: number | null; vendas: number | null; cort: number | null; fat: number | null; ocup: number | null; cap: number; qual: number | null; dias: number; data: string;
 }
 const div = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? null : a / b);
@@ -70,7 +70,7 @@ const BARRA = { ok: 'bg-emerald-400', warn: 'bg-amber-400', bad: 'bg-red-400', n
 
 /** Visão funil (gestor de tráfego): CPM → Cliques → Visitas LP → Checkouts → Vendas, cada etapa mais baixa que a anterior, com a meta,
  *  o % atingido (verde ≥100%, âmbar ≥70%, vermelho abaixo) e a conversão entre etapas. Embaixo, os indicadores financeiros com a meta.
- *  Etapas que a Central ainda não coleta (Visitas LP, Checkouts) ficam "—", nunca zero. */
+ *  Etapas sem dado do Meta (Visitas LP, Checkouts) ficam "—", nunca zero. */
 export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
   const FM = metasFunil();
   return (
@@ -79,27 +79,30 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
         const impr = l.m ? Number(l.m.impressoes) : null; const cliq = l.m ? Number(l.m.cliques) : null; const inv = l.m ? Number(l.m.investimento) : l.inv;
         const cpm = impr ? (1000 * (inv as number)) / impr : null;
         const ctr = impr && cliq != null ? (100 * cliq) / impr : null;
-        const convVenda = null as number | null; // vendas / checkouts: depende de checkouts
+        const lpv = l.m?.lpv ?? null; const chk = l.m?.checkouts ?? null;
+        const connect = cliq && lpv != null ? (100 * lpv) / cliq : null;
+        const visChk = lpv && chk != null ? (100 * chk) / lpv : null;
+        const convVenda = chk && l.vendas != null ? (100 * l.vendas) / chk : null;
         const cpa = div(inv, l.vendas);
         const ticket = div(l.fat, l.vendas);
         const etapas: { r: string; v: number | null; f: (x: number | null) => string; meta: number | null; menor?: boolean; sub?: string }[] = [
           { r: 'CPM', v: cpm, f: brl, meta: META.cpm, menor: true, sub: impr != null ? `${num(impr)} impressões` : undefined },
           { r: 'Cliques no link', v: cliq, f: num, meta: FM.cliques },
-          { r: 'Visitas LP', v: null, f: num, meta: FM.visitas },
-          { r: 'Checkouts', v: null, f: num, meta: FM.checkouts },
+          { r: 'Visitas LP', v: lpv, f: num, meta: FM.visitas },
+          { r: 'Checkouts', v: chk, f: num, meta: FM.checkouts },
           { r: 'Vendas', v: l.vendas, f: num, meta: META.vendas },
         ];
         const chips: { r: string; v: number | null; meta: string; menor?: boolean; m: number }[] = [
           { r: 'CTR', v: ctr, meta: pct(META.ctr, 2), m: META.ctr },
-          { r: 'Connect rate', v: null, meta: pct(TAXA.connect, 0), m: TAXA.connect },
-          { r: 'Visit. → checkout', v: null, meta: pct(TAXA.convPagina, 1), m: TAXA.convPagina },
+          { r: 'Connect rate', v: connect, meta: pct(TAXA.connect, 0), m: TAXA.connect },
+          { r: 'Visit. → checkout', v: visChk, meta: pct(TAXA.convPagina, 1), m: TAXA.convPagina },
           { r: 'Conv. venda', v: convVenda, meta: pct(TAXA.convCheckout, 0), m: TAXA.convCheckout },
         ];
         const kpis: { r: string; v: string; meta: string; t: keyof typeof TOM }[] = [
           { r: 'Investimento', v: brl(inv), meta: brl(META.investimento), t: 'neutro' },
           { r: 'Ticket médio', v: brl(ticket), meta: brl(META.ticket), t: tom(ticket != null ? (100 * ticket) / META.ticket : null) },
           { r: 'Receita', v: brl(l.fat), meta: brl(META.receita), t: tom(l.fat != null ? (100 * l.fat) / META.receita : null) },
-          { r: 'Conv. página', v: '—', meta: pct(TAXA.convPagina, 1), t: 'neutro' },
+          { r: 'Conv. página', v: visChk != null ? pct(visChk, 1) : '—', meta: pct(TAXA.convPagina, 1), t: 'neutro' },
           { r: 'CPA', v: brl(cpa), meta: brl(META.cac), t: tom(cpa != null ? (100 * cpa) / META.cac : null, true) },
           { r: 'Verba usada', v: inv != null ? pct((100 * inv) / META.investimento, 0) : '—', meta: '100%', t: 'neutro' },
         ];
@@ -119,7 +122,7 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
                     <div key={e.r} className="flex items-center flex-1 min-w-0">
                       <div className="flex-1 min-w-0 flex items-center justify-center" style={{ height: 150 }}>
                         <div className={`relative overflow-hidden w-full rounded-md border border-border bg-secondary/40 flex flex-col items-center justify-center text-center px-1 ${e.v == null ? 'border-dashed' : ''}`} style={{ height: `${altura}%` }}
-                          title={e.v == null ? 'Ainda não coletado do Meta' : undefined}>
+                          title={e.v == null ? 'Sem dado do Meta ainda (aparece após a próxima atualização do Meta)' : undefined}>
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{e.r}</span>
                           <span className={`text-lg font-extrabold tabular-nums font-mono ${TOM[t]}`}>{e.f(e.v)}</span>
                           <span className="text-[9px] text-muted-foreground">meta {e.f(e.meta)}{p != null ? ` · ${p.toFixed(0)}%` : ''}</span>
@@ -151,7 +154,7 @@ export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground">Vendas = ingressos pagos. "—" = a Central ainda não coleta Visitas LP e Checkouts do Meta. Para custos (CPM, CPA), abaixo da meta é melhor.</p>
+            <p className="text-[10px] text-muted-foreground">Vendas = ingressos pagos. "—" = o Meta ainda não trouxe Visitas LP e Checkouts (chegam na próxima atualização do Meta). Para custos (CPM, CPA), abaixo da meta é melhor.</p>
           </div>
         );
       })}

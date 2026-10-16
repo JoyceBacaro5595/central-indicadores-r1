@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
-import { FiltroPeriodo, PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageHeader, subVisivel } from '@/components/shared';
 import {
   useRelatorioIngressos,
   RelatorioFiltros,
@@ -220,10 +220,10 @@ function CidadeMes({ data }: { data: RelatorioIngressos }) {
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="kpi-card">
+    <div className="kpi-card" title={sub && !subVisivel(sub) ? sub : undefined}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value mono">{value}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && subVisivel(sub) && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }
@@ -309,25 +309,6 @@ export default function Relatorio() {
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         <div className="surface p-4 flex flex-wrap items-end gap-3 print:hidden">
-          <div className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-            Período
-            <div className="flex gap-1">
-              {([
-                ['ano', 'Ano'],
-                ['mes', 'Mês atual'],
-                ['mes_anterior', 'Mês anterior'],
-                ['30d', '30 dias'],
-              ] as [Periodo, string][]).map(([p, l]) => (
-                <button
-                  key={p}
-                  onClick={() => escolherPeriodo(p)}
-                  className={`text-xs px-2.5 py-1.5 rounded-md normal-case font-semibold ${periodo === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
           <FiltroPeriodo modo="dia" de={inicio} ate={fim} onChange={(a, b) => { setPeriodo('livre'); setDatas([a, b]); }} />
           <Filtro label="Produto" value={filtros.linha ?? ''} onChange={setF('linha')} opcoes={(data?.opcoes.linhas ?? [filtros.linha ?? '']).filter(Boolean).map((l) => [l, l])} />
           <Filtro label="Cidade" value={filtros.cidade ?? ''} onChange={setF('cidade')} opcoes={(data?.opcoes.cidades ?? []).map((c) => [c, c])} />
