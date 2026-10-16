@@ -203,7 +203,11 @@ export default function Perpetuo() {
     const c = data?.ciclos.find((x) => x.ciclo === chave);
     if (c) { setDe(c.inicio); setAte(c.fim); }
   };
-  const mudarData = (campo: 'de' | 'ate', v: string) => { setPreset('custom'); if (campo === 'de') setDe(v); else setAte(v); };
+  const mudarData = (campo: 'de' | 'ate', v: string) => {
+    if (!v) return; // campo apagado: mantém a data anterior
+    setPreset('custom');
+    if (campo === 'de') { setDe(v); if (v > ate) setAte(v); } else { setAte(v); if (v < de) setDe(v); }
+  };
 
   const itens = comVendasCT(itensDaAba(aba, data), aba, vendasCT);
   const r = data?.resumo;
@@ -362,8 +366,8 @@ function ContaPill() {
  * Em telas estreitas a faixa rola na horizontal em vez de quebrar linha. */
 const CARD_FAIXA = 'flex-1 basis-0 min-w-0 p-2';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
-const NUM_FAIXA = 'display leading-none mt-1.5 text-foreground whitespace-nowrap text-[clamp(18px,1.8vw,28px)]';
-const CUSTO_FAIXA = 'display text-foreground whitespace-nowrap text-[clamp(13px,1.25vw,18px)]';
+const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap';
+const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap';
 function CardEtapa({ e, m, metas }: { e: Etapa; m: PerpetuoMetricas; metas: PerpetuoMetas | null }) {
   const base = m.leads_crm;
   const v = e.valor(m);
@@ -475,7 +479,7 @@ function useTamanhoFaixa() {
       window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
     };
     return (
-      <div className="relative min-w-0" style={{ flex: `${pesos[i]} 1 0%` }}>
+      <div className="faixa-slot relative min-w-0" style={{ flex: `${pesos[i]} 1 0%` }}>
         {children}
         <div onPointerDown={arrastar} onDoubleClick={() => setPesos(PESOS_PADRAO)}
           className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize touch-none hover:bg-violet-400/40 z-10" title="Arraste para ajustar a largura" />
@@ -503,7 +507,7 @@ function FaixaFunil({ m, metas, ct }: { m: PerpetuoMetricas; metas: PerpetuoMeta
           <Slot i={0}>
           <div className="min-w-0 p-2 h-full">
             <div className={TITULO_FAIXA}>Investimento</div>
-            <div className="display leading-none mt-2 text-foreground whitespace-nowrap text-[clamp(14px,1.45vw,22px)]">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
+            <div className="num-faixa num-faixa-brl leading-none mt-2 text-foreground whitespace-nowrap">{fmtBrl(inv, 2) ?? <Zero tipo="brl" />}</div>
             <div className="h-1.5 mt-2.5" />
             <div className="mt-2 space-y-1.5 text-[10px]">
               <Linha empilhado k="CPM" v={fmtBrl(m.cpm)} motivo="CPM ainda não publicado neste corte." tipo="brl" />
@@ -593,11 +597,11 @@ function CardSemOrigem({ d }: { d: PerpetuoFunil }) {
       <p className="font-semibold text-foreground">Leads sem origem</p>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
         <div>
-          <div className="text-3xl font-serif text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
+          <div className="text-3xl font-bold text-foreground">{sem == null ? '—' : fmtNum(sem)}</div>
           <div className="text-xs text-muted-foreground">leads sem campanha na UTM</div>
         </div>
         <div>
-          <div className="text-3xl font-serif text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
+          <div className="text-3xl font-bold text-foreground">{pct == null ? '—' : `${pct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}</div>
           <div className="text-xs text-muted-foreground">dos leads no CRM{total != null ? ` (${fmtNum(total)})` : ''}</div>
         </div>
       </div>

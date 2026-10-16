@@ -31,7 +31,7 @@ function LinhaRegra({ r, aoSalvar, salvando }: { r: Omit<Regra, 'id' | 'atualiza
       <td className="py-1.5 pr-2"><input value={v.padrao} onChange={(e) => setV({ ...v, padrao: e.target.value })} placeholder="expressão (ex.: SELLER|TALITA)" className={`${cls} mono w-full min-w-[220px]`} /></td>
       <td className="py-1.5 pr-2"><input value={v.valor} onChange={(e) => setV({ ...v, valor: e.target.value })} placeholder="resultado" className={`${cls} w-full min-w-[150px] font-semibold`} /></td>
       <td className="py-1.5 pr-2"><input value={v.observacao ?? ''} onChange={(e) => setV({ ...v, observacao: e.target.value })} placeholder="observação" className={`${cls} w-full min-w-[160px]`} /></td>
-      <td className="py-1.5 pr-2 text-center"><input type="checkbox" checked={v.ativo} onChange={(e) => setV({ ...v, ativo: e.target.checked })} /></td>
+      <td className="py-1.5 pr-2 text-center"><input type="checkbox" aria-label="Regra ativa" checked={v.ativo} onChange={(e) => setV({ ...v, ativo: e.target.checked })} /></td>
       <td className="py-1.5 text-right">
         <button disabled={!mudou || salvando || !v.padrao || !v.valor} onClick={() => aoSalvar(v)} className="text-primary disabled:opacity-30" title="Salvar"><Save className="w-4 h-4" /></button>
       </td>

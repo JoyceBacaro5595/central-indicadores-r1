@@ -67,9 +67,9 @@ export default function MaquinaVendas() {
         titulo="Máquina de Vendas · Presencial"
         subtitulo="Dashboard de performance dos eventos por cidade · Meta Ads, Guru e HubSpot"
         acoes={<>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => setDe(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
           <span className="text-xs text-muted-foreground">a</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => setAte(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
         </>}
         onAtualizar={() => { eventos.refetch(); meta.refetch(); hub.refetch(); }}
         atualizando={eventos.isFetching}

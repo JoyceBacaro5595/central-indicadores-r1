@@ -49,13 +49,13 @@ export function DailyChart({ daily, guruDaily }: DailyChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 14%)" vertical={false} />
           <XAxis
             dataKey="date"
-            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'Rethink Sans' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'Rethink Sans' }}
             axisLine={false}
             tickLine={false}
             width={60}
@@ -63,7 +63,7 @@ export function DailyChart({ daily, guruDaily }: DailyChartProps) {
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+            tick={{ fill: 'hsl(220 10% 40%)', fontSize: 10, fontFamily: 'Rethink Sans' }}
             axisLine={false}
             tickLine={false}
             width={50}

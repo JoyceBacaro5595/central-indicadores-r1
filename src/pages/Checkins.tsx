@@ -73,9 +73,9 @@ export default function Checkins() {
         titulo="Check-ins"
         subtitulo={`Esperados, presentes, quem ainda não chegou e cancelados · e-tickets da Guru${r?.atualizado_em ? ` · lido ${horaBR(r.atualizado_em)}` : ''}`}
         acoes={<>
-          <input type="month" value={de.slice(0, 7)} onChange={(e) => setDe(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <input type="month" value={de.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setDe(d); if (d > ate) setAte(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
           <span className="text-xs text-muted-foreground">a</span>
-          <input type="month" value={ate.slice(0, 7)} onChange={(e) => setAte(`${e.target.value}-01`)} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
+          <input type="month" value={ate.slice(0, 7)} onChange={(e) => { if (!e.target.value) return; const d = `${e.target.value}-01`; setAte(d); if (d < de) setDe(d); }} className="mono text-xs bg-secondary rounded px-2 py-1 text-foreground" />
         </>}
         onAtualizar={() => { eventos.refetch(); resumo.refetch(); lista.refetch(); }}
         atualizando={eventos.isFetching || lista.isFetching}

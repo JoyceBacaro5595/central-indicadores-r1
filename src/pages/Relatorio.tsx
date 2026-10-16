@@ -330,11 +330,11 @@ export default function Relatorio() {
           </div>
           <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
             De
-            <input type="date" value={inicio} onChange={(e) => { setPeriodo('livre'); setDatas([e.target.value, fim]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
+            <input type="date" value={inicio} onChange={(e) => { if (!e.target.value) return; setPeriodo('livre'); setDatas([e.target.value, e.target.value > fim ? e.target.value : fim]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
           </label>
           <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
             Até
-            <input type="date" value={fim} onChange={(e) => { setPeriodo('livre'); setDatas([inicio, e.target.value]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
+            <input type="date" value={fim} onChange={(e) => { if (!e.target.value) return; setPeriodo('livre'); setDatas([e.target.value < inicio ? e.target.value : inicio, e.target.value]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
           </label>
           <Filtro label="Produto" value={filtros.linha ?? ''} onChange={setF('linha')} opcoes={(data?.opcoes.linhas ?? [filtros.linha ?? '']).filter(Boolean).map((l) => [l, l])} />
           <Filtro label="Cidade" value={filtros.cidade ?? ''} onChange={setF('cidade')} opcoes={(data?.opcoes.cidades ?? []).map((c) => [c, c])} />

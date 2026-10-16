@@ -264,7 +264,7 @@ export default function Usuarios() {
                     </td>
                     <td className="p-3">
                       {emEdicao ? (
-                        <input type="checkbox" checked={rascunho.ativo} disabled={eu} onChange={(e) => setRascunho({ ...rascunho, ativo: e.target.checked })} />
+                        <input type="checkbox" aria-label="Usuário ativo" checked={rascunho.ativo} disabled={eu} onChange={(e) => setRascunho({ ...rascunho, ativo: e.target.checked })} />
                       ) : <span className={u.ativo ? 'text-emerald-400' : 'text-muted-foreground'}>{u.ativo ? 'Sim' : 'Não'}</span>}
                     </td>
                     <td className="p-3 text-muted-foreground">{fmt(u.criado_em)}</td>
@@ -398,7 +398,7 @@ export default function Usuarios() {
                       return (
                         <td key={p.valor} className="p-2 text-center">
                           {matriz ? (
-                            <input type="checkbox" checked={ligado} disabled={travado} onChange={() => alternarPermissao(rec, p.valor)}
+                            <input type="checkbox" aria-label={`${rotulo} · ${p.rotulo}`} checked={ligado} disabled={travado} onChange={() => alternarPermissao(rec, p.valor)}
                               title={travado ? 'O administrador sempre gerencia usuários' : `${rotulo} · ${p.rotulo}`} />
                           ) : ligado ? '●' : <span className="text-muted-foreground/40">·</span>}
                         </td>

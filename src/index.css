@@ -2,27 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Rethink+Sans:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 228 22% 6%;
-    --foreground: 210 20% 93%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
 
-    --card: 228 18% 9%;
+    --card: 0 0% 7.5%;
     --card-foreground: 210 20% 93%;
 
-    --popover: 228 18% 10%;
+    --popover: 0 0% 8.5%;
     --popover-foreground: 210 20% 93%;
 
     --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 14% 13%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 210 12% 75%;
 
-    --muted: 228 12% 16%;
-    --muted-foreground: 220 10% 44%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
 
     --accent: 0 60% 48%;
     --accent-foreground: 0 0% 100%;
@@ -30,25 +30,25 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 14% 12%;
-    --input: 228 14% 12%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
     --ring: 0 72% 51%;
 
     --radius: 0.625rem;
 
     /* Extended palette */
-    --card-elevated: 228 16% 11%;
+    --card-elevated: 0 0% 10%;
     --gold: 42 62% 66%;
     --glow-primary: 0 72% 51% / 0.08;
     --glow-success: 160 60% 45% / 0.08;
 
-    --sidebar-background: 228 18% 7%;
+    --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 210 12% 80%;
     --sidebar-primary: 0 72% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 228 14% 13%;
+    --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 210 12% 80%;
-    --sidebar-border: 228 14% 12%;
+    --sidebar-border: 0 0% 16%;
     --sidebar-ring: 0 72% 51%;
   }
 
@@ -104,7 +104,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Rethink Sans', 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
 }
 
@@ -318,8 +318,8 @@
 
   /* ─── Tipografia de destaque (Perpétuo RGV · Fluxo de Tráfego) ─── */
   .display {
-    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-    font-weight: 400;
+    font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.01em;
   }
   .text-gold { color: hsl(var(--gold)); }
@@ -348,8 +348,9 @@
   }
 
   .mono {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.93em;
+    font-family: 'Rethink Sans', 'DM Sans', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
   /* ─── Scrollbar ─── */
@@ -388,3 +389,84 @@
 /* vermelho do RGV um pouco mais fundo para o texto branco dos botões passar de 4,5:1 */
 :root[data-modulo="rgv"] { --primary: 352 100% 46%; --accent: 352 100% 42%; --ring: 352 100% 50%; --primary-foreground: 0 0% 100%;
   --hl-a: hsl(352 90% 42%); --hl-b: hsl(352 80% 32%); --hl-border: hsl(352 90% 45% / 0.3); --hl-shadow: hsl(352 100% 50% / 0.25); }
+
+/* ===== Visual Sala R1 em todo o app: títulos e números em Bricolage Grotesque ===== */
+h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; letter-spacing: -0.01em; }
+.kpi-card, .surface { border-radius: 0.9rem; }
+.kpi-label { font-weight: 600; letter-spacing: 0.08em; }
+.kpi-value { @apply text-2xl; font-weight: 700; }
+.kpi-card-highlight .kpi-value { @apply text-3xl; }
+/* cor do produto: RGV Processos (azul), disponível quando o módulo entrar */
+:root[data-modulo="proc"] { --primary: 217 100% 62%; --accent: 217 100% 56%; --ring: 217 100% 62%; --primary-foreground: 0 0% 100%;
+  --hl-a: hsl(217 85% 45%); --hl-b: hsl(217 80% 33%); --hl-border: hsl(217 90% 55% / 0.3); --hl-shadow: hsl(217 100% 62% / 0.25); }
+.mobile-view .kpi-value, .mobile-view .kpi-card-highlight .kpi-value { @apply text-sm; }
+
+/* Números dos indicadores sempre na fonte de destaque, mesmo com a classe .mono */
+.kpi-value.mono, .side-metric-value.mono, .funnel-value.mono, .kpi-card .mono, .kpi-card-highlight .mono { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi-card { background: hsl(var(--card-elevated)); border-color: hsl(0 0% 100% / 0.09); }
+.kpi-label { font-size: 11px; color: hsl(var(--muted-foreground)); }
+/* destaque no estilo do próximo evento: cor do produto saindo do canto sobre o grafite */
+.kpi-card-highlight { background: linear-gradient(135deg, hsl(var(--primary)) -60%, hsl(0 0% 10%) 60%); border: 1px solid hsl(0 0% 100% / 0.16); box-shadow: none; }
+.kpi-card-highlight .kpi-label { color: hsl(0 0% 100% / 0.7); }
+.section-label, .eyebrow { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; }
+.section-label { font-size: 0.8rem; color: hsl(0 0% 100% / 0.74); }
+.dashboard-header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+.surface, .surface-elevated { background: hsl(var(--card)); border-color: hsl(0 0% 100% / 0.09); box-shadow: none; }
+.surface table thead th { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.surface table td { font-variant-numeric: tabular-nums; }
+.light .kpi-card, .light .surface, .light .surface-elevated { border-color: hsl(var(--border)); }
+.light .kpi-card { background: hsl(var(--card)); }
+.light .section-label { color: hsl(var(--muted-foreground)); }
+.light .kpi-card-highlight { background: linear-gradient(135deg, var(--hl-a, hsl(0 68% 48%)), var(--hl-b, hsl(0 55% 38%))); border-color: var(--hl-border, hsl(0 50% 40% / 0.3)); }
+
+/* ===== Modelo Sala R1 nas demais telas: cards com ponto de cor, tiles de indicador e títulos em destaque ===== */
+.surface, .surface-elevated { border-radius: 1.1rem; background: hsl(0 0% 7.5%); }
+.section-label { display: inline-flex; align-items: center; gap: 0.5em; font-size: 1.05rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; text-transform: none; color: hsl(var(--foreground)); }
+.section-label::before { content: ''; flex: none; width: 0.6em; height: 0.6em; border-radius: 50%; background: hsl(var(--primary)); }
+.kpi-card { border: 0; border-radius: 0.8rem; background: hsl(0 0% 10%); transition: none; }
+.kpi-card:hover { transform: none; box-shadow: none; }
+.kpi-label { text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.08em; font-weight: 600; color: hsl(0 0% 100% / 0.5); }
+.kpi-value { line-height: 1.1; }
+.kpi-card-highlight { border-radius: 0.9rem; }
+.surface table tbody tr { border-color: hsl(0 0% 100% / 0.09); }
+.surface table thead th { color: hsl(0 0% 100% / 0.5); }
+.toggle-item-ativo { box-shadow: inset 0 -2px 0 hsl(var(--primary)); }
+.light .surface, .light .surface-elevated { background: hsl(var(--card)); }
+.light .section-label { color: hsl(var(--foreground)); }
+.light .kpi-card { background: hsl(var(--secondary)); }
+.light .kpi-label { color: hsl(var(--muted-foreground)); }
+.light .surface table thead th { color: hsl(var(--muted-foreground)); }
+
+/* Respiro entre filtros e tabela em todas as telas (menos poluição visual) */
+.surface table { margin-top: 1.5rem; }
+.surface table thead th { padding-top: 0.25rem; padding-bottom: 0.75rem; }
+.surface .flex-col.gap-2 { gap: 0.75rem; }
+
+/* Faixa do funil (Perpétuo): cada card mede a própria largura e ajusta o tamanho dos números para caber, sem sobrepor */
+.faixa-slot { container-type: inline-size; }
+.faixa-slot > div:first-child { padding: 0.75rem 0.85rem; }
+.num-faixa, .custo-faixa { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.num-faixa { font-size: clamp(14px, calc((100cqw - 1.7rem) / 4), 32px); }
+.num-faixa-brl { font-size: clamp(10px, calc((100cqw - 1.7rem) / 8), 26px); }
+.custo-faixa { font-size: clamp(10px, calc((100cqw - 1.7rem) / 8.5), 19px); margin-top: 0.15rem; }
+
+.faixa-slot > div:first-child { padding: 0.7rem clamp(0.4rem, 8cqw, 0.85rem); }
+.faixa-slot .text-\[10px\] { font-size: clamp(9px, 7.2cqw, 11px); }
+
+/* Fonte de números e títulos única: Bricolage (sem serifa, sem mono) */
+.font-serif, .font-mono { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif !important; font-variant-numeric: tabular-nums; }
+.text-gold { color: hsl(var(--primary)); }
+/* Cards no modelo do próximo evento: cor do produto saindo do canto sobre o grafite */
+.kpi-card, .side-metric, .funnel-box { background: linear-gradient(135deg, hsl(var(--primary) / 0.22) -30%, hsl(0 0% 10%) 58%); border: 1px solid hsl(0 0% 100% / 0.12); }
+.faixa-slot { background: linear-gradient(135deg, hsl(var(--primary) / 0.2) -30%, transparent 55%); }
+.light .kpi-card, .light .side-metric { background: hsl(var(--secondary)); border-color: hsl(var(--border)); }
+.light .faixa-slot { background: none; }
+
+/* Filtros e caixas de seleção: cores do tema, foco visível e opções legíveis no escuro */
+select, input[type="date"], input[type="month"] { color-scheme: dark; cursor: pointer; }
+.light select, .light input[type="date"], .light input[type="month"] { color-scheme: light; }
+select option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+input[type="checkbox"] { accent-color: hsl(var(--primary)); width: 1rem; height: 1rem; cursor: pointer; }
+input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
+select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+select:disabled, input:disabled { cursor: not-allowed; opacity: 0.6; }
