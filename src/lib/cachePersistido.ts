@@ -64,6 +64,9 @@ export function limparCachePersistido() {
   desligar?.();
   desligar = undefined;
   usuario = null;
-  try { localStorage.removeItem(CHAVE); } catch { /* nada a limpar */ }
+  try {
+    localStorage.removeItem(CHAVE);
+    for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith('r1-rec-cards:')) localStorage.removeItem(k); }
+  } catch { /* nada a limpar */ }
   cliente?.clear();
 }
