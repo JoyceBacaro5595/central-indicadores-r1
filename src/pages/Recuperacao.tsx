@@ -216,15 +216,17 @@ export default function Recuperacao() {
     };
   }, [baseCards.data, baseCards.isLoading, baseCards.isPlaceholderData, filtra, cidades]);
   /* Na abertura mostra os últimos totais (só números, sem dados pessoais; ficam no navegador deste usuário) até os atuais chegarem. */
-  const chaveCards = `r1-rec-cards:${perfil?.user_id ?? ''}:${de}|${ate}|${cidades.join(',')}|${busca.trim()}|${tipos.join(',')}`;
+  const chaveCards = `r1-rec-cards:${perfil?.user_id ?? ''}:${de}|${ate}|${cidades.join(',')}|${tipos.join(',')}`;
+  const semBusca = busca.trim() === '';
   const cards = useMemo(() => {
     if (cardsVivos) return cardsVivos;
-    try { const b = perfil?.user_id ? localStorage.getItem(chaveCards) : null; return b ? (JSON.parse(b) as NonNullable<typeof cardsVivos>) : undefined; } catch { return undefined; }
-  }, [cardsVivos, chaveCards, perfil?.user_id]);
+    try { const b = perfil?.user_id && semBusca ? localStorage.getItem(chaveCards) : null; return b ? (JSON.parse(b) as NonNullable<typeof cardsVivos>) : undefined; } catch { return undefined; }
+  }, [cardsVivos, chaveCards, perfil?.user_id, semBusca]);
+  const dadoBom = baseCards.isSuccess && (baseCards.data?.length ?? 0) > 0;
   useEffect(() => {
-    if (!cardsVivos || !perfil?.user_id) return;
+    if (!cardsVivos || !perfil?.user_id || !semBusca || !dadoBom) return;
     try { localStorage.setItem(chaveCards, JSON.stringify(cardsVivos)); } catch { /* sem espaço ou bloqueado: segue sem guardar */ }
-  }, [cardsVivos, chaveCards, perfil?.user_id]);
+  }, [cardsVivos, chaveCards, perfil?.user_id, semBusca, dadoBom]);
   /* Pop-up do card "Compraram depois": mesmos filtros dos cards, uma linha por pedido que saiu da fila porque a pessoa já tem compra paga. */
   const compraramLista = useMemo(() => filtra(baseCards.data ?? []).filter((p) => (cidades.length === 0 || cidades.includes(p.cidade_evento ?? '')) && p.ja_comprou_depois), [baseCards.data, filtra, cidades]);
   /* Recuperação por evento: pedidos marcados como Recuperado sobre todos os pedidos do evento (qualquer situação), com os mesmos filtros. */
