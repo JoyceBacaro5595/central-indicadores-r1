@@ -272,7 +272,9 @@ const fmtMes = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]}/${iso.sli
 export function FiltroPeriodo({ rotulo = 'Período', modo, de, ate, onChange }: {
   rotulo?: string; modo: 'mes' | 'dia'; de: string; ate: string; onChange: (de: string, ate: string) => void; atalhos?: boolean;
 }) {
-  const lista = useMemo(presets, []);
+  const diaHoje = hojeSP();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lista = useMemo(presets, [diaHoje]);
   const mes = (d: string) => `${d.slice(0, 7)}-01`;
   const ajusta = (d: string, a: string): [string, string] => (modo === 'mes' ? [mes(d), mes(a)] : [d, a]);
   const achado = lista.find((p) => { const [d, a] = ajusta(p.de, p.ate); return d === de && a === ate; });
