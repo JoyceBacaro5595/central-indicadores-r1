@@ -39,6 +39,7 @@ export default function CardsRota() {
   const eventos = useQuery({ queryKey: ['mv-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const eventosHist = useQuery({ queryKey: ['mv-eventos-hist', ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const metaV2 = useQuery({ queryKey: ['mv-meta-v2', de, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const hub = useQuery({ queryKey: ['mv-hub', de, ate], queryFn: () => r1Rpc<HubEvento[]>('hubspot_eventos', { p_inicio: de, p_fim: ate }), refetchInterval: 15 * 60_000 });
   const presenca = useQuery({ queryKey: ['mv-presenca', INICIO_ANO, ate], queryFn: () => r1Rpc<Presenca[]>('presenca_eventos', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
   const cadeiras = useQuery({ queryKey: ['mv-cadeiras', INICIO_ANO, ate], queryFn: () => r1Rpc<Cadeiras[]>('mv_cadeiras_evento', { p_inicio: INICIO_ANO, p_fim: ate }), enabled: pode('presenca'), refetchInterval: 5 * 60_000 });
@@ -46,7 +47,9 @@ export default function CardsRota() {
 
   const linhas = ROTA.cidades.map((c) => {
     const ev = (eventos.data ?? []).find((e) => mesmoEvento(e, c));
-    const m = (meta.data ?? []).find((x) => mesmoEvento(x, c)) ?? null;
+    const m0 = (meta.data ?? []).find((x) => mesmoEvento(x, c)) ?? null;
+    const v2 = (metaV2.data ?? []).find((x) => mesmoEvento(x, c));
+    const m = m0 ? { ...m0, lpv: v2?.lpv != null ? Number(v2.lpv) : null, checkouts: v2?.checkouts != null ? Number(v2.checkouts) : null } : null;
     const h = (hub.data ?? []).find((x) => mesmoEvento(x, c)) ?? null;
     const pr = (presenca.data ?? []).find((x) => mesmoEvento(x, c));
     const ocup = pr && pr.esperados > 0 ? pr.esperados : ev ? ev.realizado : null;
