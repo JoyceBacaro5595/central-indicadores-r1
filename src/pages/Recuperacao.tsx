@@ -24,6 +24,8 @@ interface Registro { transacao_id: string; situacao: string | null; observacao: 
 type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
+interface CompraDetalhe { transacao_id: string; compra_id: string; compra_em: string; aprovado_em: string | null; compra_canal: string | null; compra_produto: string | null; compra_oferta: string | null; compra_cidade: string | null; compra_tipo: string | null; compra_qtd: number | null; compra_valor: number | null; compra_cupom: string | null; compra_utm_campaign: string | null; compra_link: string | null }
+const ORIGEM_ROTULO: Record<string, string> = { social_selling: 'Social Selling', recuperado: 'Recuperado', mesmo_link: 'Comprou mesmo link, sem recuperação', outro_link: 'Comprou com outro link, sem recuperação' };
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.split('-'); return `${m}/${y}`; };
 /** Data do evento: a cadastrada na Central; sem ela, a da Rota 45. */
@@ -141,6 +143,8 @@ export default function Recuperacao() {
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
+  const compras = useQuery({ queryKey: ['recuperacao-compra-detalhe'], queryFn: () => r1Rpc<CompraDetalhe[]>('recuperacao_compra_detalhe_v1'), refetchInterval: 5 * 60_000, retry: false });
+  const compraDe = useMemo(() => new Map((compras.data ?? []).map((c) => [c.transacao_id, c])), [compras.data]);
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
   const outras = useQuery({ queryKey: ['recuperacao-outra-cidade'], queryFn: () => r1Rpc<{ transacao_id: string; cidade: string; mes_evento: string | null; data_evento: string | null; compra_em: string }[]>('recuperacao_outra_cidade'), refetchInterval: 5 * 60_000, retry: false });
   const outraCidade = useMemo(() => new Map((outras.data ?? []).map((o) => [o.transacao_id, o])), [outras.data]);
@@ -376,6 +380,21 @@ export default function Recuperacao() {
                   <button autoFocus onClick={() => setDetalheId(null)} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold shrink-0">Fechar</button>
                 </div>
                 <div className="p-4 overflow-y-auto space-y-3">
+                  {(() => {
+                    const c = compraDe.get(detalheId), o = origemDe.get(detalheId);
+                    if (!c) return o ? <p className="text-xs text-muted-foreground">Este pedido virou compra ({ORIGEM_ROTULO[o.origem] ?? o.origem}) em {quando(o.compra_em)}. Os detalhes da compra ainda não estão disponíveis.</p> : null;
+                    return (
+                      <div className="rounded-lg border border-border p-3 text-xs space-y-1">
+                        <div className="font-bold text-foreground">Compra realizada{o ? ` · ${ORIGEM_ROTULO[o.origem] ?? o.origem}` : ''}</div>
+                        <div className="text-muted-foreground">Comprou em: <span className="mono text-foreground">{quando(c.aprovado_em ?? c.compra_em)}</span></div>
+                        <div className="text-muted-foreground">Cidade: <span className="text-foreground">{c.compra_cidade ?? '—'}</span></div>
+                        <div className="text-muted-foreground">Produto: <span className="text-foreground">{c.compra_produto ?? '—'}{c.compra_oferta ? ` · ${c.compra_oferta}` : ''}</span></div>
+                        <div className="text-muted-foreground">Ingresso: <span className="text-foreground">{[c.compra_tipo, c.compra_qtd ? `${c.compra_qtd} ingresso${c.compra_qtd > 1 ? 's' : ''}` : null, c.compra_valor != null ? brl(c.compra_valor) : null].filter(Boolean).join(' · ') || '—'}</span></div>
+                        <div className="text-muted-foreground">Canal: <span className="text-foreground">{[c.compra_canal, c.compra_cupom ? `cupom ${c.compra_cupom}` : null, c.compra_utm_campaign].filter(Boolean).join(' · ') || '—'}</span></div>
+                        {c.compra_link && <a href={c.compra_link} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold">Abrir a venda na Guru</a>}
+                      </div>
+                    );
+                  })()}
                   {hist.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma ação registrada neste pedido.</p>}
                   {hist.map((h, i) => (
                     <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
