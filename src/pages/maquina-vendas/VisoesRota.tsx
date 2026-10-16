@@ -58,32 +58,94 @@ export function TabelaRota({ linhas, detalhe, mesmo }: { linhas: LinhaRota[]; de
   );
 }
 
-/** Visão funil: impressões, cliques, visitas LP, checkouts e vendas por cidade; etapas sem coleta ficam "—". */
+/** Metas do funil por cidade (mesmas do detalhe da cidade). */
+const FUNIL_META = { cliques: 13889, connect: 75, visitas: 10417, checkouts: 250, convPagina: 2.4, convCheckout: 40 };
+const COR = {
+  ok: 'bg-emerald-500/25 border-emerald-500/60', warn: 'bg-amber-500/25 border-amber-500/60', bad: 'bg-red-500/25 border-red-500/60', neutro: 'bg-secondary/30 border-dashed border-border',
+} as const;
+
+/** Visão funil (gestor de tráfego): CPM → Cliques → Visitas LP → Checkouts → Vendas, cada etapa mais baixa que a anterior, com a meta,
+ *  o % atingido (verde ≥100%, âmbar ≥70%, vermelho abaixo) e a conversão entre etapas. Embaixo, os indicadores financeiros com a meta.
+ *  Etapas que a Central ainda não coleta (Visitas LP, Checkouts) ficam "—", nunca zero. */
 export function FunilRota({ linhas }: { linhas: LinhaRota[] }) {
   return (
-    <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+    <div className="grid gap-4 grid-cols-1">
       {linhas.map((l) => {
-        const impr = l.m ? Number(l.m.impressoes) : null; const cliq = l.m ? Number(l.m.cliques) : null;
-        const etapas: { r: string; v: number | null; nota?: string }[] = [
-          { r: 'Impressões', v: impr }, { r: 'Cliques no link', v: cliq },
-          { r: 'Visitas LP', v: null, nota: 'não coletado' }, { r: 'Checkouts', v: null, nota: 'não coletado' }, { r: 'Vendas', v: l.vendas },
+        const impr = l.m ? Number(l.m.impressoes) : null; const cliq = l.m ? Number(l.m.cliques) : null; const inv = l.m ? Number(l.m.investimento) : l.inv;
+        const cpm = impr ? (1000 * (inv as number)) / impr : null;
+        const ctr = impr && cliq != null ? (100 * cliq) / impr : null;
+        const convVenda = null as number | null; // vendas / checkouts: depende de checkouts
+        const cpa = div(inv, l.vendas);
+        const ticket = div(l.fat, l.vendas);
+        const etapas: { r: string; v: number | null; f: (x: number | null) => string; meta: number | null; menor?: boolean; sub?: string }[] = [
+          { r: 'CPM', v: cpm, f: brl, meta: META.cpm, menor: true, sub: impr != null ? `${num(impr)} impressões` : undefined },
+          { r: 'Cliques no link', v: cliq, f: num, meta: FUNIL_META.cliques },
+          { r: 'Visitas LP', v: null, f: num, meta: FUNIL_META.visitas },
+          { r: 'Checkouts', v: null, f: num, meta: FUNIL_META.checkouts },
+          { r: 'Vendas', v: l.vendas, f: num, meta: META.vendas },
         ];
-        const topo = etapas[0].v;
+        const chips: { r: string; v: number | null; meta: string; menor?: boolean; m: number }[] = [
+          { r: 'CTR', v: ctr, meta: pct(META.ctr, 2), m: META.ctr },
+          { r: 'Connect rate', v: null, meta: pct(FUNIL_META.connect, 0), m: FUNIL_META.connect },
+          { r: 'Visit. → checkout', v: null, meta: pct(FUNIL_META.convPagina, 1), m: FUNIL_META.convPagina },
+          { r: 'Conv. venda', v: convVenda, meta: pct(FUNIL_META.convCheckout, 0), m: FUNIL_META.convCheckout },
+        ];
+        const kpis: { r: string; v: string; meta: string; t: keyof typeof TOM }[] = [
+          { r: 'Investimento', v: brl(inv), meta: brl(META.investimento), t: 'neutro' },
+          { r: 'Ticket médio', v: brl(ticket), meta: brl(META.ticket), t: tom(ticket != null ? (100 * ticket) / META.ticket : null) },
+          { r: 'Receita', v: brl(l.fat), meta: brl(META.receita), t: tom(l.fat != null ? (100 * l.fat) / META.receita : null) },
+          { r: 'Conv. página', v: '—', meta: pct(FUNIL_META.convPagina, 1), t: 'neutro' },
+          { r: 'CPA', v: brl(cpa), meta: brl(META.cac), t: tom(cpa != null ? (100 * cpa) / META.cac : null, true) },
+          { r: 'Pacing do investimento', v: inv != null ? pct((100 * inv) / META.investimento, 0) : '—', meta: '100%', t: 'neutro' },
+        ];
         return (
-          <div key={l.c.cidade} className="rounded-xl border border-border bg-secondary/10 p-4 space-y-2">
-            <div className="flex items-baseline justify-between"><h4 className="text-sm font-extrabold text-foreground">{l.c.cidade}</h4><span className="text-[10px] text-muted-foreground">Evento {dm(l.data)}</span></div>
-            {etapas.map((e, i) => {
-              const ant = i > 0 ? etapas[i - 1].v : null;
-              const conv = e.v != null && ant ? (100 * e.v) / ant : null;
-              const larg = e.v != null && topo ? Math.max(2, (100 * e.v) / topo) : 0;
-              return (
-                <div key={e.r} className="space-y-0.5" title={e.v == null ? e.nota : undefined}>
-                  <div className="flex items-baseline justify-between text-xs"><span className="text-muted-foreground">{e.r}</span><span><span className="font-bold text-foreground tabular-nums">{num(e.v)}</span>{conv != null && <span className="ml-2 text-[10px] text-muted-foreground">{conv.toFixed(2).replace('.', ',')}% da etapa anterior</span>}</span></div>
-                  <div className="h-2 rounded bg-muted overflow-hidden"><div className="h-full rounded bg-primary/70" style={{ width: `${larg}%` }} /></div>
+          <div key={l.c.cidade} className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4">
+            <div className="flex items-baseline justify-between gap-2 flex-wrap">
+              <h4 className="text-base font-extrabold text-foreground font-display">{l.c.cidade}</h4>
+              <span className="text-[10px] text-muted-foreground">Evento {dm(l.data)}{l.dias > 0 ? ` · faltam ${l.dias} ${l.dias === 1 ? 'dia' : 'dias'}` : l.dias === 0 ? ' · hoje' : ' · concluído'}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="flex items-center min-w-[760px]">
+                {etapas.map((e, i) => {
+                  const p = e.v != null && e.meta ? (100 * e.v) / e.meta : null;
+                  const t = tom(p, e.menor);
+                  const altura = 100 - i * 14; // % da altura: cada etapa mais baixa que a anterior
+                  return (
+                    <div key={e.r} className="flex items-center flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center justify-center" style={{ height: 150 }}>
+                        <div className={`w-full rounded-md border flex flex-col items-center justify-center text-center px-1 ${COR[t]}`} style={{ height: `${altura}%` }}
+                          title={e.v == null ? 'Ainda não coletado do Meta' : undefined}>
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{e.r}</span>
+                          <span className={`text-lg font-extrabold tabular-nums font-display ${TOM[t]}`}>{e.f(e.v)}</span>
+                          <span className="text-[9px] text-muted-foreground">meta {e.f(e.meta)}{p != null ? ` · ${p.toFixed(0)}%` : ''}</span>
+                          {e.sub && <span className="text-[9px] text-muted-foreground">{e.sub}</span>}
+                        </div>
+                      </div>
+                      {i < chips.length && (() => {
+                        const c = chips[i]; const ct = tom(c.v != null ? (100 * c.v) / c.m : null);
+                        return (
+                          <div className="shrink-0 mx-1 text-center w-[74px]">
+                            <div className="text-[8px] uppercase tracking-wider text-muted-foreground leading-3">{c.r}</div>
+                            <div className={`text-xs font-extrabold tabular-nums ${TOM[ct]}`}>{c.v != null ? pct(c.v, 2) : '—'}</div>
+                            <div className="text-[8px] text-muted-foreground">meta {c.meta}</div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 border-t border-border/50 pt-3">
+              {kpis.map((x) => (
+                <div key={x.r} className="text-center">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{x.r}</div>
+                  <div className={`text-sm font-extrabold tabular-nums font-display ${TOM[x.t]}`}>{x.v}</div>
+                  <div className="text-[9px] text-muted-foreground">meta {x.meta}</div>
                 </div>
-              );
-            })}
-            <p className="text-[10px] text-muted-foreground">Vendas = ingressos pagos. Visitas LP e checkouts ainda não são coletados do Meta, por isso aparecem "—".</p>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Vendas = ingressos pagos. "—" = a Central ainda não coleta Visitas LP e Checkouts do Meta. Para custos (CPM, CPA), abaixo da meta é melhor.</p>
           </div>
         );
       })}
