@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, SlidersHorizontal, Menu, X, ChevronDown, ChevronLeft, ChevronRight,
+  LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, Menu, X, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useAlertas } from '@/components/AlertasSaude';
@@ -46,7 +46,6 @@ const SECOES: Secao[] = [
     titulo: 'Gerenciador',
     itens: [
       { to: '/central/gerenciador', rotulo: 'Integrações e logs', icone: Settings, recurso: 'gerenciador' },
-      { to: '/central/regras', rotulo: 'Regras de segmentação', icone: SlidersHorizontal, recurso: 'regras' },
     ],
   },
 ];
@@ -74,7 +73,7 @@ export default function AppShell() {
   useEffect(() => {
     const p = loc.pathname;
     const modulo = p.startsWith('/perpetuo') ? 'rgv'
-      : /^\/central\/(gerenciador|regras|usuarios|conta)/.test(p) ? ''
+      : /^\/central\/(gerenciador|usuarios|conta)/.test(p) ? ''
       : p.startsWith('/central') ? 'mdv' : '';
     const el = document.documentElement;
     if (modulo) el.setAttribute('data-modulo', modulo); else el.removeAttribute('data-modulo');
@@ -156,7 +155,7 @@ export default function AppShell() {
       </div>
 
       <div className="flex-1 min-w-0">
-        <Suspense fallback={<div role="status" className="p-8 text-sm text-muted-foreground">Carregando conteúdo…</div>}>
+        <Suspense fallback={<div role="status" aria-label="Carregando" className="p-8 space-y-3 animate-pulse motion-reduce:animate-none"><div className="h-8 w-64 rounded-lg bg-secondary" /><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /></div><div className="h-64 rounded-xl bg-secondary" /></div>}>
           <Outlet />
         </Suspense>
       </div>

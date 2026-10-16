@@ -36,7 +36,7 @@ export default function ProximosEventos({ eventos, fonte }: { eventos: EventoAge
   }
   return (
     <div className="rt-wrap" style={{ minHeight: 0, background: 'transparent' }}>
-      <section className="rt-card rt-ev" style={{ fontSize: 'calc(var(--u) * 1.15)', maxWidth: 760, height: 'auto' }}>
+      <section className="rt-card rt-ev" style={{ fontSize: 'calc(var(--u) * 1.15)', height: 'auto' }}>
         <div className="rt-h"><span>Próximos eventos</span><small>{fonte}</small></div>
         {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
           <>

@@ -50,6 +50,17 @@ interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip'
 interface MetaEvento { cidade: string; mes_evento: string; investimento: number }
 type Dia = { dia: string; [k: string]: number | string | null | undefined };
 
+/** Estrutura do card enquanto os números chegam: a moldura aparece na hora e só os dados entram depois. */
+function Esqueleto() {
+  return (
+    <div className="rt-sk-g" role="status" aria-label="Carregando">
+      <div className="rt-sk" style={{ height: '5em' }} />
+      <div className="rt-sk-3"><div className="rt-sk" style={{ height: '3.2em' }} /><div className="rt-sk" style={{ height: '3.2em' }} /><div className="rt-sk" style={{ height: '3.2em' }} /></div>
+      <div className="rt-sk" style={{ height: '9em' }} />
+    </div>
+  );
+}
+
 function K({ l, v, m, cls, bar, din }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean }) {
   return (
     <div className="k">
@@ -157,11 +168,14 @@ export default function VisaoGeral() {
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
-  const perpBase = usePerpetuo(undefined, undefined, pode('perpetuo'));
   const hojeStr = ymd(agora);
+  // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
+  const perpBase = usePerpetuo(ymd(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 7)), hojeStr, pode('perpetuo'));
   const ciclo = perpBase.data?.ciclos?.find((c) => c.inicio <= hojeStr && hojeStr <= c.fim) ?? perpBase.data?.ciclos?.[perpBase.data.ciclos.length - 1];
   const perp = usePerpetuo(ciclo?.inicio, hojeStr, pode('perpetuo') && !!ciclo);
 
+  const bfQ = useQuery({ queryKey: ['vg-black10x'], queryFn: () => r1Rpc<{ ingressos: number; receita: number; reembolsos: number; ultima_carga: string; investido: number; lpv: number; checkouts: number; meta_ate: string | null; janela_inicio: string; janela_fim: string; diario: { dia: string; ingressos: number }[] }>('black10x_painel', {}), refetchInterval: 5 * 60_000, enabled: pode('painel'), retry: false });
+  const bf = bfQ.data;
   const eventos = eventosQ.data ?? [];
   const rota = useMemo(() => ROTA.cidades.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
@@ -202,7 +216,7 @@ export default function VisaoGeral() {
   const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null;
 
   // ---- selo de atualização
-  const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt);
+  const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
   const min = atualizado ? Math.round((Date.now() - atualizado) / 6e4) : null;
   const ds = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -241,7 +255,7 @@ export default function VisaoGeral() {
               {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
                 : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
-            {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <div className="rt-empty">Carregando…</div> : (
+            {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <Esqueleto /> : (
               <>
                 {ampliado ? (
                   <div className="rt-kpis rt-kpis-4">
@@ -325,7 +339,7 @@ export default function VisaoGeral() {
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
-                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : perp.error ? <div className="rt-empty">Erro ao ler o funil: {String((perp.error as Error).message ?? perp.error)}</div> : !r ? <div className="rt-empty">Carregando…</div> : (
+                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
                   <>
                     <div className="rt-hero">
                       <Anel p={null} cor="var(--red)" />
@@ -336,6 +350,11 @@ export default function VisaoGeral() {
                       <K l="CPL" v={brl(r.cpl)} din />
                       <K l="MQL" v={n(r.mql)} m={pMql != null ? <><b>{pMql}%</b> dos leads</> : undefined} />
                     </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
+                      <K l="Receita" v={brl(r.faturamento)} din />
+                      <K l="CAC" v={brl(r.investimento != null && r.vendas != null ? r.investimento / Math.max(r.vendas, 1) : null)} din />
+                    </div>
                     <div className="rt-sub">Leads por dia <small>HubSpot · total do ciclo</small></div>
                     <Barras rows={diarioRgv} chave="leads" cor="var(--red)" classe="rt-bars-rgv" />
                   </>
@@ -344,7 +363,21 @@ export default function VisaoGeral() {
 
               <section className="rt-card rt-bf">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FFD43B' }} />Black Friday 10X</span><small /></div>
-                <div className="rt-empty">Sem dados do painel Black Friday. Os inscritos (pagos e gratuitos) ainda ficam só no Dashboard da Lovable e não chegam ao banco desta central.</div>
+                {!pode('painel') ? <div className="rt-empty">Sem permissão para ver o painel.</div> : bfQ.error ? <div className="rt-empty">Erro ao ler o Black Friday 10X: {String((bfQ.error as Error).message ?? bfQ.error)}</div> : !bf ? <div className="rt-empty">Carregando…</div> : (
+                  <>
+                    <div className="rt-hero">
+                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">venda até <b>{fmtD(bf.janela_fim)}</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
+                    </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Receita" v={brl(bf.receita)} din />
+                      <K l="Investido" v={brl(bf.investido)} din />
+                      <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
+                    </div>
+                    <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
+                    <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
+                    <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>
+                  </>
+                )}
               </section>
             </>
           )}

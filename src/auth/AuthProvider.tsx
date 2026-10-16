@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { r1, r1Rpc } from '@/integrations/r1/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { iniciarCache, limparCachePersistido } from '@/lib/cachePersistido';
 
 export type Papel = 'administrador' | 'gestor' | 'analista' | 'atendente' | 'consulta';
 
@@ -29,16 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const qc = useQueryClient();
 
   const carregarPerfil = useCallback(async (s: Session | null) => {
     if (!s) { setPerfil(null); return; }
     try {
       const p = await r1Rpc<Perfil | null>('meu_perfil');
+      if (p?.ativo) iniciarCache(qc, p.user_id, p.permissoes);
       setPerfil(p);
     } catch {
       setPerfil(null);
     }
-  }, []);
+  }, [qc]);
 
   useEffect(() => {
     let ativo = true;
@@ -50,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = r1.auth.onAuthStateChange(async (evento, s) => {
       setSession(s);
-      if (evento === 'SIGNED_OUT') setPerfil(null);
+      if (evento === 'SIGNED_OUT') { limparCachePersistido(); setPerfil(null); }
       else if (evento === 'SIGNED_IN' || evento === 'USER_UPDATED' || evento === 'TOKEN_REFRESHED') await carregarPerfil(s);
     });
     return () => { ativo = false; sub.subscription.unsubscribe(); };
@@ -62,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     carregando,
     pode: (recurso) => !!perfil?.ativo && perfil.permissoes.includes(recurso),
     recarregarPerfil: () => carregarPerfil(session),
-    sair: async () => { await r1.auth.signOut(); },
+    sair: async () => { limparCachePersistido(); await r1.auth.signOut(); },
   }), [session, perfil, carregando, carregarPerfil]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

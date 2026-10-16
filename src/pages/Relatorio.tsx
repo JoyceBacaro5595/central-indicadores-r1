@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
-import { PageHeader } from '@/components/shared';
+import { FiltroPeriodo, PageHeader } from '@/components/shared';
 import {
   useRelatorioIngressos,
   RelatorioFiltros,
@@ -328,14 +328,7 @@ export default function Relatorio() {
               ))}
             </div>
           </div>
-          <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-            De
-            <input type="date" value={inicio} onChange={(e) => { if (!e.target.value) return; setPeriodo('livre'); setDatas([e.target.value, e.target.value > fim ? e.target.value : fim]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
-          </label>
-          <label className="flex flex-col gap-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-            Até
-            <input type="date" value={fim} onChange={(e) => { if (!e.target.value) return; setPeriodo('livre'); setDatas([e.target.value < inicio ? e.target.value : inicio, e.target.value]); }} className="bg-secondary text-xs text-foreground rounded-md px-2 py-1" />
-          </label>
+          <FiltroPeriodo modo="dia" de={inicio} ate={fim} onChange={(a, b) => { setPeriodo('livre'); setDatas([a, b]); }} />
           <Filtro label="Produto" value={filtros.linha ?? ''} onChange={setF('linha')} opcoes={(data?.opcoes.linhas ?? [filtros.linha ?? '']).filter(Boolean).map((l) => [l, l])} />
           <Filtro label="Cidade" value={filtros.cidade ?? ''} onChange={setF('cidade')} opcoes={(data?.opcoes.cidades ?? []).map((c) => [c, c])} />
           <Filtro label="Tipo" value={filtros.tipo ?? ''} onChange={setF('tipo')} opcoes={TIPO_OPCOES.map((x) => [x, x])} />

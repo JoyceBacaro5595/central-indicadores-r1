@@ -16,7 +16,6 @@ const RedefinirSenha = lazy(() => import("./pages/RedefinirSenha.tsx"));
 const Conta = lazy(() => import("./pages/Conta.tsx"));
 const Usuarios = lazy(() => import("./pages/Usuarios.tsx"));
 const Gerenciador = lazy(() => import("./pages/Gerenciador.tsx"));
-const Regras = lazy(() => import("./pages/Regras.tsx"));
 const Eventos = lazy(() => import("./pages/Eventos.tsx"));
 const Checkins = lazy(() => import("./pages/Checkins.tsx"));
 const Recuperacao = lazy(() => import("./pages/Recuperacao.tsx"));
@@ -83,9 +82,6 @@ const App = () => (
           </Route>
           <Route element={<RequireAuth recurso="gerenciador" />}>
             <Route path="/central/gerenciador" element={<Gerenciador />} />
-          </Route>
-          <Route element={<RequireAuth recurso="regras" />}>
-            <Route path="/central/regras" element={<Regras />} />
           </Route>
           <Route element={<RequireAuth recurso="usuarios" />}>
             <Route path="/central/usuarios" element={<Usuarios />} />
