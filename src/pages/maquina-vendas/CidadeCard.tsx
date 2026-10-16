@@ -135,7 +135,7 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
   ] as [string, number | null][]).filter(([r, v]) => v != null && (v > 0 || r === 'Comuns')).map(([rotulo, v]) => ({ rotulo, v: v as number }));
   const geral: Linha2[] = [
     { rotulo: 'Investimento', atual: l.inv, meta: meta.investimento, f: brl, menorMelhor: true },
-    { rotulo: 'Qtd de ingressos', atual: l.ocup, meta: l.metaIng ?? meta.totalPartic, f: n2, filhos: filhos.length ? filhos : undefined, sub: 'toque para ver a divisão por origem' },
+    { rotulo: 'Qtd de ingressos', atual: l.ocup, meta: l.metaIng ?? meta.totalPartic, f: n2, filhos: filhos.length ? filhos : undefined },
     { rotulo: 'Receita', atual: l.fat, meta: l.metaFat ?? meta.receita, f: brl },
     { rotulo: 'Ticket médio', atual: ticket, meta: meta.ticket, f: brl },
     { rotulo: 'CAC', atual: cac, meta: meta.cac, f: brl, menorMelhor: true },
