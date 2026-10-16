@@ -767,7 +767,7 @@ function ReguaMetas({ metas }: { metas: PerpetuoMetas | null }) {
 
 function LinhaItem({ it, pos, visao, metas, aoAbrir, aba }: { aoAbrir: () => void; it: Item; pos: number; visao: Visao; metas: PerpetuoMetas | null; aba: Aba }) {
   const mTaxa = motivoTaxa(it); const mItem = motivoItem(it, aba);
-  const cpl = it.investimento != null && it.leads_pixel ? fmtBrl(it.investimento / it.leads_pixel, 2) : null;
+  const cpl = custosValidos(it) ? fmtBrl(it.cpl_pixel) : null;
   return (
     <div className="px-3 py-4 border-b border-border last:border-b-0 hover:bg-secondary/20 transition-colors">
       <div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_repeat(10,minmax(0,1fr))] gap-2 items-start">
