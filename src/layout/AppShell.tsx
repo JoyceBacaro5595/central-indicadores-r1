@@ -70,6 +70,17 @@ export default function AppShell() {
 
   useEffect(() => { setAberta(false); }, [loc.pathname]);
 
+  /* Cada módulo usa a cor do seu modelo de evento (mesmas de Próximos eventos na Visão geral). */
+  useEffect(() => {
+    const p = loc.pathname;
+    const modulo = p.startsWith('/perpetuo') ? 'rgv'
+      : /^\/central\/(gerenciador|regras|usuarios|conta)/.test(p) ? ''
+      : p.startsWith('/central') ? 'mdv' : '';
+    const el = document.documentElement;
+    if (modulo) el.setAttribute('data-modulo', modulo); else el.removeAttribute('data-modulo');
+    return () => el.removeAttribute('data-modulo');
+  }, [loc.pathname]);
+
   const secoes = SECOES
     .filter((s) => !s.recurso || pode(s.recurso))
     .map((s) => ({ ...s, itens: s.itens.filter((i) => !i.recurso || pode(i.recurso)) }))
