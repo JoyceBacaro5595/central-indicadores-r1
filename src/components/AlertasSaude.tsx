@@ -31,14 +31,19 @@ export default function AlertasSaude() {
     mutationFn: async (a: Alerta) => {
       setEstado((e) => ({ ...e, [a.id]: 'rodando' }));
       await r1Rpc('gerenciador_executar_agora', { p_jobname: JOB_POR_ALERTA(a.id) });
-      await new Promise((r) => setTimeout(r, 8000)); /* a carga roda em segundo plano; dá tempo de gravar o log */
-      await refetch();
+      /* a carga roda em segundo plano: confere a cada 5 s, por até 1 min, se o alerta saiu */
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const novo = await refetch();
+        if (!novo.data?.alertas.some((x) => x.id === a.id)) break;
+      }
       qc.invalidateQueries({ queryKey: ['gerenciador'] });
     },
     onSuccess: (_d, a) => setEstado((e) => ({ ...e, [a.id]: 'persiste' })),
     onError: (err: Error, a) => setEstado((e) => ({ ...e, [a.id]: `Não consegui recarregar: ${err.message}` })),
   });
   if (error) return null;
+  const jobRodando = (id: string) => Object.entries(estado).some(([k, v]) => v === 'rodando' && JOB_POR_ALERTA(k) === JOB_POR_ALERTA(id));
   const alertas = data?.alertas ?? [];
   if (!data) return null;
   if (alertas.length === 0) {
@@ -55,7 +60,7 @@ export default function AlertasSaude() {
             <p className="mt-1 text-muted-foreground">O que fazer: {a.acao}</p>
             {JOB_POR_ALERTA(a.id) && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button type="button" disabled={estado[a.id] === 'rodando'} onClick={() => recarregar.mutate(a)} className="inline-flex items-center gap-1.5 rounded-lg border border-current px-2.5 py-1 font-semibold hover:bg-white/5 disabled:opacity-60">
+                <button type="button" disabled={jobRodando(a.id)} onClick={() => recarregar.mutate(a)} className="inline-flex items-center gap-1.5 rounded-lg border border-current px-2.5 py-1 font-semibold hover:bg-white/5 disabled:opacity-60">
                   <RefreshCw className={`w-3.5 h-3.5 ${estado[a.id] === 'rodando' ? 'animate-spin' : ''}`} aria-hidden="true" />{estado[a.id] === 'rodando' ? 'Recarregando…' : 'Recarregar'}
                 </button>
                 {estado[a.id] === 'persiste' && <span className="text-muted-foreground">Recarreguei e a falha continua. Siga o “O que fazer” acima.</span>}
