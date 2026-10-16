@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { r1Rpc } from '@/integrations/r1/client';
+import { useAuth } from '@/auth/AuthProvider';
+import EditorEvento, { novoRascunho, type EventoEditavel, type RascunhoEvento } from './calendario/EditorEvento';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Abas, FiltroMulti, PageBody, PageHeader } from '@/components/shared';
 import ProximosEventos from './visao-geral/ProximosEventos';
 import { CAT_AGENDA, PLANILHA_ID, lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
 
-/* Calendário R1 (pedido da Joyce, 14/10): os eventos da planilha "R1 | Agenda 2026" (aba Calendário MKT), lidos ao vivo no navegador,
-   com a mesma classificação e as mesmas cores do painel "Sala R1 · tempo real". A planilha continua sendo onde se edita. */
+/* Calendário R1. A agenda mora na Central (config.agenda_evento): a planilha "R1 | Agenda 2026" (aba Calendário MKT) é importada para o banco e, daí em diante,
+   as edições feitas aqui permanecem (a importação só acrescenta o que ainda não existe). Enquanto o banco estiver vazio, a planilha lida ao vivo é o que aparece. */
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const CHAVE = 'r1-agenda-live';
@@ -17,7 +21,15 @@ const cor = (c: string) => (CAT_AGENDA[c] || CAT_AGENDA.outros)[0];
 export default function Calendario() {
   const hoje = hojeSP();
   const [ref, setRef] = useState(() => { const [a, m] = hoje.split('-'); return { a: +a, m: +m - 1 }; });
-  const [eventos, setEventos] = useState<EventoAgenda[]>([]);
+  const { pode } = useAuth();
+  const qc = useQueryClient();
+  const editar = pode('gerenciador');
+  const [sheet, setEventos] = useState<EventoAgenda[]>([]);
+  const db = useQuery({ queryKey: ['agenda'], queryFn: () => r1Rpc<EventoEditavel[]>('agenda_listar'), retry: false, refetchInterval: 60_000 });
+  const doBanco = (db.data?.length ?? 0) > 0;
+  const eventos: EventoEditavel[] = doBanco ? db.data! : sheet;
+  const [edicao, setEdicao] = useState<RascunhoEvento | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const [fonte, setFonte] = useState('carregando…');
   const [erro, setErro] = useState(false);
   const [ocultas, setOcultas] = useState<Set<string>>(new Set());
@@ -37,6 +49,22 @@ export default function Calendario() {
     const t = setInterval(ler, 5 * 60_000);
     return () => { vivo = false; clearInterval(t); };
   }, []);
+
+  const importar = useMutation({
+    mutationFn: async () => { const ev = await lerAgendaAoVivo(); return r1Rpc<number>('agenda_importar', { p_eventos: ev }); },
+    onSuccess: (n) => { setMsg(n ? `${n} evento(s) novo(s) trazido(s) da planilha.` : 'A planilha não tem nada novo.'); qc.invalidateQueries({ queryKey: ['agenda'] }); },
+    onError: (e: Error) => setMsg(`Não importou: ${e.message}`),
+  });
+  /* Primeira vez: banco vazio e planilha lida, quem edita importa sozinho. */
+  useEffect(() => { if (editar && db.isSuccess && !doBanco && sheet.length > 0 && !importar.isPending && !importar.isSuccess) importar.mutate(); }, [editar, db.isSuccess, doBanco, sheet.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const salvar = useMutation({
+    mutationFn: (v: RascunhoEvento) => r1Rpc('agenda_salvar', { p_id: v.id, p_cat: v.cat, p_titulo: v.titulo, p_local: v.local, p_hora: v.hora, p_inicio: v.inicio, p_fim: v.fim }),
+    onSuccess: () => { setEdicao(null); setMsg(null); qc.invalidateQueries({ queryKey: ['agenda'] }); },
+  });
+  const excluir = useMutation({
+    mutationFn: (id: number) => r1Rpc('agenda_excluir', { p_id: id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agenda'] }),
+  });
 
   const visiveis = useMemo(() => eventos.filter((e) => !ocultas.has(e.cat)), [eventos, ocultas]);
   const usadas = useMemo(() => Array.from(new Set(eventos.map((e) => e.cat))), [eventos]);
@@ -67,8 +95,9 @@ export default function Calendario() {
             </div>
             <button type="button" onClick={() => { const [a, m] = hoje.split('-'); setRef({ a: +a, m: +m - 1 }); setDia(hoje); }} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-secondary text-foreground">Hoje</button>
             <div className="ml-auto flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span>{erro ? 'planilha indisponível, mostrando o último cache' : fonte}</span>
-              <a href={`https://docs.google.com/spreadsheets/d/${PLANILHA_ID}/edit`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">Editar na planilha <ExternalLink className="w-3 h-3" /></a>
+              {doBanco ? <span>agenda da Central</span> : <span>{erro ? 'planilha indisponível, mostrando o último cache' : fonte}</span>}
+              {editar && <button type="button" onClick={() => importar.mutate()} disabled={importar.isPending} className="inline-flex items-center gap-1 hover:text-foreground">{importar.isPending ? 'Importando…' : 'Trazer novidades da planilha'}</button>}
+              {!doBanco && <a href={`https://docs.google.com/spreadsheets/d/${PLANILHA_ID}/edit`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">Planilha <ExternalLink className="w-3 h-3" /></a>}
             </div>
           </div>
           )}
@@ -110,6 +139,7 @@ export default function Calendario() {
           {aba === 'calendario' && dia && (
             <section className="rounded-xl border border-border p-4 space-y-2">
               <h2 className="text-sm font-extrabold text-foreground">{(() => { const d = new Date(`${dia}T12:00:00`); return `${SEM[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`; })()}</h2>
+              {msg && <p className="text-xs text-muted-foreground" role="status">{msg}</p>}
               {selecionados.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum evento neste dia.</p> : (
                 <ul className="divide-y divide-border">
                   {selecionados.map((e, k) => (
@@ -118,10 +148,19 @@ export default function Calendario() {
                       <span className="font-semibold text-foreground">{e.cat === 'mdv' && e.local ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(e.local.replace(/ \(.*\)$/, ''))}`} title="Editar a cidade e a data da rota" className="hover:underline">{e.titulo}</Link> : e.titulo}</span>
                       <span className="text-muted-foreground">{[e.local, e.hora, e.fim !== e.inicio ? `${e.inicio.split('-').reverse().slice(0, 2).join('/')} a ${e.fim.split('-').reverse().slice(0, 2).join('/')}` : ''].filter(Boolean).join(' · ')}</span>
                       <span className="ml-auto text-[10px] text-muted-foreground">{(CAT_AGENDA[e.cat] || CAT_AGENDA.outros)[1]}</span>
+                      {editar && doBanco && e.id != null && (
+                        <span className="flex items-center gap-2 text-[11px]">
+                          <button type="button" className="text-primary font-semibold" onClick={() => { salvar.reset(); setEdicao(novoRascunho(dia, e)); }}>editar</button>
+                          <button type="button" className="text-red-400" onClick={() => { if (window.confirm(`Excluir "${e.titulo}"?`)) excluir.mutate(e.id!); }}>excluir</button>
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
+              {editar && doBanco && (edicao
+                ? <EditorEvento key={`${edicao.id ?? 'novo'}-${dia}`} valor={edicao} salvando={salvar.isPending} erro={salvar.error ? (salvar.error as Error).message : null} onSalvar={(v) => salvar.mutate(v)} onCancelar={() => setEdicao(null)} />
+                : <button type="button" className="text-xs text-primary font-semibold" onClick={() => { salvar.reset(); setEdicao(novoRascunho(dia)); }}>+ Novo evento neste dia</button>)}
             </section>
           )}
         </div>
