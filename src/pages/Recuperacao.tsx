@@ -24,6 +24,8 @@ interface Registro { transacao_id: string; situacao: string | null; observacao: 
 type Situacao = 'pendente' | 'contatado' | 'em_atendimento' | 'sem_resposta' | 'aguardando_retorno' | 'recuperado' | 'descartado' | 'todos';
 
 const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
+interface CompraDetalhe { transacao_id: string; compra_id: string; compra_em: string; aprovado_em: string | null; compra_canal: string | null; compra_produto: string | null; compra_oferta: string | null; compra_cidade: string | null; compra_tipo: string | null; compra_qtd: number | null; compra_valor: number | null; compra_cupom: string | null; compra_utm_campaign: string | null; compra_link: string | null }
+const ORIGEM_ROTULO: Record<string, string> = { social_selling: 'Social Selling', recuperado: 'Recuperado', mesmo_link: 'Comprou mesmo link, sem recuperação', outro_link: 'Comprou com outro link, sem recuperação' };
 const brl = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesLabel = (d: string | null) => { if (!d) return '—'; const [y, m] = d.split('-'); return `${m}/${y}`; };
 /** Data do evento: a cadastrada na Central; sem ela, a da Rota 45. */
@@ -141,6 +143,10 @@ export default function Recuperacao() {
   const filaTodas = useQuery({ queryKey: ['recuperacao-fila', situacao, '', recomprados], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: situacao, p_cidade: null, p_incluir_recomprados: recomprados }), refetchInterval: 5 * 60_000 });
   const baseCards = useQuery({ queryKey: ['recuperacao-fila', 'todos', '', true], queryFn: () => r1Rpc<Pedido[]>('recuperacao_fila_v2', { p_situacao: 'todos', p_cidade: null, p_incluir_recomprados: true }), refetchInterval: 5 * 60_000 });
   const origens = useQuery({ queryKey: ['recuperacao-origem'], queryFn: () => r1Rpc<{ transacao_id: string; compra_em: string; origem: 'social_selling' | 'recuperado' | 'mesmo_link' | 'outro_link' }[]>('recuperacao_origem_compra_v2'), refetchInterval: 5 * 60_000, retry: false });
+  const compras = useQuery({ queryKey: ['recuperacao-compra-detalhe'], queryFn: () => r1Rpc<CompraDetalhe[]>('recuperacao_compra_detalhe_v1'), refetchInterval: 5 * 60_000, retry: false });
+  const compraDe = useMemo(() => new Map((compras.data ?? []).map((c) => [c.transacao_id, c])), [compras.data]);
+  const cps = useQuery({ queryKey: ['recuperacao-cp'], queryFn: () => r1Rpc<{ transacao_id: string; cp: string | null }[]>('recuperacao_cp_pedido_v1'), refetchInterval: 5 * 60_000, retry: false });
+  const cpDe = useMemo(() => new Map((cps.data ?? []).map((c) => [c.transacao_id, c.cp])), [cps.data]);
   const origemDe = useMemo(() => new Map((origens.data ?? []).map((o) => [o.transacao_id, o])), [origens.data]);
   const outras = useQuery({ queryKey: ['recuperacao-outra-cidade'], queryFn: () => r1Rpc<{ transacao_id: string; cidade: string; mes_evento: string | null; data_evento: string | null; compra_em: string }[]>('recuperacao_outra_cidade'), refetchInterval: 5 * 60_000, retry: false });
   const outraCidade = useMemo(() => new Map((outras.data ?? []).map((o) => [o.transacao_id, o])), [outras.data]);
@@ -217,7 +223,6 @@ export default function Recuperacao() {
     }
     return m;
   }, [baseCards.data, filtra]);
-  const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades_ = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
@@ -261,7 +266,7 @@ export default function Recuperacao() {
               {porEvento.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidades((l) => (l.includes(c.cidade ?? '') ? l.filter((x) => x !== c.cidade) : [...l, c.cidade ?? '']))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidades.includes(c.cidade ?? '') ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
-                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
+                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {(() => { const t = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`)?.total ?? 0; return t ? ((c.n / t) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0; })()}%</div>
                   {(() => { const r2 = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`); const pct = r2 && r2.total ? ((r2.rec / r2.total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0'; return <div className="text-[10px] text-emerald-400 mt-0.5">Recuperados: {num(r2?.rec ?? 0)} · {pct}% dos {num(r2?.total ?? 0)} pedidos</div>; })()}
                 </button>
               ))}
@@ -316,7 +321,7 @@ export default function Recuperacao() {
                     <td className="py-2"><div className="mono text-foreground">{quando(p.criado_em)}</div><div className="text-muted-foreground">{STATUS[p.status] ?? p.status} · há {duracao(p.horas_pendente)}</div></td>
                     <td className="py-2"><div className="font-semibold text-foreground flex items-center gap-1.5">{p.nome_contato ?? '—'}{outraCidade.has(p.transacao_id) && <button onClick={() => setAvisoId(avisoId === p.transacao_id ? null : p.transacao_id)} className="text-amber-400 hover:text-amber-300" title="Comprou ingresso em outra cidade" aria-label="Comprou ingresso em outra cidade"><TriangleAlert className="w-3.5 h-3.5" /></button>}</div>{avisoId === p.transacao_id && outraCidade.get(p.transacao_id) && (() => { const o = outraCidade.get(p.transacao_id)!; const dt = diaMes(dataDoEvento(o.cidade, o.mes_evento, o.data_evento)); return <div className="mt-1 mb-1 rounded bg-amber-500/10 text-amber-300 px-2 py-1 text-[11px]" role="status">Comprou ingresso em outra cidade: {o.cidade}{dt ? ` (${dt})` : ''}, em {quando(o.compra_em)}.</div>; })()}<div className="mono">{p.email ?? '—'}</div>{p.telefone && <div className="mono">{p.telefone}</div>}{(p.cidade_comprador || p.uf_comprador) && <div className="text-muted-foreground">{[p.cidade_comprador, p.uf_comprador].filter(Boolean).join(' / ')}</div>}</td>
                     <td className="py-2"><div className="text-foreground">{p.cidade_evento ?? '—'}</div><div className="text-muted-foreground">{diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento)) !== '—' ? `Evento em ${diaCompleto(dataDoEvento(p.cidade_evento, p.mes_evento, p.data_evento))}` : mesLabel(p.mes_evento)}</div><div className="text-muted-foreground truncate max-w-[220px]" title={p.produto_nome}>{p.produto_nome}</div>{p.produto_criado_em && <div className="text-muted-foreground">Produto cadastrado em {diaCompleto(p.produto_criado_em)}</div>}</td>
-                    <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{num(p.qtd_ingressos)} {p.qtd_ingressos === 1 ? 'ingresso' : 'ingressos'}</div></td>
+                    <td className="py-2"><div className="text-foreground">{p.tipo_ingresso ?? '—'}</div><div className="text-muted-foreground">{num(p.qtd_ingressos)} {p.qtd_ingressos === 1 ? 'ingresso' : 'ingressos'}</div>{cpDe.get(p.transacao_id) && <div className="text-[10px] font-bold text-primary mt-0.5" title="Tipo de público (CP) do checkout">{cpDe.get(p.transacao_id)}</div>}</td>
                     <td className="py-2 text-right mono">{brl(p.valor_bruto)}{p.cupom && <div className="text-muted-foreground">cupom {p.cupom}</div>}</td>
                     <td className="py-2">{PAG[p.metodo_pagamento] ?? p.metodo_pagamento}{p.parcelas && p.parcelas > 1 ? ` ${p.parcelas}x` : ''}</td>
                     <td className="py-2 text-muted-foreground">{p.utm_source ?? '—'}{p.utm_campaign && <div className="truncate max-w-[160px]" title={p.utm_campaign}>{p.utm_campaign}</div>}
@@ -376,6 +381,21 @@ export default function Recuperacao() {
                   <button autoFocus onClick={() => setDetalheId(null)} className="px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold shrink-0">Fechar</button>
                 </div>
                 <div className="p-4 overflow-y-auto space-y-3">
+                  {(() => {
+                    const c = compraDe.get(detalheId), o = origemDe.get(detalheId);
+                    if (!c) return o ? <p className="text-xs text-muted-foreground">Este pedido virou compra ({ORIGEM_ROTULO[o.origem] ?? o.origem}) em {quando(o.compra_em)}. Os detalhes da compra ainda não estão disponíveis.</p> : null;
+                    return (
+                      <div className="rounded-lg border border-border p-3 text-xs space-y-1">
+                        <div className="font-bold text-foreground">Compra realizada{o ? ` · ${ORIGEM_ROTULO[o.origem] ?? o.origem}` : ''}</div>
+                        <div className="text-muted-foreground">Comprou em: <span className="mono text-foreground">{quando(c.aprovado_em ?? c.compra_em)}</span></div>
+                        <div className="text-muted-foreground">Cidade: <span className="text-foreground">{c.compra_cidade ?? '—'}</span></div>
+                        <div className="text-muted-foreground">Produto: <span className="text-foreground">{c.compra_produto ?? '—'}{c.compra_oferta ? ` · ${c.compra_oferta}` : ''}</span></div>
+                        <div className="text-muted-foreground">Ingresso: <span className="text-foreground">{[c.compra_tipo, c.compra_qtd ? `${c.compra_qtd} ingresso${c.compra_qtd > 1 ? 's' : ''}` : null, c.compra_valor != null ? brl(c.compra_valor) : null].filter(Boolean).join(' · ') || '—'}</span></div>
+                        <div className="text-muted-foreground">Canal: <span className="text-foreground">{[c.compra_canal, c.compra_cupom ? `cupom ${c.compra_cupom}` : null, c.compra_utm_campaign].filter(Boolean).join(' · ') || '—'}</span></div>
+                        {c.compra_link && <a href={c.compra_link} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 px-2 py-1 rounded bg-secondary text-foreground text-[11px] font-semibold">Abrir a venda na Guru</a>}
+                      </div>
+                    );
+                  })()}
                   {hist.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma ação registrada neste pedido.</p>}
                   {hist.map((h, i) => (
                     <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
