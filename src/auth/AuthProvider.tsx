@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { r1, r1Rpc } from '@/integrations/r1/client';
+import { limparCachePersistido } from '@/lib/cachePersistido';
 
 export type Papel = 'administrador' | 'gestor' | 'analista' | 'atendente' | 'consulta';
 
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     carregando,
     pode: (recurso) => !!perfil?.ativo && perfil.permissoes.includes(recurso),
     recarregarPerfil: () => carregarPerfil(session),
-    sair: async () => { await r1.auth.signOut(); },
+    sair: async () => { limparCachePersistido(); await r1.auth.signOut(); },
   }), [session, perfil, carregando, carregarPerfil]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
