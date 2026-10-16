@@ -51,7 +51,7 @@ function Tabela({ titulo, linhas, rotuloMeta = 'Previsto' }: { titulo: string; l
               <tr className="border-b border-border/40 last:border-0">
                 <th scope="row" className="text-left font-medium text-foreground py-1.5">
                   {r.filhos ? (
-                    <button type="button" aria-expanded={aberta} onClick={() => setAbertas((a) => ({ ...a, [r.rotulo]: !a[r.rotulo] }))} className="flex items-center gap-1 text-left font-medium hover:text-primary focus-visible:outline focus-visible:outline-2">
+                    <button type="button" title="Toque para ver a divisão por origem" aria-expanded={aberta} onClick={() => setAbertas((a) => ({ ...a, [r.rotulo]: !a[r.rotulo] }))} className="flex items-center gap-1 text-left font-medium hover:text-primary focus-visible:outline focus-visible:outline-2">
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aberta ? '' : '-rotate-90'}`} aria-hidden="true" />{r.rotulo}
                     </button>
                   ) : r.rotulo}
@@ -85,6 +85,7 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
   const qualPct = l.qual != null && l.h?.compradores_hubspot ? (100 * l.qual) / l.h.compradores_hubspot : null;
   const pp = l.ocup == null ? null : (100 * l.ocup) / meta.totalPartic; const pi = l.inv == null ? null : (100 * l.inv) / meta.investimento;
   const efic = pp != null && pi ? pp / pi : null;
+  const metaI = l.metaIng ?? meta.totalPartic; const pctIng = l.ocup != null && metaI ? (100 * l.ocup) / metaI : null;
   const lotado = l.ocup != null && l.ocup >= l.cap;
   const dd = (k: keyof CidadeIng) => (det ? (det[k] as number) : null);
   const outras = det ? det.cortesias - det.cortesia_cs - det.cortesia_comercial - det.cortesia_social_selling - det.cortesia_seller : null;
@@ -135,7 +136,7 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
   ] as [string, number | null][]).filter(([r, v]) => v != null && (v > 0 || r === 'Comuns')).map(([rotulo, v]) => ({ rotulo, v: v as number }));
   const geral: Linha2[] = [
     { rotulo: 'Investimento', atual: l.inv, meta: meta.investimento, f: brl, menorMelhor: true },
-    { rotulo: 'Qtd de ingressos', atual: l.ocup, meta: l.metaIng ?? meta.totalPartic, f: n2, filhos: filhos.length ? filhos : undefined, sub: 'toque para ver a divisão por origem' },
+    { rotulo: 'Qtd de ingressos', atual: l.ocup, meta: l.metaIng ?? meta.totalPartic, f: n2, filhos: filhos.length ? filhos : undefined },
     { rotulo: 'Receita', atual: l.fat, meta: l.metaFat ?? meta.receita, f: brl },
     { rotulo: 'Ticket médio', atual: ticket, meta: meta.ticket, f: brl },
     { rotulo: 'CAC', atual: cac, meta: meta.cac, f: brl, menorMelhor: true },
@@ -154,10 +155,13 @@ export default function CidadeCard({ l, det, fmt, meta }: { l: Linha; det: Cidad
           <h4 className="text-lg font-extrabold text-foreground">{l.c.cidade}</h4>
           <p className="text-xs text-muted-foreground">Evento {dm(l.data)}</p>
         </div>
+        <div className="flex flex-col items-end gap-1">
         <div className="flex gap-1.5">
           {lotado && <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-red-500/15 text-red-400 border-red-500/40">LOTADO</span>}
           {l.dias > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${l.dias <= 7 ? 'bg-amber-500/15 text-amber-400 border-amber-500/40' : 'bg-blue-500/15 text-blue-400 border-blue-500/40'}`}>faltam {l.dias} {l.dias === 1 ? 'dia' : 'dias'}</span>}
           {l.dias === 0 && <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/40">hoje!</span>}
+        </div>
+        {pctIng != null && <span className={`text-xs font-bold tabular-nums ${TOM[tom(pctIng)]}`} title="Ingressos vendidos sobre a meta de ingressos">{pctIng.toFixed(0)}% da meta de ingressos</span>}
         </div>
       </div>
 
