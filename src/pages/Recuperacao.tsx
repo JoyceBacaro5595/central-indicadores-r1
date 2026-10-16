@@ -221,7 +221,6 @@ export default function Recuperacao() {
     }
     return m;
   }, [baseCards.data, filtra]);
-  const totalEventos = porEvento.reduce((a, c) => a + c.n, 0);
   const cidades_ = useMemo(() => Array.from(new Set([...(resumo.data?.por_cidade ?? []).map((c) => c.cidade), ...porEvento.map((c) => c.cidade)].filter(Boolean) as string[])).sort(), [resumo.data, porEvento]);
 
   const baixar = () => {
@@ -265,7 +264,7 @@ export default function Recuperacao() {
               {porEvento.map((c) => (
                 <button key={`${c.cidade}-${c.mes_evento}`} onClick={() => setCidades((l) => (l.includes(c.cidade ?? '') ? l.filter((x) => x !== c.cidade) : [...l, c.cidade ?? '']))} className={`text-left px-3 py-2 rounded-lg text-xs ${cidades.includes(c.cidade ?? '') ? 'bg-primary/15 text-primary' : 'bg-secondary hover:bg-secondary/70'}`}>
                   <div className="font-semibold">{c.cidade ?? 'Sem cidade'} <span className="text-muted-foreground font-normal">{diaMes(dataDoEvento(c.cidade, c.mes_evento, c.data_evento)) ?? mesLabel(c.mes_evento)}</span></div>
-                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {totalEventos ? ((c.n / totalEventos) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0}%</div>
+                  <div className="mono">{num(c.n)} · {brl(c.valor)} · {(() => { const t = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`)?.total ?? 0; return t ? ((c.n / t) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : 0; })()}%</div>
                   {(() => { const r2 = recPorEvento.get(`${c.cidade ?? ''}|${c.mes_evento}`); const pct = r2 && r2.total ? ((r2.rec / r2.total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0'; return <div className="text-[10px] text-emerald-400 mt-0.5">Recuperados: {num(r2?.rec ?? 0)} · {pct}% dos {num(r2?.total ?? 0)} pedidos</div>; })()}
                 </button>
               ))}
