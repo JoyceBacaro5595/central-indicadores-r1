@@ -78,8 +78,8 @@ export default function CardsRota() {
     <section className="surface p-5 space-y-4" aria-label="Cards por cidade">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <span className="section-label">Cards por cidade · {ROTA.nome}</span>
-          <p className="text-[10px] text-muted-foreground mt-1">Visão geral por evento: Realizado, Previsto e % atingido. Os detalhes de cada assunto abrem em modais.</p>
+          <span className="section-label" title="Visão geral por evento: Realizado, Previsto e % atingido. Os detalhes de cada assunto abrem em modais.">Cards por cidade · {ROTA.nome}</span>
+          
         </div>
         <CadastroEvento eventos={eventosHist.data ?? []} />
       </div>

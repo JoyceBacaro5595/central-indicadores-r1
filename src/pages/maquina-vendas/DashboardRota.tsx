@@ -34,7 +34,7 @@ const BAR: Record<Tom, string> = { ok: 'bg-emerald-500', warn: 'bg-amber-500', b
 const tomPct = (p: number | null): Tom => (p == null ? 'neutro' : p >= 100 ? 'ok' : p >= 70 ? 'warn' : p >= 40 ? 'warn' : 'bad');
 
 function Cartao({ rotulo, valor, sub, tom = 'neutro' }: { rotulo: string; valor: string; sub?: string; tom?: Tom }) {
-  return <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-1"><span className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">{rotulo}</span><span className={`text-sm font-bold ${COR[tom]}`}>{valor}</span>{sub && <span className="text-[9px] text-muted-foreground">{sub}</span>}</div>;
+  return <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-1" title={sub && !/\d/.test(sub) ? sub : undefined}><span className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">{rotulo}</span><span className={`text-sm font-bold ${COR[tom]}`}>{valor}</span>{sub && /\d/.test(sub) && <span className="text-[9px] text-muted-foreground">{sub}</span>}</div>;
 }
 function Meta({ rotulo, atual, meta, fmt, menorMelhor, barra = true }: { rotulo: string; atual: number | null; meta: number; fmt: (v: number | null) => string; menorMelhor?: boolean; barra?: boolean }) {
   const p = atual == null || !meta ? null : (100 * atual) / meta;
