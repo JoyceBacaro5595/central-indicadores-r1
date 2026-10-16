@@ -60,15 +60,18 @@ export function PageBody({ children, className = '' }: { children: ReactNode; cl
   return <main className={`py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8 ${className}`}>{children}</main>;
 }
 
+/** Texto de apoio de card: se traz número (ex.: "53% de 5.968") continua visível; se é só descritivo, vira dica ao passar o mouse. */
+export const subVisivel = (sub: unknown): boolean => typeof sub !== 'string' || /\d/.test(sub);
+
 /** Cartão de KPI. `value` nulo mostra o zero do tipo. */
 export function KpiCard({ label, value, sub, highlight, motivo, tipo = 'num' }: {
   label: string; value: string | null | undefined; sub?: ReactNode; highlight?: boolean; motivo?: string; tipo?: keyof typeof ZERO;
 }) {
   return (
-    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'}>
+    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'} title={sub && !subVisivel(sub) ? String(sub) : undefined}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value mono"><Valor v={value} motivo={motivo} tipo={tipo} /></div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && subVisivel(sub) && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }

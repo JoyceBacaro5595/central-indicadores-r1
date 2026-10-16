@@ -34,7 +34,9 @@ const BAR: Record<Tom, string> = { ok: 'bg-emerald-500', warn: 'bg-amber-500', b
 const tomPct = (p: number | null): Tom => (p == null ? 'neutro' : p >= 100 ? 'ok' : p >= 70 ? 'warn' : p >= 40 ? 'warn' : 'bad');
 
 function Cartao({ rotulo, valor, sub, tom = 'neutro' }: { rotulo: string; valor: string; sub?: string; tom?: Tom }) {
-  return <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-1"><span className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">{rotulo}</span><span className={`text-sm font-bold ${COR[tom]}`}>{valor}</span>{sub && <span className="text-[9px] text-muted-foreground">{sub}</span>}</div>;
+  const dica = sub && !/\d/.test(sub) ? sub : undefined;
+  /* Descrição sem número fica só como dica: passa o mouse, toca ou foca (teclado) para ver. */
+  return <div className={`group relative rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-1 ${dica ? 'outline-none focus-visible:ring-1 focus-visible:ring-primary' : ''}`} title={dica} tabIndex={dica ? 0 : undefined} aria-label={dica ? `${rotulo}: ${valor}. ${dica}` : undefined}><span className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">{rotulo}</span><span className={`text-sm font-bold ${COR[tom]}`}>{valor}</span>{sub && !dica && <span className="text-[9px] text-muted-foreground">{sub}</span>}{dica && <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-max max-w-[220px] rounded-md border border-border bg-popover px-2 py-1 text-[10px] text-popover-foreground shadow-md group-hover:block group-focus:block">{dica}</span>}</div>;
 }
 function Meta({ rotulo, atual, meta, fmt, menorMelhor, barra = true }: { rotulo: string; atual: number | null; meta: number; fmt: (v: number | null) => string; menorMelhor?: boolean; barra?: boolean }) {
   const p = atual == null || !meta ? null : (100 * atual) / meta;
