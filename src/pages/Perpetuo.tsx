@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -302,7 +303,7 @@ export default function Perpetuo() {
 
         {error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {isFetching && data && <div role="status" className="text-sm text-muted-foreground">{isPlaceholderData ? `Atualizando o filtro… Indicadores exibidos de ${dataBR(data.periodo.inicio)} a ${dataBR(data.periodo.fim)} até concluir a consulta.` : 'Atualizando indicadores…'}</div>}
-        {!data && !error && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+        {!data && !error && <EsqBloco linhas={2} h="6em" />}
 
         {r && <FaixaFunil m={r} metas={metas} ct={vendasCT ?? null} />}
 

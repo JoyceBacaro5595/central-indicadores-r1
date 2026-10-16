@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -158,7 +159,7 @@ export default function Central() {
         {aba === 'presencial' && <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />}
 
         {aba === 'presencial' && error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
-        {aba === 'presencial' && !data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}
+        {aba === 'presencial' && !data && !error && <EsqBloco linhas={4} h="4em" />}
 
         {aba === 'presencial' && data && r && ritmo && (
           <>
@@ -307,7 +308,7 @@ function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
             <button key={k} onClick={() => setVisao(k)} className={`px-3 py-1 rounded-md ${visao === k ? 'bg-background text-foreground font-semibold' : 'text-muted-foreground'}`}>{r}</button>
           ))}
         </div>
-        {q.isLoading && <p className="text-sm text-muted-foreground mt-4">Carregando…</p>}
+        {q.isLoading && <div className="mt-4"><EsqBloco linhas={3} /></div>}
         {q.error && <p className="text-sm text-red-400 mt-4">{(q.error as Error).message}</p>}
         {!q.isLoading && !q.error && meses.length === 0 && <p className="text-sm text-muted-foreground mt-4">Sem vendas no período.</p>}
         <div className="mt-4 space-y-3">
