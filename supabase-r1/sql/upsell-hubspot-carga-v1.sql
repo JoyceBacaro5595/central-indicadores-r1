@@ -23,3 +23,7 @@ create or replace function raw.upsell_hubspot_chamar() returns bigint language s
     timeout_milliseconds := 120000);
 $$;
 revoke all on function raw.upsell_hubspot_chamar() from public, anon, authenticated;
+
+-- Agendamento (aplicado em 19/10/2026): carga a cada hora, minuto 35.
+-- select cron.schedule('upsell-hubspot-carga', '35 * * * *', $c$select raw.upsell_hubspot_chamar()$c$);
+-- Edge Function: supabase-r1/functions/upsell-hubspot-sync (verify_jwt=false, chave x-guru-sync-key).
