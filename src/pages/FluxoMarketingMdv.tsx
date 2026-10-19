@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
+import { FiltroPeriodo, FiltroUnico, PageBody, PageHeader } from '@/components/shared';
 
 /* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
    título da visão com o investimento, faixa do funil em uma linha (cada etapa com número, barra, taxa e custo) e lista por cidade.
@@ -52,11 +52,33 @@ function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo:
 
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
+interface EventoData { cidade: string; mes_evento: string; data_evento: string | null }
+type Status = 'todos' | 'aconteceu' | 'nao';
+const STATUS = [{ valor: 'todos', rotulo: 'Todos os eventos' }, { valor: 'aconteceu', rotulo: 'Aconteceu' }, { valor: 'nao', rotulo: 'Não aconteceu' }];
+/** O evento aconteceu quando a data já passou; sem data cadastrada, vale o mês do evento (mês anterior ao atual). */
+function aconteceu(dataEvento: string | null | undefined, mes: string, hoje: string) {
+  return dataEvento ? dataEvento < hoje : mes.slice(0, 7) < hoje.slice(0, 7);
+}
+
 export default function FluxoMarketingMdv() {
   const [de, setDe] = useState(`${new Date().getUTCFullYear()}-01-01`);
   const [ate, setAte] = useState(`${new Date().getUTCFullYear()}-12-01`);
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
-  const dados = q.data ?? [];
+  const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const [status, setStatus] = useState<Status>('todos');
+  const [cidade, setCidade] = useState('todas');
+  const todos = q.data ?? [];
+  const cidades = useMemo(() => [...new Set(todos.map((r) => r.cidade))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [todos]);
+  const dados = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const datas = new Map((evq.data ?? []).map((e) => [`${e.cidade}|${e.mes_evento}`, e.data_evento]));
+    return todos.filter((r) => {
+      if (cidade !== 'todas' && r.cidade !== cidade) return false;
+      if (status === 'todos') return true;
+      const ja = aconteceu(datas.get(`${r.cidade}|${r.mes_evento}`), r.mes_evento, hoje);
+      return status === 'aconteceu' ? ja : !ja;
+    });
+  }, [todos, evq.data, status, cidade]);
 
   const t = useMemo(() => dados.reduce((s, r) => ({
     inv: s.inv + Number(r.investimento || 0), imp: s.imp + Number(r.impressoes || 0), cli: s.cli + Number(r.cliques || 0),
@@ -80,6 +102,11 @@ export default function FluxoMarketingMdv() {
             {ABAS.map((a) => <button key={a.valor} className="toggle-item toggle-item-ativo">{a.rotulo}</button>)}
           </div>
           <div className="flex lg:hidden flex-wrap items-center gap-2"><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltroUnico rotulo="Eventos" opcoes={STATUS} valor={status} onChange={(v) => setStatus(v as Status)} />
+          <FiltroUnico rotulo="Cidade" opcoes={[{ valor: 'todas', rotulo: 'Todas as cidades' }, ...cidades.map((c) => ({ valor: c, rotulo: c }))]} valor={cidade} onChange={setCidade} />
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-4">
