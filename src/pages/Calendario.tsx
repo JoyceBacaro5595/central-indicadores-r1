@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
@@ -61,7 +62,7 @@ export default function Calendario() {
   useEffect(() => { if (editar && db.isSuccess && !doBanco && sheet.length > 0 && !importar.isPending && !importar.isSuccess) importar.mutate(); }, [editar, db.isSuccess, doBanco, sheet.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const salvar = useMutation({
     mutationFn: (v: RascunhoEvento) => r1Rpc('agenda_salvar', { p_id: v.id, p_cat: v.cat, p_titulo: v.titulo, p_local: v.local, p_hora: v.hora, p_inicio: v.inicio, p_fim: v.fim }),
-    onSuccess: () => { setEdicao(null); setMsg(null); qc.invalidateQueries({ queryKey: ['agenda'] }); },
+    onSuccess: () => { setEdicao(null); setMsg(null); toast.success('Salvo com sucesso');  qc.invalidateQueries({ queryKey: ['agenda'] }); },
   });
   const excluir = useMutation({
     mutationFn: (id: number) => r1Rpc('agenda_excluir', { p_id: id }),

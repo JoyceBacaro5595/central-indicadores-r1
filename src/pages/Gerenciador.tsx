@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { EsqBloco } from '@/components/Esqueleto';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save } from 'lucide-react';
+import { RefreshCw, Save } from 'lucide-react';
+import { toast } from 'sonner';
 import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
@@ -64,7 +65,7 @@ function Observacoes({ tipo, chave, texto, aoSalvar }: { tipo: string; chave: st
   const [rascunho, setRascunho] = useState<string | null>(null);
   const salvar = useMutation({
     mutationFn: () => r1Rpc('gerenciador_observacao_salvar', { p_tipo: tipo, p_chave: chave, p_observacoes: rascunho ?? texto }),
-    onSuccess: () => { setRascunho(null); aoSalvar(); },
+    onSuccess: () => { setRascunho(null); aoSalvar(); toast.success('Salvo com sucesso'); },
   });
   return <details className="mt-2 text-xs" title={texto || 'Adicione uma explicação para este ajuste'}>
     <summary className="cursor-pointer text-muted-foreground">Observações</summary>
@@ -87,27 +88,31 @@ export default function Gerenciador() {
   const agendamento = useMutation({
     mutationFn: (v: { jobname: string; schedule?: string; active?: boolean }) =>
       r1Rpc('gerenciador_agendamento_atualizar', { p_jobname: v.jobname, p_schedule: v.schedule ?? null, p_active: v.active ?? null }),
-    onSuccess: () => { setErro(null); setAviso('Agendamento atualizado.'); invalidar(); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onSuccess: () => { setErro(null); setAviso('Agendamento atualizado.'); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
   const parametro = useMutation({
     mutationFn: (v: { chave: string; valor: number }) => r1Rpc('gerenciador_parametro_atualizar', { p_chave: v.chave, p_valor: v.valor }),
-    onSuccess: () => { setErro(null); setAviso('Parâmetro salvo e aplicado nos agendamentos.'); invalidar(); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onSuccess: () => { setErro(null); setAviso('Parâmetro salvo e aplicado nos agendamentos.'); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
   const executar = useMutation({
     mutationFn: (jobname: string) => r1Rpc('gerenciador_executar_agora', { p_jobname: jobname }),
     onSuccess: () => { setErro(null); setAviso('Disparado agora; o resultado aparece nos logs em alguns minutos.'); setTimeout(invalidar, 4000); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
 
   const janela = useMutation({
     mutationFn: (dias: number) => r1Rpc('gerenciador_janela_rgv', { p_tool: 'meta', p_dias: dias }),
-    onSuccess: () => { setErro(null); setAviso('Janela Meta salva; será usada na próxima coleta.'); invalidar(); },
-    onError: (e: Error) => setErro(e.message),
+    onSuccess: () => { setErro(null); setAviso('Janela Meta salva; será usada na próxima coleta.'); setDiasMeta(null); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setErro(e.message); toast.error(e.message); },
   });
   const [diasMeta, setDiasMeta] = useState<string | null>(null);
   const d = estado.data;
+  const [visao, setVisao] = useState<'cards' | 'lista'>(() => { try { return localStorage.getItem('r1-sync-visao') === 'lista' ? 'lista' : 'cards'; } catch { return 'cards'; } });
+  const [linhaAberta, setLinhaAberta] = useState<string | null>(null);
+  const escolherVisao = (v: 'cards' | 'lista') => { setVisao(v); try { localStorage.setItem('r1-sync-visao', v); } catch { /* sem armazenamento: vale só nesta sessão */ } };
+  const cardDe = (a: Agendamento) => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={(v, aoSalvar) => agendamento.mutate(v, { onSuccess: aoSalvar })} executar={() => executar.mutate(a.jobname)} />;
   const logs: Log[] = [...(d?.logs ?? []), ...(d?.rgv_logs ?? []).map(l => ({ id: l.id, fonte: `rgv-${l.tool}`, entidade: l.tool, tipo_carga: l.source, status: l.status, linhas_lidas: l.rows_processed, janela_inicio: l.start_at, janela_fim: l.end_at, iniciado_em: l.started_at ?? '', finalizado_em: l.finished_at, mensagem_erro: l.error_detail }))].sort((a,b) => Date.parse(b.iniciado_em) - Date.parse(a.iniciado_em));
   const grupos = d ? Array.from(new Set(d.parametros.map((p) => p.grupo))) : [];
 
@@ -143,9 +148,37 @@ export default function Gerenciador() {
               <button type="button" disabled={janela.isPending || diasMeta === null || !Number.isInteger(Number(diasMeta)) || Number(diasMeta) < 1 || Number(diasMeta) > 93} onClick={() => janela.mutate(Number(diasMeta))} className="ml-3 text-primary disabled:opacity-40">Salvar janela</button>
               <p className="text-xs text-muted-foreground mt-2">Relê os dias encerrados e atualiza os valores existentes. Use Sincronizar agora na rotina Meta Perpétuo para iniciar imediatamente.</p>
             </Secao>}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={v => agendamento.mutate(v)} executar={() => executar.mutate(a.jobname)} />)}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold">Sincronizações</h2>
+              <div role="group" aria-label="Formato de visualização" className="inline-flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
+                {(['cards', 'lista'] as const).map(v => <button key={v} type="button" aria-pressed={visao === v} onClick={() => escolherVisao(v)} className={`px-3 py-1.5 ${visao === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{v === 'cards' ? 'Cards' : 'Lista'}</button>)}
+              </div>
             </div>
+            {visao === 'cards' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{d.agendamentos.map(cardDe)}</div>
+            ) : (
+              <div className="surface overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-muted-foreground text-left"><th className="p-3 font-semibold">Sincronização</th><th className="p-3 font-semibold">Auto-sync</th><th className="p-3 font-semibold">Agendamento</th><th className="p-3 font-semibold">Última execução</th><th className="p-3 font-semibold">Status</th><th className="p-3 font-semibold text-right">Registros</th><th className="p-3 font-semibold">Ações</th></tr></thead>
+                  <tbody>{d.agendamentos.map(a => {
+                    const ultimoLog = logs.find(l => l.fonte === a.fonte);
+                    const aberto = linhaAberta === a.jobname;
+                    return <Fragment key={a.jobname}>
+                      <tr className="border-t border-border align-top">
+                        <td className="p-3 font-semibold">{a.rotulo}</td>
+                        <td className="p-3"><input type="checkbox" role="switch" aria-label={`Auto-sync ${a.rotulo}`} checked={!!a.active} disabled={!a.existe || agendamento.isPending || executar.isPending} onChange={e => agendamento.mutate({ jobname: a.jobname, active: e.target.checked })} className="w-4 h-4 accent-[hsl(var(--primary))]" /></td>
+                        <td className="p-3 text-muted-foreground">{a.existe ? explicaCron(a.schedule) : 'Rotina ainda não cadastrada'}</td>
+                        <td className="p-3 mono whitespace-nowrap">{fmt(a.ultima_execucao)}</td>
+                        <td className={`p-3 ${STATUS_COR[a.ultimo_status ?? ''] ?? ''}`}>{a.ultimo_status || 'Sem execução'}{ultimoLog?.status === 'partial' && <DiagnosticoParcial l={ultimoLog} />}</td>
+                        <td className="p-3 text-right mono">{ultimoLog?.linhas_lidas == null ? '—' : num(ultimoLog.linhas_lidas)}</td>
+                        <td className="p-3 whitespace-nowrap"><button type="button" disabled={!a.existe || agendamento.isPending || executar.isPending} onClick={() => executar.mutate(a.jobname)} className="text-primary disabled:opacity-40 mr-3">Sincronizar agora</button><button type="button" aria-expanded={aberto} onClick={() => setLinhaAberta(aberto ? null : a.jobname)} className="underline">{aberto ? 'Fechar' : 'Editar e logs'}</button></td>
+                      </tr>
+                      {aberto && <tr className="border-t border-border"><td colSpan={7} className="p-3">{cardDe(a)}</td></tr>}
+                    </Fragment>;
+                  })}</tbody>
+                </table>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {grupos.map((g) => (
@@ -205,13 +238,13 @@ export default function Gerenciador() {
 
             <Secao titulo="Últimas cargas (log de ingestão)">
               <table className="w-full text-xs">
-                <thead><tr className="text-muted-foreground text-left"><th className="pb-2 font-semibold">Início</th><th className="pb-2 font-semibold">Fonte</th><th className="pb-2 font-semibold">Tipo</th><th className="pb-2 font-semibold">Janela</th><th className="pb-2 font-semibold">Status</th><th className="pb-2 font-semibold text-right">Linhas</th><th className="pb-2 font-semibold">Erro</th></tr></thead>
+                <thead><tr className="text-muted-foreground text-left"><th className="pb-2 font-semibold">Início</th><th className="pb-2 font-semibold">Fonte</th><th className="pb-2 font-semibold">Tipo</th><th className="pb-2 font-semibold">Janela</th><th className="pb-2 font-semibold">Status</th><th className="pb-2 font-semibold text-right">Linhas</th><th className="pb-2 font-semibold">Ação</th><th className="pb-2 font-semibold">Erro</th></tr></thead>
                 <tbody>{logs.map((l) => (
                   <tr key={l.id} className="border-t border-border">
                     <td className="py-1.5 mono">{fmt(l.iniciado_em)}</td><td className="py-1.5">{l.fonte} · {l.entidade}</td><td className="py-1.5">{l.tipo_carga}</td>
                     <td className="py-1.5 mono">{l.janela_inicio ?? ''}{l.janela_fim ? ` → ${l.janela_fim}` : ''}</td>
-                    <td className={`py-1.5 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</td><td className="py-1.5 text-right mono">{num(l.linhas_lidas)}</td>
-                    <td className="py-1.5 text-red-400 truncate max-w-[280px]" title={l.mensagem_erro ?? ''}>{l.mensagem_erro}</td>
+                    <td className={`py-1.5 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</td><td className="py-1.5 text-right mono">{num(l.linhas_lidas)}</td><td className="py-1.5">{(() => { const ag = d.agendamentos.find(x => x.fonte === l.fonte && x.existe); return ag ? <button type="button" disabled={executar.isPending} onClick={() => executar.mutate(ag.jobname)} title={`Refaz a sincronização "${ag.rotulo}" agora`} aria-label={`Recarregar ${ag.rotulo}`} className={`inline-flex items-center gap-1 disabled:opacity-40 ${l.status === 'success' ? 'text-muted-foreground' : 'text-primary font-semibold'}`}><RefreshCw className="w-3 h-3" />Recarregar</button> : null; })()}</td>
+                    <td className={`py-1.5 align-top ${l.status === 'partial' ? 'max-w-[420px]' : 'text-red-400 truncate max-w-[280px]'}`} title={l.mensagem_erro ?? ''}>{l.status === 'partial' ? <DiagnosticoParcial l={l} /> : l.mensagem_erro}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -234,6 +267,34 @@ export default function Gerenciador() {
   );
 }
 
+/** Explicação para carga que terminou "partial": por que parou no meio, se é falha e o que fazer. */
+function diagnosticoParcial(l: Pick<Log, 'fonte' | 'entidade' | 'tipo_carga' | 'mensagem_erro'>): { motivo: string; resolver: string } {
+  const fonte = `${l.fonte} ${l.entidade}`.toLowerCase();
+  const erro = l.mensagem_erro ? ` Erro registrado: ${l.mensagem_erro}.` : '';
+  if (fonte.includes('meta')) return {
+    motivo: `A rodada atingiu o limite de tempo da função antes de ler todos os dias e contas da janela (o Meta devolve os anúncios em páginas e a coleta é feita em janelas de 7 dias). Não é falha de token nem de dados: o ponto onde parou fica gravado e a próxima rodada continua dali.${erro}`,
+    resolver: 'Normalmente nada a fazer: as rodadas seguintes (a cada minuto no histórico) completam. Só aja se o partial se repetir por horas sem a quantidade de registros mudar: use "Sincronizar agora" e, se continuar, confira o token do Meta em Tokens das integrações. O funil só publica um dia quando as duas contas do Meta estão completas.',
+  };
+  if (fonte.includes('guru')) return {
+    motivo: `A carga parou antes de varrer toda a janela (limite de tempo ou de tentativas da API da Guru) e guardou o cursor para continuar.${erro}`,
+    resolver: 'Normalmente nada a fazer: a próxima rodada retoma do cursor. Se repetir por horas, use "Sincronizar agora" e confira o token da Guru em Tokens das integrações.',
+  };
+  if (fonte.includes('hubspot') || fonte.includes('upsell')) return {
+    motivo: `A carga leu parte dos registros e parou no limite de tempo ou de lote do HubSpot (até 50 negócios por lote com histórico); o cursor foi guardado.${erro}`,
+    resolver: 'Normalmente nada a fazer: a próxima rodada continua. Se repetir por horas, use "Sincronizar agora" e confira o token do HubSpot em Tokens das integrações.',
+  };
+  return {
+    motivo: `A carga terminou só em parte e o log não informa o motivo exato.${erro}`,
+    resolver: 'Use "Sincronizar agora" para tentar de novo e, se continuar parcial, abra os detalhes da execução e confira o token da integração.',
+  };
+}
+
+function DiagnosticoParcial({ l, aberto }: { l: Pick<Log, 'fonte' | 'entidade' | 'tipo_carga' | 'mensagem_erro'>; aberto?: boolean }) {
+  const d = diagnosticoParcial(l);
+  const corpo = <><p className="mt-1"><span className="font-semibold">Motivo:</span> {d.motivo}</p><p className="mt-1"><span className="font-semibold">Como resolver:</span> {d.resolver}</p></>;
+  return aberto ? <div className="text-sm">{corpo}</div> : <details className="mt-1 text-amber-300/90"><summary className="cursor-pointer">Por que ficou parcial</summary><div className="text-muted-foreground break-words">{corpo}</div></details>;
+}
+
 function horarioSimples(schedule: string | null) {
   const campos = (schedule ?? '').trim().split(/\s+/);
   if (campos.length !== 5 || campos.slice(2).some(v => v !== '*')) return null;
@@ -247,13 +308,15 @@ function cronHorario(inicio: number, fim: number, intervalo: number) {
   for (let i = 0; i < total; i += intervalo >= 60 ? intervalo / 60 : 1) horas.push((inicio + i + 3) % 24);
   return `${intervalo < 60 ? '*/' + intervalo : '0'} ${horas.length === 24 ? '*' : horas.join(',')} * * *`;
 }
-function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: { a: Agendamento; logs: Log[]; observacoes: React.ReactNode; ocupado: boolean; salvar: (v: { jobname: string; schedule?: string; active?: boolean }) => void; executar: () => void }) {
+function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: { a: Agendamento; logs: Log[]; observacoes: React.ReactNode; ocupado: boolean; salvar: (v: { jobname: string; schedule?: string; active?: boolean }, aoSalvar?: () => void) => void; executar: () => void }) {
   const [rascunho, setRascunho] = useState<{ inicio: number; fim: number; intervalo: number } | null>(null);
   const [cronAvancado, setCronAvancado] = useState<string | null>(null);
   const [duracao, setDuracao] = useState<string | null>(null);
   const [logAberto, setLogAberto] = useState(false);
   const [logSelecionado, setLogSelecionado] = useState<Log | null>(null);
   const intervaloValido = duracao === null || /^\d{2}:\d{2}:00$/.test(duracao) && (() => { const [h, m] = duracao.split(':').map(Number); const n = h * 60 + m; return m < 60 && n > 0 && (n < 60 ? 60 % n === 0 : n % 60 === 0 && 24 % (n / 60) === 0); })();
+  const [vez, setVez] = useState(0);
+  const fecharEdicao = () => { setVez(v => v + 1); setRascunho(null); setCronAvancado(null); setDuracao(null); };
   const atual = rascunho ?? horarioSimples(a.schedule);
   const alterar = (campo: 'inicio' | 'fim' | 'intervalo', valor: number) => setRascunho({ ...(atual ?? { inicio: 0, fim: 23, intervalo: 60 }), [campo]: valor });
   return <section className="surface p-5 space-y-4">
@@ -264,10 +327,10 @@ function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: 
     {atual ? <div className="grid grid-cols-3 gap-2"><label className="text-xs">Início<input type="number" min={0} max={23} value={atual.inicio} onChange={e => alterar('inicio', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Fim<input type="number" min={0} max={23} value={atual.fim} onChange={e => alterar('fim', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Tempo de atualização<input aria-label={`Tempo de atualização ${a.rotulo}`} placeholder="01:00:00" value={duracao ?? `${Math.floor(atual.intervalo / 60).toString().padStart(2, '0')}:${(atual.intervalo % 60).toString().padStart(2, '0')}:00`} onChange={e => { const v = e.target.value; setDuracao(v); if (/^\d{2}:\d{2}:00$/.test(v)) { const [h,m] = v.split(':').map(Number); alterar('intervalo', h * 60 + m); } }} className="input-r1 mt-1 w-full mono" /></label></div> : <p className="text-xs text-muted-foreground">Horário personalizado. Para substituir por uma rotina diária, <button type="button" className="text-primary underline" onClick={() => setRascunho({ inicio: 0, fim: 23, intervalo: 60 })}>configurar horário</button>.</p>}
     {!intervaloValido && <p role="alert" className="text-xs text-red-400">Use HH:MM:00. Intervalos em minutos precisam dividir 60; intervalos em horas precisam dividir 24. Ex.: 00:01:00, 00:15:00, 01:00:00 ou 02:00:00.</p>}
     <p className="text-[11px] text-muted-foreground">Horários de Brasília · fim inclusivo. O agendamento é salvo em UTC.</p>
-    <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || !intervaloValido || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
+    <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || !intervaloValido || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }, fecharEdicao); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
     {observacoes}
-    <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
-    <div className="border-t border-border pt-3"><button type="button" onClick={() => { setLogSelecionado(null); setLogAberto(true); }} className="font-semibold text-xs underline">Abrir log de atualização</button><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><button type="button" className="underline mr-2" onClick={() => { setLogSelecionado(l); setLogAberto(true); }}>Detalhes</button><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}</li>)}</ul></div>
+    <details key={vez} className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }, fecharEdicao); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
+    <div className="border-t border-border pt-3"><button type="button" onClick={() => { setLogSelecionado(null); setLogAberto(true); }} className="font-semibold text-xs underline">Abrir log de atualização</button><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><button type="button" className="underline mr-2" onClick={() => { setLogSelecionado(l); setLogAberto(true); }}>Detalhes</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} title={`Refaz a sincronização "${a.rotulo}" agora`} aria-label={`Recarregar ${a.rotulo}`} className={`mr-2 inline-flex items-center gap-1 disabled:opacity-40 ${l.status === 'success' ? 'text-muted-foreground' : 'text-primary font-semibold'}`}><RefreshCw className="w-3 h-3" />Recarregar</button><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}{l.status === 'partial' && <DiagnosticoParcial l={l} />}</li>)}</ul></div>
     <Dialog open={logAberto} onOpenChange={setLogAberto}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Atualização · {a.rotulo}</DialogTitle><DialogDescription>Resultado do agendamento e registros disponíveis da fonte.</DialogDescription></DialogHeader>
@@ -278,6 +341,7 @@ function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: 
           <div><dt className="font-semibold">Registros carregados</dt><dd>{logSelecionado?.linhas_lidas == null ? 'Quantidade não informada pelo log' : num(logSelecionado.linhas_lidas)}</dd></div>
           <div><dt className="font-semibold">Entidade / carga</dt><dd>{logSelecionado ? `${logSelecionado.entidade} · ${logSelecionado.tipo_carga}` : 'Selecione uma execução da fonte abaixo'}</dd></div>
           <div><dt className="font-semibold">Período carregado</dt><dd>{logSelecionado?.janela_inicio ?? 'Não informado'} → {logSelecionado?.janela_fim ?? 'Não informado'}</dd></div>
+          {(logSelecionado?.status ?? a.ultimo_status) === 'partial' && <div><dt className="font-semibold text-amber-400">Por que ficou parcial e como resolver</dt><dd><DiagnosticoParcial l={logSelecionado ?? { fonte: a.fonte, entidade: a.fonte, tipo_carga: '', mensagem_erro: a.ultima_msg ?? null }} aberto /></dd></div>}
           <div><dt className="font-semibold">Mensagem / motivo da falha</dt><dd className="break-words whitespace-pre-wrap">{logSelecionado?.mensagem_erro ?? a.ultima_msg ?? 'Nenhuma mensagem registrada'}</dd></div>
         </dl>
         {!logSelecionado && <p className="text-xs text-muted-foreground">O sucesso do agendamento confirma o disparo. A conclusão da coleta deve ser conferida no log da fonte.</p>}

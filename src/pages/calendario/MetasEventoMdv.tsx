@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { norm } from '../maquina-vendas/rota';
@@ -35,7 +36,7 @@ export default function MetasEventoMdv({ e }: { e: EventoEditavel }) {
       }
       await r1Rpc('evento_salvar', { p_id: id, p_data_evento: ev?.data_evento ?? e.inicio, p_local: ev?.local ?? null, p_capacidade: capacidade, p_meta_ingressos: metaIng, p_meta_faturamento: metaFat, p_observacao: ev?.observacao ?? null, p_ativo: true });
     },
-    onSuccess: () => { setAberto(false); qc.invalidateQueries({ predicate: (q) => LEEM_METAS(q.queryKey[0]) }); },
+    onSuccess: () => { setAberto(false); toast.success('Salvo com sucesso');  qc.invalidateQueries({ predicate: (q) => LEEM_METAS(q.queryKey[0]) }); },
   });
 
   if (lista.isLoading) return <span className="text-[11px] text-muted-foreground">metas…</span>;

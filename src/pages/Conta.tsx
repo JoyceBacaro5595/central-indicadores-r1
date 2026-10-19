@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { r1 } from '@/integrations/r1/client';
@@ -21,7 +22,7 @@ export default function Conta() {
     const { error } = await r1.auth.updateUser({ password: senha });
     setSalvando(false);
     if (error) setMsg({ ok: false, texto: error.message });
-    else { setMsg({ ok: true, texto: 'Senha atualizada.' }); setSenha(''); setConfirma(''); }
+    else { toast.success('Salvo com sucesso'); setMsg({ ok: true, texto: 'Senha atualizada.' }); setSenha(''); setConfirma(''); }
   }
 
   return (

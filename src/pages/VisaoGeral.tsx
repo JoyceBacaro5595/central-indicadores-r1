@@ -2,13 +2,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { usePerpetuo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, useMetaCiclo, usePerpetuoVendasClubeTrator } from '@/hooks/usePerpetuo';
 import { Link } from 'react-router-dom';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
-import AvisosSino from '@/components/AvisosSino';
 import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
@@ -23,6 +22,7 @@ const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const PADRAO = { meta: 250, capacidade: 350 }; /* iguais aos da Máquina de Vendas: valem só quando o evento não tem valor próprio */
 
 const n = (v: number | null | undefined, d = 0) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const pc2 = (v: number | null | undefined) => (v == null || isNaN(v) ? '—' : `${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`);
 const brl = (v: number | null | undefined) => (v == null || isNaN(v) ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (a: number | null | undefined, b: number | null | undefined) => (a != null && b ? Math.round((a / b) * 100) : null);
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -46,7 +46,7 @@ const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.se
 const diasAte = (iso: string, hoje: string) => Math.round((Date.parse(`${iso}T12:00:00`) - Date.parse(`${hoje}T12:00:00`)) / DAY);
 
 interface Evento { id: number; cidade: string; mes_evento: string; data_evento: string | null; capacidade: number | null; meta_ingressos: number | null; meta_faturamento: number | null; realizado: number; pagos: number; cortesias: number; faturamento: number; dias_restantes: number }
-interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip' | 'cortesia'; grupo: 'comercial' | 'cs' | 'seller' | 'social_selling' | 'geral'; ingressos: number; faturamento: number }
+interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip' | 'cortesia'; grupo: 'comercial' | 'cs' | 'seller' | 'social_selling' | 'marketing' | 'recuperacao'; cp: 'CP1' | 'CP2' | 'CP3' | null; ingressos: number; faturamento: number }
 interface MetaEvento { cidade: string; mes_evento: string; investimento: number }
 type Dia = { dia: string; [k: string]: number | string | null | undefined };
 
@@ -61,9 +61,9 @@ function Esqueleto() {
   );
 }
 
-function K({ l, v, m, cls, bar, din }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean }) {
+function K({ l, v, m, cls, bar, din, onClick, ativo }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean; onClick?: () => void; ativo?: boolean }) {
   return (
-    <div className="k">
+    <div className={`k${onClick ? ' clk' : ''}${ativo ? ' on' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} aria-expanded={onClick ? !!ativo : undefined} onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}>
       <div className="l">{l}</div>
       <div className={`v ${cls || ''} ${din ? 'din' : ''}`}>{v}</div>
       {m ? <div className="m">{m}</div> : null}
@@ -77,7 +77,7 @@ function Anel({ p, cor, rot }: { p: number | null; cor: string; rot?: string }) 
   return (
     <div className="ring">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r={r} fill="none" stroke="#232323" strokeWidth="10" /><circle cx="50" cy="50" r={r} fill="none" stroke={cor} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${fill} ${cf}`} /></svg>
-      <div><b>{p == null ? '—' : `${p}%`}</b><span>{rot || 'da meta'}</span></div>
+      <div><b>{p == null ? '—' : `${Math.round(p)}%`}</b><span>{rot || 'da meta'}</span></div>
     </div>
   );
 }
@@ -131,7 +131,8 @@ function Barras({ rows, chave, cor, meta, classe }: { rows: Dia[]; chave: string
   );
 }
 
-const GRUPOS: { k: LinhaCanal['grupo']; r: string }[] = [{ k: 'comercial', r: 'Comercial' }, { k: 'cs', r: 'CS' }, { k: 'seller', r: 'Seller' }, { k: 'social_selling', r: 'Social Selling' }, { k: 'geral', r: 'Sem canal' }];
+const GRUPOS: { k: LinhaCanal['grupo']; r: string }[] = [{ k: 'comercial', r: 'Comercial' }, { k: 'cs', r: 'CS' }, { k: 'seller', r: 'Seller' }, { k: 'social_selling', r: 'Social Selling' }, { k: 'marketing', r: 'Marketing' }, { k: 'recuperacao', r: 'Recuperação' }];
+const CPS: { k: LinhaCanal['cp']; r: string }[] = [{ k: 'CP1', r: 'CP1' }, { k: 'CP2', r: 'CP2' }, { k: 'CP3', r: 'CP3' }, { k: null, r: 'Sem CP' }];
 
 export default function VisaoGeral() {
   const { pode } = useAuth();
@@ -163,11 +164,11 @@ export default function VisaoGeral() {
     return () => { vivo = false; clearInterval(t); };
   }, []);
 
-  const de = mesISO(-1), ate = mesISO(4), INICIO_ANO = '2026-01-01';
+  const INICIO_ANO = '2026-01-01', de = INICIO_ANO, ate = '2026-12-31';
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
-  const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
+  const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal_v2', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
   const hojeStr = ymd(agora);
   // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
   const perpBase = usePerpetuo(ymd(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 7)), hojeStr, pode('perpetuo'));
@@ -177,12 +178,19 @@ export default function VisaoGeral() {
   const bfQ = useQuery({ queryKey: ['vg-black10x'], queryFn: () => r1Rpc<{ ingressos: number; receita: number; reembolsos: number; ultima_carga: string; investido: number; lpv: number; checkouts: number; meta_ate: string | null; janela_inicio: string; janela_fim: string; diario: { dia: string; ingressos: number }[] }>('black10x_painel', {}), refetchInterval: 5 * 60_000, enabled: pode('painel'), retry: false });
   const bf = bfQ.data;
   const eventos = eventosQ.data ?? [];
-  const rota = useMemo(() => ROTA.cidades.map((c) => {
+  // Todas as praças cadastradas no ano (Calendário/Guru); a lista fixa da Rota 45 só entra se a cidade ainda não estiver cadastrada.
+  const cidadesTurne = useMemo(() => {
+    const doBanco = eventos.map((e) => ({ cidade: e.cidade, data: e.data_evento ?? e.mes_evento.slice(0, 7) + '-01', inicio: '' }));
+    const faltam = ROTA.cidades.filter((c) => !eventos.some((x) => mesmoEvento(x, c)));
+    /* as praças que ainda vão acontecer ficam no topo; as realizadas descem (Joyce, 19/10) */
+    return [...doBanco, ...faltam].sort((a, b) => a.data.localeCompare(b.data)).sort((a, b) => Number(a.data < hojeStr) - Number(b.data < hojeStr));
+  }, [eventos, hojeStr]);
+  const rota = useMemo(() => cidadesTurne.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
     const data = e?.data_evento ?? c.data;
     return { c, e, data, dias: diasAte(data, hojeStr), cap: e?.capacidade ?? PADRAO.capacidade, meta: e?.meta_ingressos ?? PADRAO.meta, pagos: e?.pagos ?? 0, cort: e?.cortesias ?? 0, real: e?.realizado ?? 0, fat: e?.faturamento ?? 0, metaFat: e?.meta_faturamento ?? 0 };
-  }), [eventos, hojeStr]);
-  const metaRota = (metaQ.data ?? []).filter((m) => ROTA.cidades.some((c) => mesmoEvento(m, c)));
+  }), [cidadesTurne, eventos, hojeStr]);
+  const metaRota = (metaQ.data ?? []).filter((m) => cidadesTurne.some((c) => mesmoEvento(m, c)));
   const vendas = soma(rota, (x) => x.real), pagos = soma(rota, (x) => x.pagos), cortT = soma(rota, (x) => x.cort), receita = soma(rota, (x) => x.fat);
   const metaIng = soma(rota, (x) => x.meta), metaFat = soma(rota, (x) => x.metaFat), capTotal = soma(rota, (x) => x.cap);
   const invRota = soma(metaRota, (m) => m.investimento);
@@ -208,12 +216,31 @@ export default function VisaoGeral() {
   const pi = pct(vendas, metaIng), pr = pct(receita, metaFat);
 
   // ---- RGV
+  const metaCicloQ = useMetaCiclo(pode('perpetuo'));
+  const metaLeads = metaCicloQ.data?.find((m) => m.ciclo === ciclo?.ciclo)?.leads ?? null;
   const r = perp.data?.resumo;
+  const ctQ = usePerpetuoVendasClubeTrator(undefined, undefined, pode('perpetuo'), ciclo?.ciclo ?? null);
+  const ct = ctQ.data ?? null;
+  const vTotal = r?.vendas != null && ct ? r.vendas + ct.clube_r1.vendas + ct.trator.vendas + ct.sem_produto.vendas : null;
+  const fTotal = r?.faturamento != null && ct ? r.faturamento + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
   const diarioRgv: Dia[] = (perp.data?.diario ?? []).map((d) => ({ dia: d.data, leads: d.leads_crm ?? 0 }));
   const dCorr = ciclo ? Math.max(0, diasAte(hojeStr, ciclo.inicio) + 1) : null;
-  const mediaDia = r?.leads_crm != null && dCorr ? r.leads_crm / dCorr : null;
+  const mediaDia = r?.mql != null && dCorr ? r.mql / dCorr : null;
   const projecao = mediaDia != null && ciclo ? Math.round(mediaDia * ciclo.dias) : null;
-  const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null;
+  const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null; // MQL é o "lead do ciclo"; leads_crm é a base total do CRM
+
+  /* Vendas RGV, Clube R1 e Trator do ciclo, repetidas nos cards de Turnê e Black Friday (Joyce, 19/10) */
+  const vendasPerp = pode('perpetuo') && r ? (
+    <>
+      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{ciclo?.ciclo ?? 'ciclo atual'}</small></div>
+      <div className="rt-kpis rt-kpis-4">
+        <K l="Vendas RGV" v={n(r.vendas)} m={r.faturamento != null ? <>receita <b>{brl(r.faturamento)}</b></> : undefined} />
+        <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
+        <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
+        <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
+      </div>
+    </>
+  ) : null;
 
   // ---- selo de atualização
   const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
@@ -234,7 +261,8 @@ export default function VisaoGeral() {
     ocupados: somaD((d) => d.ingressos), fat: somaD((d) => d.faturamento),
   };
   const livresT = T.ocupados == null ? null : Math.max(0, capTotal - T.ocupados);
-  const porCanal = (tipo: LinhaCanal['tipo'], grupo: LinhaCanal['grupo']) => (canal ? soma(canal.filter((l) => l.tipo === tipo && l.grupo === grupo && rota.some((x) => mesmoEvento(l, x.c))), (l) => l.ingressos) : null);
+  const [explode, setExplode] = useState<string | null>(null);
+  const porCanal = (tipo: LinhaCanal['tipo'], grupo: LinhaCanal['grupo'] | null, cp?: LinhaCanal['cp'] | undefined) => (canal ? soma(canal.filter((l) => l.tipo === tipo && (grupo == null || l.grupo === grupo) && (cp === undefined || l.cp === cp) && rota.some((x) => mesmoEvento(l, x.c))), (l) => l.ingressos) : null);
   const TIPOS: { k: LinhaCanal['tipo']; r: string; total: number | null }[] = [{ k: 'comum', r: 'Ingressos comuns', total: T.comuns }, { k: 'cortesia', r: 'Cortesias', total: T.cort }, { k: 'vip', r: 'VIPs', total: T.vip }];
 
   const kpisMdv = (
@@ -253,7 +281,7 @@ export default function VisaoGeral() {
             <div className="rt-h">
               <span><i className="dot" style={{ ['--c' as string]: '#FF8A1F' }} />Turnê Máquina de Vendas</span>
               {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
-                : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
+                : <small>{[`${rota.length} praças em 2026`, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
             {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <Esqueleto /> : (
               <>
@@ -266,15 +294,29 @@ export default function VisaoGeral() {
                     <K l="Faturamento" v={brl(T.fat)} din m="Guru" />
                   </div>
                 ) : <div className="rt-kpis rt-kpis-2">{kpisMdv}</div>}
+                {vendasPerp}
 
-                {ampliado && TIPOS.map((t) => (
-                  <div key={t.k}>
-                    <div className="rt-sub">{t.r} <small>total {n(t.total)} · por canal de venda</small></div>
-                    <div className="rt-kpis rt-kpis-5">
-                      {GRUPOS.map((g) => <K key={g.k} l={g.r} v={n(porCanal(t.k, g.k))} />)}
+                {ampliado && TIPOS.map((t) => {
+                  const aberto = explode?.startsWith(`${t.k}|`) ? explode.slice(t.k.length + 1) : null;
+                  const base = aberto == null ? null : aberto === '*' ? porCanal(t.k, null) : porCanal(t.k, aberto as LinhaCanal['grupo']);
+                  const rotuloAberto = aberto === '*' ? t.r : GRUPOS.find((g) => g.k === aberto)?.r;
+                  return (
+                    <div key={t.k}>
+                      <div className="rt-sub rt-sub-clk" role="button" tabIndex={0} aria-expanded={aberto === '*'} onClick={() => setExplode(aberto === '*' ? null : `${t.k}|*`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExplode(aberto === '*' ? null : `${t.k}|*`); } }}>{t.r} <small>total {n(t.total)} · por canal de venda · clique para ver por CP</small></div>
+                      <div className="rt-kpis rt-kpis-6">
+                        {GRUPOS.map((g) => <K key={g.k} l={g.r} v={n(porCanal(t.k, g.k))} onClick={() => setExplode(aberto === g.k ? null : `${t.k}|${g.k}`)} ativo={aberto === g.k} />)}
+                      </div>
+                      {aberto != null && (
+                        <div className="rt-cp">
+                          <div className="rt-sub">{rotuloAberto} por CP <small>{base == null ? '' : `${n(base)} ingressos`}</small></div>
+                          <div className="rt-kpis rt-kpis-4">
+                            {CPS.map((c) => { const v = porCanal(t.k, aberto === '*' ? null : (aberto as LinhaCanal['grupo']), c.k); return <K key={c.r} l={c.r} v={n(v)} m={v != null && base ? <><b>{Math.round((100 * v) / base)}%</b> do total</> : undefined} bar={v != null && base ? (100 * v) / base : null} />; })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {ampliado && !canal && (
                   <div className="rt-empty">{canalQ.isError ? 'A divisão por canal (Comercial, CS, Seller, Social Selling) ainda não existe no banco: aguarda a criação da função de ingressos por canal.' : 'Carregando a divisão por canal…'}</div>
                 )}
@@ -329,7 +371,6 @@ export default function VisaoGeral() {
             <div className="rt-sync-l">Dados dos painéis</div>
             <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
           </div>
-          <AvisosSino />
         </header>
 
         <main className="rt-grid">
@@ -339,21 +380,31 @@ export default function VisaoGeral() {
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
-                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
+                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (!r && (perp.error || perpBase.error)) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
                   <>
+                    {(perp.error || perpBase.error) ? <div className="rt-empty" title={String(((perp.error || perpBase.error) as Error).message ?? '')}>Não consegui atualizar o funil agora. Os números abaixo são da última leitura.</div> : null}
                     <div className="rt-hero">
-                      <Anel p={null} cor="var(--red)" />
-                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>—</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
+                      <Anel p={metaLeads && r.mql != null ? (r.mql / metaLeads) * 100 : null} cor="var(--red)" />
+                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.mql)}</div><div className="m">meta <b>{metaLeads != null ? n(metaLeads) : '—'}</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Investido" v={brl(r.investimento)} din />
                       <K l="CPL" v={brl(r.cpl)} din />
-                      <K l="MQL" v={n(r.mql)} m={pMql != null ? <><b>{pMql}%</b> dos leads</> : undefined} />
+                      <K l="Leads no CRM" v={n(r.leads_crm)} m={pMql != null ? <>MQL = <b>{pMql}%</b></> : undefined} />
+                    </div>
+                    <div className="rt-kpis rt-kpis-2">
+                      <K l="CTR (link)" v={pc2(r.ctr)} />
+                      <K l="Conversão da página" v={pc2(r.conversao_lp)} m={<>visita → lead</>} />
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
                       <K l="Receita" v={brl(r.faturamento)} din />
                       <K l="CAC" v={brl(r.investimento != null && r.vendas != null ? r.investimento / Math.max(r.vendas, 1) : null)} din />
+                    </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
+                      <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
+                      <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
                     </div>
                     <div className="rt-sub">Leads por dia <small>HubSpot · total do ciclo</small></div>
                     <Barras rows={diarioRgv} chave="leads" cor="var(--red)" classe="rt-bars-rgv" />
@@ -366,13 +417,14 @@ export default function VisaoGeral() {
                 {!pode('painel') ? <div className="rt-empty">Sem permissão para ver o painel.</div> : bfQ.error ? <div className="rt-empty">Erro ao ler o Black Friday 10X: {String((bfQ.error as Error).message ?? bfQ.error)}</div> : !bf ? <div className="rt-empty">Carregando…</div> : (
                   <>
                     <div className="rt-hero">
-                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">venda até <b>{fmtD(bf.janela_fim)}</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
+                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m"><b>vendas em tempo real</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Receita" v={brl(bf.receita)} din />
                       <K l="Investido" v={brl(bf.investido)} din />
                       <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
                     </div>
+                    {vendasPerp}
                     <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
                     <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
                     <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>

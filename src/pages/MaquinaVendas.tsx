@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { Abas, FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
+import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
 import { usePlanoRota } from './maquina-vendas/plano';
+import MatrizPracas from './maquina-vendas/MatrizPracas';
 import Captacao from './maquina-vendas/Captacao';
 import Calendario from './maquina-vendas/Calendario';
 import Debriefing from './maquina-vendas/Debriefing';
@@ -24,17 +26,15 @@ interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; in
 import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
-type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle' | 'criativos' | 'briefing';
+type Aba = 'dashboard' | 'matriz' | 'debriefing' | 'captacao' | 'calendario' | 'controle';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Rotas' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
-  { valor: 'criativos', rotulo: 'Painel de criativos' }, { valor: 'briefing', rotulo: 'Briefing & Produção' },
+  { valor: 'dashboard', rotulo: 'Rotas' }, { valor: 'matriz', rotulo: 'Matriz - Praças' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
 ];
 
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR'));
 const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v.toFixed(0)}%`);
 const dataBR = (d: string | null) => (d ? d.split('-').reverse().join('/') : '—');
-const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 /* Urgência da linha do tempo, como no app original: até 7 dias vermelho, até 14 amarelo, depois azul. */
 /* Parâmetros padrão do app original; só valem quando o evento não tem meta/capacidade próprias. */
 const PADRAO = { meta: 250, capacidade: 350, investimento: 100000, cpa: 400 };
@@ -48,8 +48,8 @@ export default function MaquinaVendas() {
   const { pode } = useAuth();
   usePlanoRota();
   const [aba, setAba] = useState<Aba>('dashboard');
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(4));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const eventos = useQuery({ queryKey: ['mv-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const INICIO_ANO = '2026-01-01';
@@ -67,7 +67,7 @@ export default function MaquinaVendas() {
         titulo="Máquina de Vendas · Presencial"
         subtitulo="Dashboard de performance dos eventos por cidade · Meta Ads, Guru e HubSpot"
         acoes={<>
-          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+          <PeriodoPadrao p={per} />
         </>}
         onAtualizar={() => { eventos.refetch(); meta.refetch(); hub.refetch(); }}
         atualizando={eventos.isFetching}
@@ -77,6 +77,8 @@ export default function MaquinaVendas() {
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
         {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} cadeiras={cadeiras.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
+
+        {aba === 'matriz' && <MatrizPracas eventos={eventosHist.data ?? []} detalhe={detalhe.data ?? []} carregando={eventosHist.isLoading || detalhe.isLoading} />}
 
         {aba === 'debriefing' && <Debriefing eventos={eventosHist.data ?? []} meta={metaAno.data ?? []} />}
 
@@ -157,11 +159,6 @@ export default function MaquinaVendas() {
           );
         })()}
 
-        {(aba === 'criativos' || aba === 'briefing') && (
-          <section className="surface p-6 text-sm text-muted-foreground">
-            Esta aba entra nas próximas etapas da réplica: {aba === 'criativos' ? 'top criativos e mandala de anúncios.' : 'pedidos de peça e produção.'}
-          </section>
-        )}
       </PageBody>
     </div>
   );

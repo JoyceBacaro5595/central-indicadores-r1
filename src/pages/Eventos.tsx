@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Esq, EsqLinhas } from '@/components/Esqueleto';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { FiltroPeriodo, PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import CardsRota from './maquina-vendas/CardsRota';
 
 interface Evento {
@@ -69,8 +71,8 @@ function Edicao({ e, aoSalvar, salvando }: { e: Evento; aoSalvar: (v: Partial<Ev
 export default function Eventos() {
   const { pode } = useAuth();
   const qc = useQueryClient();
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(3));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const eventos = useQuery({ queryKey: ['eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const [editando, setEditando] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -92,12 +94,12 @@ export default function Eventos() {
 
   const salvar = useMutation({
     mutationFn: (v: Partial<Evento> & { id: number }) => r1Rpc('evento_salvar', { p_id: v.id, p_data_evento: v.data_evento ?? null, p_local: v.local ?? null, p_capacidade: v.capacidade ?? null, p_meta_ingressos: v.meta_ingressos ?? null, p_meta_faturamento: v.meta_faturamento ?? null, p_observacao: v.observacao ?? null, p_ativo: true }),
-    onSuccess: () => { setErro(null); setEditando(null); qc.invalidateQueries({ queryKey: ['eventos'] }); },
+    onSuccess: () => { setErro(null); setEditando(null); toast.success('Salvo com sucesso');  qc.invalidateQueries({ queryKey: ['eventos'] }); },
     onError: (e: Error) => setErro(e.message),
   });
   const criar = useMutation({
     mutationFn: () => r1Rpc('evento_criar', { p_linha: 'MÁQUINA DE VENDAS PRESENCIAL', p_cidade: nCidade, p_mes_evento: `${nMes}-01`, p_data_evento: nData || null, p_capacidade: null, p_meta_ingressos: nMeta === '' ? null : Number(nMeta) }),
-    onSuccess: () => { setErro(null); setNovo(false); setNCidade(''); setNMeta(''); setNData(''); qc.invalidateQueries({ queryKey: ['eventos'] }); },
+    onSuccess: () => { setErro(null); toast.success('Salvo com sucesso'); setNovo(false); setNCidade(''); setNMeta(''); setNData(''); qc.invalidateQueries({ queryKey: ['eventos'] }); },
     onError: (e: Error) => setErro(e.message),
   });
 
@@ -114,7 +116,7 @@ export default function Eventos() {
         titulo="Eventos e metas por cidade"
         subtitulo="Calendário, capacidade, meta, realizado e ritmo necessário · Máquina de Vendas presencial"
         acoes={<>
-          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+          <PeriodoPadrao p={per} />
         </>}
         onAtualizar={() => eventos.refetch()}
         atualizando={eventos.isFetching}

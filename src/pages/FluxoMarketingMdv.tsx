@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { EsqBloco } from '@/components/Esqueleto';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
+import { FiltroUnico, PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
+import { hojeSP } from '@/lib/periodos';
 
 /* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
    título da visão com o investimento, faixa do funil em uma linha (cada etapa com número, barra, taxa e custo) e lista por cidade.
@@ -17,58 +19,80 @@ interface MetaEvento {
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (d: string) => `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(2, 4)}`;
-const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
 const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }));
 const brl2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` : '—');
 const div = (a: number, b: number) => (b > 0 ? a / b : null);
 
-const CONTA_MDV = { nome: 'MÁQUINA DE VENDAS', id: '171474008015977' };
 const f2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
 const log = (v: number, max: number) => (v > 0 && max > 0 ? Math.max(2, Math.min(100, (100 * Math.log10(v + 1)) / Math.log10(max + 1))) : 0);
 
-const CARD_FAIXA = 'flex-1 basis-0 min-w-[120px] p-2';
+const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border 2xl:border-b-0 2xl:flex-1 2xl:basis-0';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
-const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap';
-const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap';
+const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden';
+const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap overflow-hidden';
+
+/** Número de caracteres do valor: o CSS usa para o texto caber no card sem sobrepor. */
+const nFit = (t: string) => ({ ['--n' as string]: Math.max(3, t.length) }) as React.CSSProperties;
 
 const Linha = ({ k, v }: { k: string; v: string }) => (
   <div className="flex flex-col"><span className="text-muted-foreground">{k}</span><span className="font-bold text-foreground">{v}</span></div>
 );
 
-function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
+function Etapa({ grupo, titulo, valor, largura, linhas, custoRotulo, custo }: { grupo?: boolean; titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
   return (
-    <div className={CARD_FAIXA}>
+    <div className={`${CARD_FAIXA} ${grupo ? '2xl:border-l-[3px] 2xl:border-l-violet-400/60' : ''}`}><div>
       <div className={TITULO_FAIXA}>{titulo}</div>
-      <div className={NUM_FAIXA}>{valor}</div>
+      <div className={NUM_FAIXA} style={nFit(valor)}>{valor}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-primary/80" style={{ width: `${largura}%` }} /></div>
       <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">{linhas.map(([k, v]) => <Linha key={k} k={k} v={v} />)}</div>
       <div className="mt-3 text-[10px] text-muted-foreground leading-tight">{custoRotulo}</div>
-      <div className={CUSTO_FAIXA}>{custo}</div>
-    </div>
-  );
-}
-
-function ContaPill() {
-  return (
-    <div className="inline-flex items-center gap-2 h-9 rounded-lg border border-border bg-secondary/40 px-3">
-      <span className="w-2 h-2 rounded-full bg-muted-foreground" title="Identificação da conta; não indica status de atualização" />
-      <span className="text-xs font-bold text-foreground">{CONTA_MDV.nome}</span>
-      <span className="text-[11px] text-muted-foreground mono">{CONTA_MDV.id}</span>
-    </div>
+      <div className={CUSTO_FAIXA} style={nFit(custo)}>{custo}</div>
+    </div></div>
   );
 }
 
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
+interface VendasCidade { cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }
+interface EventoData { cidade: string; mes_evento: string; data_evento: string | null }
+type Status = 'todos' | 'aconteceu' | 'nao';
+const STATUS = [{ valor: 'todos', rotulo: 'Todos os eventos' }, { valor: 'aconteceu', rotulo: 'Aconteceu' }, { valor: 'nao', rotulo: 'Não aconteceu' }];
+/** O evento aconteceu quando a data já passou; sem data cadastrada, vale o mês do evento (mês anterior ao atual). */
+function aconteceu(dataEvento: string | null | undefined, mes: string, hoje: string) {
+  return dataEvento ? dataEvento < hoje : mes.slice(0, 7) < hoje.slice(0, 7);
+}
+
 export default function FluxoMarketingMdv() {
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(3));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
-  const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
-  const dados = q.data ?? [];
-  const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
+  const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const vq = useQuery({ queryKey: ['fmm-vendas', de, ate], queryFn: () => r1Rpc<VendasCidade[]>('mdv_vendas_cidade', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const [status, setStatus] = useState<Status>('todos');
+  const [cidade, setCidade] = useState('todas');
+  const todos = q.data ?? [];
+  const cidades = useMemo(() => [...new Set(todos.map((r) => r.cidade))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [todos]);
+  const dados = useMemo(() => {
+    const hoje = hojeSP();
+    const datas = new Map((evq.data ?? []).map((e) => [`${e.cidade}|${e.mes_evento}`, e.data_evento]));
+    return todos.filter((r) => {
+      if (cidade !== 'todas' && r.cidade !== cidade) return false;
+      if (status === 'todos') return true;
+      const ja = aconteceu(datas.get(`${r.cidade}|${r.mes_evento}`), r.mes_evento, hoje);
+      return status === 'aconteceu' ? ja : !ja;
+    });
+  }, [todos, evq.data, status, cidade]);
+  const vendasPor = useMemo(() => new Map((vq.data ?? []).map((v) => [`${v.cidade}|${v.mes_evento}`, v])), [vq.data]);
+  const vd = (r: MetaEvento) => vendasPor.get(`${r.cidade}|${r.mes_evento}`);
+  const vt = useMemo(() => dados.reduce((s, r) => { const v = vendasPor.get(`${r.cidade}|${r.mes_evento}`); return {
+    rgv: s.rgv + (v?.rgv ?? 0), clube: s.clube + (v?.clube_r1 ?? 0), trator: s.trator + (v?.trator ?? 0),
+    fRgv: s.fRgv + Number(v?.fat_rgv ?? 0), fClube: s.fClube + Number(v?.fat_clube_r1 ?? 0), fTrator: s.fTrator + Number(v?.fat_trator ?? 0),
+  }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor]);
+  const chaves = new Set(dados.map((r) => `${r.cidade}|${r.mes_evento}`));
+  const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null && chaves.has(`${r.cidade}|${r.mes_evento}`)); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
   const lpv = soma('lpv'); const chk = soma('checkouts');
 
   const t = useMemo(() => dados.reduce((s, r) => ({
@@ -85,14 +109,19 @@ export default function FluxoMarketingMdv() {
         subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
         onAtualizar={() => { q.refetch(); q2.refetch(); }}
         atualizando={q.isFetching || q2.isFetching}
-        acoes={<div className="hidden lg:flex items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
+        acoes={<div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>}
       />
       <PageBody className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="toggle-group">
             {ABAS.map((a) => <button key={a.valor} className="toggle-item toggle-item-ativo">{a.rotulo}</button>)}
           </div>
-          <div className="flex lg:hidden flex-wrap items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
+          <div className="flex lg:hidden flex-wrap items-center gap-2"><PeriodoPadrao p={per} /></div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <FiltroUnico rotulo="Eventos" opcoes={STATUS} valor={status} onChange={(v) => setStatus(v as Status)} />
+          <FiltroUnico rotulo="Cidade" opcoes={[{ valor: 'todas', rotulo: 'Todas as cidades' }, ...cidades.map((c) => ({ valor: c, rotulo: c }))]} valor={cidade} onChange={setCidade} />
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -116,11 +145,11 @@ export default function FluxoMarketingMdv() {
 
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
-            <div className="surface overflow-x-auto">
-              <div className="flex flex-nowrap divide-x divide-border min-w-[1100px]">
-                <div className={CARD_FAIXA}>
+            <div className="surface overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 2xl:flex 2xl:flex-nowrap 2xl:divide-x 2xl:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border 2xl:[&>*]:border-r-0">
+                <div className={CARD_FAIXA}><div>
                   <div className={TITULO_FAIXA}>Investimento</div>
-                  <div className="num-faixa num-faixa-brl leading-none mt-2 text-foreground whitespace-nowrap">{brl2(t.inv)}</div>
+                  <div className="num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden" style={nFit(brl2(t.inv))}>{brl2(t.inv)}</div>
                   <div className="h-1.5 mt-2.5" />
                   <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">
                     <Linha k="Campanhas" v={num(t.camp)} />
@@ -128,7 +157,7 @@ export default function FluxoMarketingMdv() {
                   </div>
                   <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Máquina de Vendas</div>
                   <div className={CUSTO_FAIXA}>&nbsp;</div>
-                </div>
+                </div></div>
                 <Etapa titulo="Impressões" valor={num(t.imp)} largura={log(t.imp, max)} linhas={[['Cliques', num(t.cli)]]} custoRotulo="CPM" custo={brl2(div(t.inv * 1000, t.imp))} />
                 <Etapa titulo="Cliques no link" valor={num(t.cli)} largura={log(t.cli, max)} linhas={[['CTR', pct(t.cli, t.imp)], ['Meta de CTR', '1%']]} custoRotulo="CPC" custo={brl2(div(t.inv, t.cli))} />
                 <Etapa titulo="Visitas LP" valor={num(lpv)} largura={lpv ? log(lpv, max) : 0} linhas={[['Connect rate', lpv != null ? pct(lpv, t.cli) : '—']]} custoRotulo="Custo por visita" custo={lpv ? brl2(div(t.inv, lpv)) : '—'} />
@@ -136,6 +165,10 @@ export default function FluxoMarketingMdv() {
                 <Etapa titulo="Compras no Meta" valor={num(t.cmp)} largura={log(t.cmp, max)} linhas={[['Clique → compra', pct(t.cmp, t.cli)]]} custoRotulo="Custo por compra" custo={brl2(div(t.inv, t.cmp))} />
                 <Etapa titulo="Ingressos pagos (Guru)" valor={num(t.ing)} largura={log(t.ing, max)} linhas={[['Clique → ingresso', pct(t.ing, t.cli)], ['Ticket médio', brl2(div(t.fat, t.ing))]]} custoRotulo="CAC" custo={brl2(div(t.inv, t.ing))} />
                 <Etapa titulo="Faturamento" valor={brl(t.fat)} largura={log(t.fat, Math.max(t.fat, t.inv, 1))} linhas={[['ROAS', f2(div(t.fat, t.inv))]]} custoRotulo="Resultado − investimento" custo={brl(t.fat - t.inv)} />
+                <Etapa grupo titulo="Vendas RGV" valor={num(vt.rgv)} largura={log(vt.rgv, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv, vt.rgv))} />
+                <Etapa titulo="Vendas Clube R1" valor={num(vt.clube)} largura={log(vt.clube, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fClube)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fClube, vt.clube))} />
+                <Etapa titulo="Vendas Trator" valor={num(vt.trator)} largura={log(vt.trator, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fTrator, vt.trator))} />
+                <Etapa titulo="Total de vendas" valor={num(vt.rgv + vt.clube + vt.trator)} largura={log(vt.rgv + vt.clube + vt.trator, Math.max(vt.rgv + vt.clube + vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv + vt.fClube + vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv + vt.fClube + vt.fTrator, vt.rgv + vt.clube + vt.trator))} />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts chegam do Meta na atualização diária; enquanto não houver dado aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
@@ -149,11 +182,11 @@ export default function FluxoMarketingMdv() {
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="text-left">
-                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CAC', 'Faturamento', 'ROAS'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
+                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CAC', 'Faturamento', 'ROAS', 'RGV', 'Clube R1', 'Trator'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
-                  {dados.length === 0 && <tr><td colSpan={13} className="px-3 py-6 text-center text-muted-foreground">Sem dados no período.</td></tr>}
+                  {dados.length === 0 && <tr><td colSpan={16} className="px-3 py-6 text-center text-muted-foreground">Sem dados no período.</td></tr>}
                   {dados.map((r) => (
                     <tr key={`${r.cidade}-${r.mes_evento}`} className="border-t border-border">
                       <td className="px-3 py-2 font-medium">{r.cidade}</td>
@@ -169,6 +202,9 @@ export default function FluxoMarketingMdv() {
                       <td className="px-3 py-2 text-right mono">{brl2(r.cpa)}</td>
                       <td className="px-3 py-2 text-right mono">{brl(r.faturamento)}</td>
                       <td className="px-3 py-2 text-right mono">{r.roas == null ? '—' : r.roas.toLocaleString('pt-BR')}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.rgv ?? 0)}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.clube_r1 ?? 0)}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.trator ?? 0)}</td>
                     </tr>
                   ))}
                 </tbody>

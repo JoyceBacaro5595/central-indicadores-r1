@@ -11,15 +11,15 @@ import { DistribuicaoLeads } from '@/components/DistribuicaoLeads';
 import { useHubspotData } from '@/hooks/useHubspotData';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { LoadingBar } from '@/components/LoadingBar';
-import { DateRangePicker } from '@/components/DateRangePicker';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { Sun, Moon, Smartphone, Monitor, RefreshCw } from 'lucide-react';
 
 
 export default function MaquinaOnline() {
   const [lightMode, setLightMode] = useState(() => localStorage.getItem('theme') === 'light');
   const [mobileView, setMobileView] = useState(() => localStorage.getItem('mobileView') === 'true');
-  const [startDate, setStartDate] = useState('2026-09-14');
-  const [endDate, setEndDate] = useState('2026-09-21');
+  const per = usePeriodoPadrao('7');
+  const { de: startDate, ate: endDate } = per;
   const { data: ads, error: adsError, refetch: refetchAds, isFetching: adsFetching } = useDashboardData(startDate || undefined, endDate || undefined);
   const { data: hubspot, refetch: refetchHubspot, isFetching: hubspotFetching } = useHubspotData(startDate || undefined, endDate || undefined);
   const fetching = adsFetching || hubspotFetching;
@@ -77,11 +77,7 @@ export default function MaquinaOnline() {
 
       {/* Content */}
       <div className={`mt-6 space-y-6 mx-auto transition-all duration-300 ${mobileView ? 'max-w-[420px]' : ''}`}>
-        <DateRangePicker
-          startDate={startDate}
-          endDate={endDate}
-          onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
-        />
+        <div className="flex flex-wrap items-center gap-2"><PeriodoPadrao p={per} /></div>
 
         <LoadingBar
           fetching={fetching}

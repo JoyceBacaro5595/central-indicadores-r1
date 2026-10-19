@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
-import { FiltroPeriodo, PageHeader, subVisivel } from '@/components/shared';
+import { PageHeader, subVisivel } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import {
   useRelatorioIngressos,
   RelatorioFiltros,
@@ -16,28 +17,6 @@ const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (ym: string) => `${MESES[Number(ym.slice(5, 7)) - 1]}/${ym.slice(2, 4)}`;
-
-function hojeISO() {
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-}
-
-type Periodo = 'ano' | 'mes' | 'mes_anterior' | '30d' | 'livre';
-
-function periodoDatas(p: Periodo): [string, string] {
-  const hoje = hojeISO();
-  const ano = hoje.slice(0, 4);
-  if (p === 'ano') return [`${ano}-01-01`, hoje];
-  if (p === 'mes') return [hoje.slice(0, 8) + '01', hoje];
-  if (p === 'mes_anterior') {
-    const d = new Date(`${hoje.slice(0, 8)}01T12:00:00Z`);
-    d.setUTCDate(0);
-    const fim = d.toISOString().slice(0, 10);
-    return [fim.slice(0, 8) + '01', fim];
-  }
-  const d = new Date(`${hoje}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 29);
-  return [d.toISOString().slice(0, 10), hoje];
-}
 
 // Colunas comuns a todos os cortes.
 const COLUNAS: { key: keyof RelatorioLinha; label: string; fmt: (v: any) => string }[] = [
@@ -268,8 +247,8 @@ function Filtro({
 }
 
 export default function Relatorio() {
-  const [periodo, setPeriodo] = useState<Periodo>('ano');
-  const [[inicio, fim], setDatas] = useState<[string, string]>(periodoDatas('ano'));
+  const per = usePeriodoPadrao('ano');
+  const { de: inicio, ate: fim } = per;
   const [filtros, setFiltros] = useState<RelatorioFiltros>({ linha: 'MÁQUINA DE VENDAS PRESENCIAL' });
   const { data, error, isFetching, refetch } = useRelatorioIngressos(inicio, fim, filtros);
 
@@ -277,10 +256,6 @@ export default function Relatorio() {
     document.documentElement.classList.toggle('light', localStorage.getItem('theme') === 'light');
   }, []);
 
-  const escolherPeriodo = (p: Periodo) => {
-    setPeriodo(p);
-    if (p !== 'livre') setDatas(periodoDatas(p));
-  };
   const setF = (k: keyof RelatorioFiltros) => (v: string) => setFiltros((f) => ({ ...f, [k]: v || null }));
 
   const t = data?.total;
@@ -309,7 +284,7 @@ export default function Relatorio() {
 
       <main className="py-6 space-y-6 mx-auto max-w-[1520px] px-4 md:px-8">
         <div className="surface p-4 flex flex-wrap items-end gap-3 print:hidden">
-          <FiltroPeriodo modo="dia" de={inicio} ate={fim} onChange={(a, b) => { setPeriodo('livre'); setDatas([a, b]); }} />
+          <PeriodoPadrao p={per} />
           <Filtro label="Produto" value={filtros.linha ?? ''} onChange={setF('linha')} opcoes={(data?.opcoes.linhas ?? [filtros.linha ?? '']).filter(Boolean).map((l) => [l, l])} />
           <Filtro label="Cidade" value={filtros.cidade ?? ''} onChange={setF('cidade')} opcoes={(data?.opcoes.cidades ?? []).map((c) => [c, c])} />
           <Filtro label="Tipo" value={filtros.tipo ?? ''} onChange={setF('tipo')} opcoes={TIPO_OPCOES.map((x) => [x, x])} />

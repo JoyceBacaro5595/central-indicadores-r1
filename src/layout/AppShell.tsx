@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
+import AvisosSino from '@/components/AvisosSino';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, Menu, X, ChevronDown, ChevronLeft, ChevronRight,
@@ -35,6 +36,14 @@ const SECOES: Secao[] = [
     titulo: 'Perpétuo RGV',
     itens: [
       { to: '/perpetuo/trafego', rotulo: 'Fluxo Marketing RGV', icone: Waypoints, recurso: 'perpetuo' },
+      { to: '/perpetuo/historico', rotulo: 'Relatório Ricardo - Histórico Dados', icone: FileText, recurso: 'perpetuo' },
+    ],
+  },
+  {
+    titulo: 'Upsell',
+    itens: [
+      { to: '/upsell/clube-r1', rotulo: 'Clube R1', icone: UserCheck, recurso: 'perpetuo' },
+      { to: '/upsell/trator', rotulo: 'Trator', icone: ShoppingCart, recurso: 'perpetuo' },
     ],
   },
   {
@@ -94,13 +103,13 @@ export default function AppShell() {
       >
         {aberta ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
       </button>
-      {aberta && <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setAberta(false)} />}
+      {aberta && <div className="md:hidden fixed inset-0 z-[55] bg-black/60" onClick={() => setAberta(false)} />}
 
-      <div className={`shrink-0 md:sticky md:top-0 md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
+      <div className={`shrink-0 md:sticky md:top-0 md:z-[60] md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
       <aside
       onMouseEnter={() => setSobre(true)}
       onMouseLeave={() => setSobre(false)}
-        className={`print:hidden fixed md:absolute md:left-0 top-0 z-40 h-screen shrink-0 flex flex-col ${fixaCompacta && sobre ? 'md:shadow-2xl' : ''} border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
+        className={`print:hidden fixed md:absolute md:left-0 top-0 z-[60] h-screen shrink-0 flex flex-col ${fixaCompacta && sobre ? 'md:shadow-2xl' : ''} border-r border-border bg-[hsl(var(--sidebar-background))] transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
           aberta ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         data-compacta={compacta ? 'true' : undefined}
@@ -154,6 +163,7 @@ export default function AppShell() {
       </aside>
       </div>
 
+      <div className="fixed top-3 right-3 z-40 print:hidden"><AvisosSino /></div>
       <div className="flex-1 min-w-0">
         <Suspense fallback={<div role="status" aria-label="Carregando" className="p-8 space-y-3 animate-pulse motion-reduce:animate-none"><div className="h-8 w-64 rounded-lg bg-secondary" /><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /></div><div className="h-64 rounded-xl bg-secondary" /></div>}>
           <Outlet />

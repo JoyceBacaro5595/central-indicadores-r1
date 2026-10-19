@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
@@ -42,7 +43,7 @@ export default function CadastroEvento({ eventos }: { eventos: EventoCad[] }) {
       }
       await r1Rpc('evento_salvar', { p_id: id, p_data_evento: data || null, p_local: existente?.local ?? null, p_capacidade: capacidade, p_meta_ingressos: metaIngressos, p_meta_faturamento: metaFaturamento, p_observacao: existente?.observacao ?? null, p_ativo: true });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['mv-eventos'] }); qc.invalidateQueries({ queryKey: ['mv-eventos-hist'] }); qc.invalidateQueries({ queryKey: ['eventos'] }); escolher('novo'); fechar(); },
+    onSuccess: () => { toast.success('Salvo com sucesso'); qc.invalidateQueries({ queryKey: ['mv-eventos'] }); qc.invalidateQueries({ queryKey: ['mv-eventos-hist'] }); qc.invalidateQueries({ queryKey: ['eventos'] }); escolher('novo'); fechar(); },
     onError: (e: Error) => setErro(e.message),
   });
 
