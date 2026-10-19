@@ -128,3 +128,7 @@ revoke all on function public.planejamento_acao_excluir(bigint) from public, ano
 revoke all on function public.planejamento_acao_detalhe(bigint) from public, anon;
 grant execute on function public.planejamento_acoes(text), public.planejamento_campanhas(), public.planejamento_acao_salvar(bigint, text, text, numeric, date, date, text[], boolean),
   public.planejamento_acao_trocar(bigint, text, numeric, text[], text, date), public.planejamento_acao_excluir(bigint), public.planejamento_acao_detalhe(bigint) to authenticated;
+
+-- Mix de ingressos por venda (único, duplo, triplo), pedido da Joyce em 19/10. Aplicado como migrações separadas no Supabase:
+--   alter table config.plano_rota add column pct_unico/pct_duplo/pct_triplo numeric (0 a 100);
+--   planejamento_salvar passa a gravar o mix e recusa quando a soma não dá 100%.

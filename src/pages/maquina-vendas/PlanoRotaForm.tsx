@@ -24,6 +24,8 @@ const GRUPOS: { titulo: string; campos: { k: string; rotulo: string; padrao: num
   { titulo: 'Funil de tráfego (taxas)', campos: [
     { k: 'conv_checkout', rotulo: 'Conversão do checkout (%)', padrao: 40 }, { k: 'conv_pagina', rotulo: 'Conversão da página (%)', padrao: 2.4 },
     { k: 'connect', rotulo: 'Connect rate (%)', padrao: 75 }, { k: 'ctr', rotulo: 'CTR (%)', padrao: META.ctr }, { k: 'cpm', rotulo: 'CPM (R$)', padrao: META.cpm } ] },
+  { titulo: 'Formato do ingresso vendido (% das vendas; soma 100)', campos: [
+    { k: 'pct_unico', rotulo: 'Ingresso único (%)', padrao: null }, { k: 'pct_duplo', rotulo: 'Ingresso duplo (%)', padrao: null }, { k: 'pct_triplo', rotulo: 'Ingresso triplo (%)', padrao: null } ] },
   { titulo: 'Prazos', campos: [
     { k: 'dias_captacao', rotulo: 'Dias de captação antes do evento (E-)', padrao: 45 }, { k: 'dias_producao', rotulo: 'Dias de produção antes do evento (E-)', padrao: 52 } ] },
 ];
@@ -71,11 +73,18 @@ export default function PlanoRotaForm() {
   /* Engenharia reversa: da meta de ingressos pagos até a verba, com as taxas cadastradas. */
   const funil = useMemo(() => {
     const vendas = n('vendas'); const cc = n('conv_checkout'); const cp = n('conv_pagina'); const cn = n('connect'); const ctr = n('ctr'); const cpm = n('cpm'); const cac = n('cac'); const inv = n('investimento');
-    const checkouts = vendas != null && cc ? vendas / (cc / 100) : null;
+    const u = n('pct_unico'); const d = n('pct_duplo'); const t = n('pct_triplo');
+    const mixInformado = u != null || d != null || t != null;
+    const mediaIng = mixInformado ? ((u ?? 0) + 2 * (d ?? 0) + 3 * (t ?? 0)) / 100 : 1;
+    const somaMix = (u ?? 0) + (d ?? 0) + (t ?? 0);
+    const pedidos = vendas != null && mediaIng > 0 ? vendas / mediaIng : null;
+    const cortesias = n('cortesias'); const capacidade = n('capacidade');
+    const cadeiras = vendas != null ? vendas + (cortesias ?? 0) : null;
+    const checkouts = pedidos != null && cc ? pedidos / (cc / 100) : null;
     const visitas = checkouts != null && cp ? checkouts / (cp / 100) : null;
     const cliques = visitas != null && cn ? visitas / (cn / 100) : null;
     const impressoes = cliques != null && ctr ? cliques / (ctr / 100) : null;
-    return { vendas, checkouts, visitas, cliques, impressoes, verbaFunil: impressoes != null && cpm != null ? (impressoes / 1000) * cpm : null, verbaCac: vendas != null && cac != null ? vendas * cac : null, inv,
+    return { mixInformado, mediaIng, somaMix, pedidos, cadeiras, capacidade, cacPedido: cac != null ? cac * mediaIng : null, vendas, checkouts, visitas, cliques, impressoes, verbaFunil: impressoes != null && cpm != null ? (impressoes / 1000) * cpm : null, verbaCac: vendas != null && cac != null ? vendas * cac : null, inv,
       cpc: cliques && impressoes != null && cpm != null ? ((impressoes / 1000) * cpm) / cliques : null };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v]);
@@ -86,6 +95,7 @@ export default function PlanoRotaForm() {
       if (!nome.trim()) throw new Error('Informe o nome da rota.');
       const metas: Record<string, unknown> = Object.fromEntries(TODOS.map((c) => [c.k, numero(v[c.k])]));
       if (Object.values(metas).some((x) => x != null && Number.isNaN(x))) throw new Error('Há campo com valor que não é número.');
+      { const mix = [metas.pct_unico, metas.pct_duplo, metas.pct_triplo] as (number | null)[]; if (mix.some((x) => x != null) && Math.abs(mix.reduce<number>((t, x) => t + (x ?? 0), 0) - 100) > 0.01) throw new Error('O mix de ingressos (único + duplo + triplo) precisa somar 100%.'); }
       const lista = cids.filter((c) => c.cidade.trim() && c.data);
       metas.cidades = lista.map((c) => ({ cidade: c.cidade.trim(), data: c.data, inicio: c.inicio || dMais(c.data, Number(metas.dias_captacao ?? 45)) }));
       await r1Rpc('planejamento_salvar', { p_rota: nome.trim(), p_metas: metas });
@@ -161,7 +171,11 @@ export default function PlanoRotaForm() {
         <div className="text-xs font-semibold text-foreground">Funil necessário por cidade (engenharia reversa das metas)</div>
         <table className="w-full text-xs mt-2"><tbody>
           <Linha r="Ingressos pagos" val={num(funil.vendas)} />
-          <Linha r="Checkouts necessários" val={num(funil.checkouts == null ? null : Math.ceil(funil.checkouts))} nota="ingressos ÷ conversão do checkout" />
+          <Linha r="Média de ingressos por venda" val={funil.mediaIng.toFixed(2).replace('.', ',')} nota={funil.mixInformado ? (Math.abs(funil.somaMix - 100) > 0.01 ? 'o mix não soma 100%: ajuste antes de salvar' : 'único x1, duplo x2, triplo x3 pelo mix cadastrado') : 'mix não cadastrado: vale 1 ingresso por venda'} />
+          <Linha r="Vendas (pedidos) necessárias" val={num(funil.pedidos == null ? null : Math.ceil(funil.pedidos))} nota="ingressos pagos ÷ média por venda" />
+          <Linha r="Cadeiras ocupadas (pagos + cortesias)" val={`${num(funil.cadeiras)} de ${num(funil.capacidade)}`} nota={funil.cadeiras != null && funil.capacidade != null && funil.cadeiras > funil.capacidade ? 'acima da capacidade: reduza a meta ou aumente as cadeiras' : funil.cadeiras != null && funil.capacidade ? `${((funil.cadeiras / funil.capacidade) * 100).toFixed(0)}% da capacidade` : undefined} />
+          <Linha r="CAC por venda (pedido)" val={brl(funil.cacPedido)} nota="CAC por ingresso × média de ingressos por venda" />
+          <Linha r="Checkouts necessários" val={num(funil.checkouts == null ? null : Math.ceil(funil.checkouts))} nota="vendas (pedidos) ÷ conversão do checkout" />
           <Linha r="Visitas na página" val={num(funil.visitas == null ? null : Math.ceil(funil.visitas))} nota="checkouts ÷ conversão da página" />
           <Linha r="Cliques no link" val={num(funil.cliques == null ? null : Math.ceil(funil.cliques))} nota="visitas ÷ connect rate" />
           <Linha r="Impressões" val={num(funil.impressoes == null ? null : Math.ceil(funil.impressoes))} nota="cliques ÷ CTR" />
