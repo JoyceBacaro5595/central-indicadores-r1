@@ -209,12 +209,12 @@ export default function Upsell() {
         <div className="surface p-4 overflow-x-auto">
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground mb-2">Negócios ganhos ({itens.length})</h3>
           <table className="w-full text-xs">
-            <thead><tr className="text-muted-foreground text-left"><th className="py-1 font-semibold">Fechamento</th><th className="font-semibold">Negócio</th><th className="font-semibold">Tag</th><th className="font-semibold">Origem</th><th className="text-right font-semibold">Valor</th></tr></thead>
+            <thead><tr className="text-muted-foreground text-left"><th className="py-1 font-semibold">Fechamento</th><th className="font-semibold">ID do negócio</th><th className="font-semibold">Tag</th><th className="font-semibold">Origem</th><th className="text-right font-semibold">Valor</th></tr></thead>
             <tbody>
               {itens.map((i) => (
                 <tr key={i.deal_id} className="border-t border-border/50">
                   <td className="py-1.5 whitespace-nowrap">{dataBr(i.data_fechamento)}</td>
-                  <td className="pr-2 max-w-[320px] truncate" title={i.nome ?? ''}>{i.nome ?? '-'}</td>
+                  <td className="pr-2 whitespace-nowrap tabular-nums"><a href={`https://app.hubspot.com/contacts/23586399/record/0-3/${i.deal_id}`} target="_blank" rel="noopener noreferrer" className="underline decoration-dotted hover:text-primary" title="Abrir o negócio no HubSpot">{i.deal_id}</a></td>
                   <td className="whitespace-nowrap">{i.tag}</td>
                   <td className="pr-2 max-w-[200px] truncate">{i.origem ?? 'Sem origem'}</td>
                   <td className="text-right tabular-nums whitespace-nowrap">{brl(i.valor)}</td>
