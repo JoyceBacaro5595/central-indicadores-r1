@@ -1,5 +1,13 @@
 # Atualização automática — Perpétuo RGV
 
+## Estado atual (conferido em 19/10/2026)
+- Os textos abaixo são o histórico da implantação (07 a 09/10). O que vale hoje:
+- **HubSpot** (`rgv.sync_config` tool `hubspot`, cron `rgv-hubspot-auto`, de hora em hora): ativo, bootstrap concluído, busca incremental a cada 30 min (`incremental_cadence_minutes`), pipelines do incremental `749390743` e `746355509`; o pipeline `763255146` foi carregado por backfill desde 01/09/2026 (7.760 negócios, concluído). Início autorizado 08/10/2026 mantido.
+- **Meta** (tool `meta`): ativo. O token foi substituído e a carga roda; o histórico desde 01/01/2026 ainda **não terminou** (`historical_done=false`, parado em 29/01/2026 na segunda conta `171474008015977`, até 07/10/2026). Releitura de 7 dias (`rolling_days`).
+- **ETL / lotes** (tool `etl`, cron `rgv-lote-diario` minuto 10 e `rgv-publicacao-conjunta` minuto 5): ativo; `start_day` = 2026-09-01. Quando o Meta terminar o histórico, mudar para 2026-01-01 (autorizado pela Joyce). Também roda `rgv-front-parcial` (funil de hoje, minutos 1 a 20).
+- **CSV**: desativado; carga única concluída (28.320 negócios).
+- Cron de todas as rotinas e carga de banco: ver `syncs.md`.
+
 ## Produção
 
 Projeto Supabase: r1-indicadores (`lgaujmjedphzynhbokob`).

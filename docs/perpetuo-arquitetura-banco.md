@@ -3,7 +3,7 @@
 **Projeto:** R1 Indicadores  
 **Banco:** PostgreSQL no Supabase, projeto `r1-indicadores`  
 **Schema principal:** `rgv`  
-**Revisão:** 09/10/2026, às 14:39, horário de Brasília  
+**Revisão:** 09/10/2026, às 14:39, horário de Brasília; seção 10 e anexo atualizados em 19/10/2026  
 **Escopo:** HubSpot, Meta e indicadores do Perpétuo. Não abrange Guru, check-ins ou Black10x.
 
 ## 1. Objetivo
@@ -133,10 +133,12 @@ O corte continua sendo o último dia encerrado. Um filtro “Hoje” na interfac
 
 | Etapa | Configuração atual |
 |---|---|
-| Coleta HubSpot e Meta | Cron horário no minuto 00. |
-| Reconstrução do lote | Cron horário no minuto 10. |
-| Retomada de cargas Meta | Rotina de acompanhamento a cada minuto, sujeita ao estado da carga. |
-| Consulta da tela | A cada minuto enquanto a página está ativa, preservando os dados durante a consulta. |
+| Coleta HubSpot e Meta | Cron horário no minuto 00 (`rgv-hubspot-auto`, `rgv-meta-historico-2026`); Meta de hoje nos minutos 4, 7, 10 e 13. |
+| Publicação conjunta | Cron minuto 5 (`rgv-publicacao-conjunta`). |
+| Reconstrução do lote diário | Cron minuto 10 (`rgv-lote-diario`). |
+| Funil parcial de hoje | Minutos 1 a 20 de toda hora (`rgv-front-parcial`, só reconstrói com dado novo). |
+| Retomada de cargas Meta | Rotina a cada minuto (`rgv-meta-retomar-lote`), sujeita ao estado da carga. |
+| Consulta da tela | React Query com `staleTime` de 60 s, atualização em segundo plano de 5 min no Perpétuo, dado anterior mantido na tela e cache persistido por usuário (ver `painel-visao-geral.md`). |
 
 Esses horários são configurações atuais, não propriedades fixas da arquitetura. A duração das coletas pode ultrapassar o intervalo entre disparos.
 
@@ -169,3 +171,15 @@ Ainda precisam evoluir ou ser validados: cadastro versionado de regras, cobertur
 “O Perpétuo integra HubSpot e Meta em um banco PostgreSQL. Separamos dados recebidos, estado atual, histórico comercial e indicadores publicados. O incremental atualiza as entidades pelo identificador de origem. As regras do funil são calculadas em SQL e os resultados passam por um lote validado antes de chegar ao painel. A estrutura já opera, mas gestão de regras, cobertura e segurança continuam sendo itens de validação e evolução.”
 
 Para demonstrar a lógica, o melhor exemplo é acompanhar um negócio: registro recebido → estado atual → histórico de etapas → regra aplicada → lote publicado → indicador exibido. Isso fornece evidência concreta e evita depender apenas da descrição da arquitetura.
+
+## Anexo (19/10/2026): outros schemas e estruturas criados depois
+
+| Schema | Estruturas | Para quê |
+|---|---|---|
+| `config` | `plano_rota` (inclui `pct_unico`, `pct_duplo`, `pct_triplo`), `plano_rota_acao`, `agenda_evento` | Planejamento da Máquina de Vendas e agenda dos eventos (ver `planejamento.md`). |
+| `raw` | `guru_transaction`, `guru_eticket`, `guru_product`, `hubspot_*`, `meta_ads_insight`, `log_ingestao`, `sync_estado`, `atualizacao_pedido`, `carga_mensal` | Dados crus da Guru, do HubSpot e do Meta da Máquina de Vendas. |
+| `marts` | `mv_ingresso_transacao`, `mv_guru_vendas`, `vw_recuperacao_carrinho`, `refresh_evento_hubspot()` | Camada analítica da Máquina de Vendas e da Recuperação. |
+| `rgv` | `vendas_clube_trator`, `clube_aplicacao`, `hubspot_tag_ciclo` | Upsell (ver `upsell.md`). |
+| `identity` | `exigir(recurso)` | Verificação de sessão e permissão usada por toda função `SECURITY DEFINER`. |
+
+Pendências de segurança conhecidas: várias RPCs antigas de `recuperacao_*` ainda concedem execução a `anon`/`PUBLIC` (verificam sessão por dentro com `identity.exigir`, mas o privilégio deve ser revogado); revisar junto com os avisos do advisor do Supabase.

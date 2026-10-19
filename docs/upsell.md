@@ -35,4 +35,4 @@ Módulo `/upsell/clube-r1` e `/upsell/trator` (recurso `perpetuo`). Pedido da Jo
 - RGV 45 (em curso): real acumulado até hoje e, ao lado, a projeção linear pelo ritmo (tabela, leitura e gráfico), do funil do Perpétuo (HubSpot). A projeção de vendas tende a subestimar, porque as vendas se concentram no evento.
 
 ## Pendências
-Definir se a aba Clube conta só `produto = Clube R1`; mapear a tag do RGV 45; validar "Finalizando"; leitura de disparos (ligações, WhatsApp, SMS) ainda em exploração, sem tela.
+Tabelas de Upsell e crons: `rgv.vendas_clube_trator`, `rgv.clube_aplicacao`, `rgv.hubspot_tag_ciclo`; ambas as cargas serão encaixadas no agrupamento por módulo (ver `syncs.md`, seção 7) quando ele for implementado. Definir se a aba Clube conta só `produto = Clube R1`; mapear a tag do RGV 45; validar "Finalizando"; leitura de disparos (ligações, WhatsApp, SMS) ainda em exploração, sem tela.

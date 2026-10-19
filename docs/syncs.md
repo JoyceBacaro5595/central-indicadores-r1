@@ -1,5 +1,7 @@
 # Syncs da Central: o que cada um faz
 
+Revisado em 19/10/2026 (cron conferido em `cron.job`; 28 rotinas ativas, todas sem falha nas últimas 24 h).
+
 Levantamento de 19/10/2026 feito no projeto Supabase `lgaujmjedphzynhbokob` (Edge Functions publicadas e `cron.job`). Marcação: **[repo]** = código versionado em `supabase-r1/functions`; **[só no Supabase]** = publicado mas sem fonte no repositório (descrição tirada do cabeçalho do código publicado ou, quando dito, do nome).
 
 Regras comuns: funções com `verify_jwt=false` se autenticam pelo header `x-guru-sync-key` (Vault `guru_sync_key`) ou `x-rgv-sync-key` (Vault `rgv_sync_key`). Segredos dos provedores ficam nos Secrets da função (`GURU_API_TOKEN`, `HUBSPOT_TOKEN`, tokens do Meta). Guru é somente leitura. Horários do cron em UTC.
@@ -8,9 +10,9 @@ Regras comuns: funções com `verify_jwt=false` se autenticam pelo header `x-gur
 
 | Sync | O que faz | Grava em | Agendamento |
 | --- | --- | --- | --- |
-| `guru-sync` [só no Supabase] | Carga geral da Guru. Operações: `diag` (testa a API), `produtos` (catálogo), `backfill` (histórico desde 01/01/2026 em janelas de 7 dias, retomando do cursor), `incremental` (revarre os últimos N dias por data do pedido), `abandonadas` (tentativas abandonadas, pedido de 16/10). Guarda o payload original; mesma versão não duplica, versão nova vira snapshot. Máximo de 3 tentativas por chamada. | `raw.guru_transaction`, `raw.guru_product`, `raw.log_ingestao`, `raw.sync_estado` | `guru-incremental-hourly` (min 5, 00-02h e 08-23h), `guru-abandonadas-hourly` (min 20), `guru-backfill-2026` (a cada 3 min enquanto não concluir), `guru-produtos-daily` (09:15) |
+| `guru-sync` [só no Supabase] | Carga geral da Guru. Operações: `diag` (testa a API), `produtos` (catálogo), `backfill` (histórico desde 01/01/2026 em janelas de 7 dias, retomando do cursor), `incremental` (revarre os últimos N dias por data do pedido), `abandonadas` (tentativas abandonadas, pedido de 16/10). Guarda o payload original; mesma versão não duplica, versão nova vira snapshot. Máximo de 3 tentativas por chamada. | `raw.guru_transaction`, `raw.guru_product`, `raw.log_ingestao`, `raw.sync_estado` | `guru-incremental-hourly` (min 5, 00-02h e 08-23h), `guru-abandonadas-hourly` (min 20), `guru-backfill-2026` (a cada 3 min, 480 execuções por dia; só trabalha enquanto o backfill não concluir), `guru-produtos-daily` (09:15) |
 | `guru-revarredura` [repo] | Revarre os últimos 90 dias em janelas de 7 dias para pegar reembolso, chargeback e cancelamento de pedido antigo, que o incremental (10 dias) não alcança. Uma volta por dia, retomando de onde parou. | `raw.guru_transaction` (estado em `raw.sync_estado`, escopo `revarredura`) | `guru-revarredura-diaria` (03:12 a 05:52, a cada 8 min) |
-| `guru-etickets` [só no Supabase] | E-tickets da Guru (presença por evento). Modo varredura: percorre a lista inteira (~44 mil) em voltas, com 10 min de pausa entre voltas. Modo evento (`?product_id=`): lê só o produto do evento, sem estado. | `raw.guru_eticket` | `guru-etickets` (hora cheia, 09-23h) e `guru-modo-evento` (a cada minuto, só no dia do evento) |
+| `guru-etickets` [só no Supabase] | E-tickets da Guru (presença por evento). Modo varredura: percorre a lista inteira (~44 mil) em voltas, com 10 min de pausa entre voltas. Modo evento (`?product_id=`): lê só o produto do evento, sem estado. | `raw.guru_eticket` | `guru-etickets` (hora cheia, 09-23h) e `guru-modo-evento` (hora cheia, 15h a 22h UTC, só quando há produto de evento ativo) |
 | `guru-explorar`, `guru-token-check` [só no Supabase] | Diagnóstico: explorar a API da Guru e checar se o token vale. Não gravam dados de negócio (descrição pelo nome). | nenhum | manual |
 | `audit-guru-grazi`, `audit-guru-grazi-range` [só no Supabase] | Auditoria da marcação de vendas da Grazi (Social Selling) contra a Guru (descrição pelo nome). | leitura | manual |
 | `black10x-guru` [só no Supabase] | Vendas do Black Friday 10X vindas da Guru. | tabelas do Black 10X | `black10x-guru-hourly` (min 0) |
@@ -30,7 +32,7 @@ Rotinas SQL ligadas à Guru (sem Edge Function própria): `guru-atualizacao-pedi
 | `rgv-hubspot-property-diagnostic` [só no Supabase] | Diagnóstico de propriedades do HubSpot para mapear campos do RGV. | leitura | manual |
 | `upsell-etapas-leitura`, `upsell-sondagem-campanha`, `upsell-sondagem-tags`, `hubspot-sondagem-disparos` [só no Supabase] | Sondagens somente leitura feitas na construção do Upsell (etapas do funil, campanha dos contatos, ids de tag, disparos de ligação, WhatsApp e SMS). Não gravam; podem ser removidas quando o Upsell estiver fechado. | nenhum | manual |
 
-Rotinas SQL do HubSpot: `evento-hubspot-cache` (a cada 30 min, atualiza `marts.refresh_evento_hubspot()`).
+Rotinas SQL do HubSpot: `evento-hubspot-cache` (a cada 30 min, atualiza `marts.refresh_evento_hubspot()`; cerca de 38 min de banco por dia).
 
 ## 3. Meta Ads
 
@@ -47,10 +49,10 @@ Rotinas SQL do HubSpot: `evento-hubspot-cache` (a cada 30 min, atualiza `marts.r
 
 | Rotina | O que faz | Agendamento |
 | --- | --- | --- |
-| `rgv.build_front_parcial_if_new()` | Monta o funil parcial de hoje (tempo real) a partir da API. | `rgv-front-parcial` (min 1 a 20, toda hora) |
+| `rgv.build_front_parcial_if_new()` | Monta o funil parcial de hoje (tempo real) a partir da API; só reconstrói quando há dado novo. | `rgv-front-parcial` (min 1 a 20, toda hora) |
 | `rgv.dispatch_front_daily()` | Gera o lote diário do funil (corte = ontem) quando HubSpot e Meta fecharam o corte. Começa em `sync_config` tool `etl`, `start_day` (hoje 01/09/2026). | `rgv-lote-diario` (min 10) |
 | `rgv.dispatch_front_publication()` | Publica o lote que estiver esperando, depois de validar HubSpot, Meta e cobertura. | `rgv-publicacao-conjunta` (min 5) |
-| `central-ingressos-refresh` | Atualiza as views de ingressos e vendas da Guru e sincroniza eventos. | a cada 15 min |
+| `central-ingressos-refresh` | Atualiza `marts.mv_ingresso_transacao` e `marts.mv_guru_vendas` (refresh concurrently) e sincroniza eventos. É a rotina de maior custo de banco (cerca de 108 min por dia). | a cada 15 min |
 
 ## 5. Manutenção e outros
 
@@ -60,6 +62,37 @@ Rotinas SQL do HubSpot: `evento-hubspot-cache` (a cada 30 min, atualiza `marts.r
 | `usuarios` [repo] | Gestão de usuários (convidar, criar, editar e-mail, senha, excluir). Exige a permissão `usuarios` (administrador). Não é carga. | acionado pelo app |
 | `painel`, `black10x-refresh`, `black10x-trk` [só no Supabase] | Painel público da Visão Geral e Black Friday 10X (atualização e rastreio). Descrição pelo nome. | `black10x-refresh` sob demanda |
 | `diag-conexoes` [só no Supabase] | Diagnóstico de conexões das integrações (tela Integrações e logs). | acionado pelo app |
+
+
+## 6. Gerenciador (tela Sync)
+
+- Lista de sincronizações em **cards** ou em **lista** (escolha lembrada no navegador, chave `r1-sync-visao`).
+- Cada atualização tem **Detalhes** e o atalho **Recarregar** (executa só aquela rotina; para corrigir uma falha sem esperar o agendamento). A tabela "Últimas cargas" também tem a coluna Ação.
+- Salvar qualquer edição mostra "Salvo com sucesso" e fecha a janela de edição.
+- Cargas com status **partial** mostram o motivo, o que falhou e como resolver (`DiagnosticoParcial`).
+- O estado do Gerenciador e dos alertas fica no cache do navegador (ver `painel-visao-geral.md`, Desempenho).
+
+## 7. Carga do banco e como as rotinas disputam recurso (19/10/2026)
+
+Diagnóstico por `pg_stat_statements` e `cron.job_run_details`: nenhuma falha, mas várias rotinas pesadas começam nos mesmos minutos (0 e 30), disputando o banco.
+
+| Rotina | Custo aproximado por dia |
+| --- | --- |
+| `central-ingressos-refresh` | 108 min |
+| `evento-hubspot-cache` | 38 min |
+| `rgv-hubspot-auto` / `rgv.dispatch_hubspot()` | 31 min (76 s por rodada, de hora em hora) |
+| `guru-modo-evento`, `rgv-front-parcial`, `rgv-lote-diario` | médio |
+| `rgv-meta-retomar-lote` (cada minuto), `guru-backfill-2026` (3 min), `guru-atualizacao-pedidos` (2 min), `rgv-meta-parcial-hoje` | alta frequência, quase sem trabalho |
+
+Maiores tabelas: `rgv.front_crm_snapshot` 151 MB (492 mil linhas), `rgv.raw_record` 122 MB, `raw.guru_transaction` 101 MB, `rgv.ad_daily` 78 MB. Candidatas a retenção/arquivamento (`rgv-arquivar-mensal` já existe).
+
+### Decisão da Joyce: agrupar por módulo
+Em vez de rotinas soltas, **uma atualização por módulo, em fila**, com o mesmo "atualizado até" para todos os indicadores do módulo, e um card por módulo no Sync com as etapas dentro (cada etapa mantém status, Detalhes e Recarregar). A atualização parte da última com sucesso e pula quando não há dado novo; as frequências de 15 e 30 min foram mantidas. Modo evento e Recuperação de carrinho ficam fora do grupo.
+- Proposta de módulos: **RGV processos** (rgv-*), **Máquina de Vendas** (Guru, HubSpot contatos e negócios, central de ingressos, cache de eventos, Meta Ads diária), **Perpétuo** (black10x-*). Encaixes ainda a confirmar com a Joyce: Upsell e Meta Ads diária.
+- **Status: aprovado, ainda não implementado.** Os agendamentos atuais continuam como na seção 1 a 5 até as filas serem validadas por um ciclo completo.
+
+### Candidatos a remoção (a confirmar antes)
+`guru-backfill-2026` quando o histórico terminar; `sync-hubspot-*`, `sync-meta-ads`, sondagens do Upsell, `audit-guru-grazi*`, `guru-explorar`, `guru-token-check`.
 
 ## Pendências deste levantamento
 

@@ -1,11 +1,11 @@
-# Painel Visão geral e regras de negócio (atualizado em 16/10/2026)
+# Painel Visão geral e regras de negócio (atualizado em 19/10/2026)
 
 ## Regras de negócio oficiais
 - **Venda RGV:** ver `docs/regra-venda-rgv.md` (pipelines Principal e Boleto; Ganho, Dinheiro Em Casa e finalizando). Vale em qualquer módulo.
 - **Perpétuo:** vendas RGV, Clube R1 e Trator separadas, mais Total. CAC de cada card = investimento do Perpétuo / vendas do próprio card.
 - **CAC:** valor calculável sempre aparece como número (sem venda, divisor mínimo 1). "—" só para dado ausente.
 - **Taxas do funil RGV:** percentuais calculados sobre MQL, não sobre a etapa anterior; a meta de cada etapa é a cadeia das metas até ela.
-- **Recuperação de carrinho:** pedido entra na fila só depois de 1 h em `waiting_payment`. Situações: pendente, contatado, em atendimento, sem resposta, aguardando retorno, recuperado, descartado (`descartado`), lead descartado (`lead_descartado`) e já comprou (`ja_comprou`).
+- **Recuperação de carrinho:** pedido entra na fila só depois de 1 h em `waiting_payment` (qualquer forma de pagamento expirada ou aguardando; tempo configurável no Gerenciador). Lê `marts.vw_recuperacao_carrinho` (reescrita em 19/10/2026: flags de "já comprou" por e-mail, documento e telefone calculadas em conjunto, de ~10 s para ~0,3 s; resultado idêntico). "Já comprou depois" continua existindo; a Joyce propôs removê-lo e a decisão foi manter, com a revisão diária de fim de dia como garantia. Situações: pendente, contatado, em atendimento, sem resposta, aguardando retorno, recuperado, descartado (`descartado`), lead descartado (`lead_descartado`) e já comprou (`ja_comprou`).
 
 ## Cards do painel
 - **Turnê Máquina de Vendas:** ingressos e receita da Rota 45 por cidade; CAC por ingresso.
@@ -14,9 +14,14 @@
 - Enquanto carregam, os cards mostram esqueleto (estrutura fixa com blocos cinza).
 
 ## Desempenho
-- Cache das leituras pesadas no navegador (`src/lib/cachePersistido.ts`): guardado por usuário, só devolvido se o mesmo usuário tem a permissão hoje, validade de 6 h pela data de cada dado, limpo ao sair da conta e na sessão expirada.
+- Cache das leituras pesadas no navegador (`src/lib/cachePersistido.ts`, chave `r1-cache-v2`): guardado por usuário, só devolvido se o mesmo usuário tem a permissão hoje, validade de 6 h pela data de cada dado, limpo ao sair da conta e na sessão expirada. O front abre com o último resultado (layout, cards e tabelas) e atualiza por trás. Cobre Perpétuo, Visão geral, Máquina de Vendas, Fluxo MDV, vendas por cidade, metas de ciclo, Planejamento, Check-ins, Gerenciador e alertas, Black 10X e resumo da Recuperação. Listas com dados pessoais (fila da Recuperação etc.) ficam fora de propósito; guardá-las no navegador depende de decisão da Joyce.
+- React Query: `staleTime` 60 s, `gcTime` 30 min, dado anterior mantido ao trocar filtro, sem refetch ao focar a janela.
 - Atualização em segundo plano de 5 min no Perpétuo; o dado anterior fica na tela ao trocar filtro.
-- Pendente: pré-cálculo no banco das leituras mais lentas (`perpetuo_funil_v2`, `recuperacao_resumo`).
+- `recuperacao_resumo` e a fila ficaram rápidos com a view reescrita. Pendente: pré-cálculo de `perpetuo_funil_v2` e otimização de atualizações em segundo plano (ver `syncs.md`, seção 7).
+- Toda gravação na interface mostra "Salvo com sucesso" e fecha a janela de edição.
+
+## Planejamento
+Ver `planejamento.md` (plano da rota, formato do ingresso, ações e Detalhamento).
 
 ## Permissões
 - O recurso `regras` não tem mais tela na central (regras de segmentação ficam só no banco e nesta documentação) e some da matriz de permissões.
