@@ -162,7 +162,7 @@ export default function VisaoGeral() {
     return () => { vivo = false; clearInterval(t); };
   }, []);
 
-  const de = mesISO(-1), ate = mesISO(4), INICIO_ANO = '2026-01-01';
+  const INICIO_ANO = '2026-01-01', de = INICIO_ANO, ate = '2026-12-31';
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
@@ -176,12 +176,18 @@ export default function VisaoGeral() {
   const bfQ = useQuery({ queryKey: ['vg-black10x'], queryFn: () => r1Rpc<{ ingressos: number; receita: number; reembolsos: number; ultima_carga: string; investido: number; lpv: number; checkouts: number; meta_ate: string | null; janela_inicio: string; janela_fim: string; diario: { dia: string; ingressos: number }[] }>('black10x_painel', {}), refetchInterval: 5 * 60_000, enabled: pode('painel'), retry: false });
   const bf = bfQ.data;
   const eventos = eventosQ.data ?? [];
-  const rota = useMemo(() => ROTA.cidades.map((c) => {
+  // Todas as praças cadastradas no ano (Calendário/Guru); a lista fixa da Rota 45 só entra se a cidade ainda não estiver cadastrada.
+  const cidadesTurne = useMemo(() => {
+    const doBanco = eventos.map((e) => ({ cidade: e.cidade, data: e.data_evento ?? e.mes_evento.slice(0, 7) + '-01', inicio: '' }));
+    const faltam = ROTA.cidades.filter((c) => !eventos.some((x) => mesmoEvento(x, c)));
+    return [...doBanco, ...faltam].sort((a, b) => a.data.localeCompare(b.data));
+  }, [eventos]);
+  const rota = useMemo(() => cidadesTurne.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
     const data = e?.data_evento ?? c.data;
     return { c, e, data, dias: diasAte(data, hojeStr), cap: e?.capacidade ?? PADRAO.capacidade, meta: e?.meta_ingressos ?? PADRAO.meta, pagos: e?.pagos ?? 0, cort: e?.cortesias ?? 0, real: e?.realizado ?? 0, fat: e?.faturamento ?? 0, metaFat: e?.meta_faturamento ?? 0 };
-  }), [eventos, hojeStr]);
-  const metaRota = (metaQ.data ?? []).filter((m) => ROTA.cidades.some((c) => mesmoEvento(m, c)));
+  }), [cidadesTurne, eventos, hojeStr]);
+  const metaRota = (metaQ.data ?? []).filter((m) => cidadesTurne.some((c) => mesmoEvento(m, c)));
   const vendas = soma(rota, (x) => x.real), pagos = soma(rota, (x) => x.pagos), cortT = soma(rota, (x) => x.cort), receita = soma(rota, (x) => x.fat);
   const metaIng = soma(rota, (x) => x.meta), metaFat = soma(rota, (x) => x.metaFat), capTotal = soma(rota, (x) => x.cap);
   const invRota = soma(metaRota, (m) => m.investimento);
@@ -252,7 +258,7 @@ export default function VisaoGeral() {
             <div className="rt-h">
               <span><i className="dot" style={{ ['--c' as string]: '#FF8A1F' }} />Turnê Máquina de Vendas</span>
               {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
-                : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
+                : <small>{[`${rota.length} praças em 2026`, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
             {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <Esqueleto /> : (
               <>
