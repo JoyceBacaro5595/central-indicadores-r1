@@ -1,0 +1,5 @@
+-- Upsell · Clube R1: aplicações (negócios criados no funil [OFICIAL] Clube R1) por evento Método RGV e por etapa.
+-- Pedido da Joyce, 19/10; autorizada por ela em decision card. Carga: Edge Function upsell-aplicacoes-sync (cron 'upsell-aplicacoes-carga', minuto 40).
+-- Categorias: ganho, negociacao, aprovacao, perdida, cancelada (Cancelado e Cancelamento Aprovado), cancelamento_solicitado, finalizando.
+-- Tabela rgv.clube_aplicacao, função public.upsell_aplicacoes() e raw.upsell_aplicacoes_chamar() aplicadas em 19/10/2026 (migration upsell_aplicacoes_clube_v1).
+-- select cron.schedule('upsell-aplicacoes-carga', '40 * * * *', $c$select raw.upsell_aplicacoes_chamar()$c$);

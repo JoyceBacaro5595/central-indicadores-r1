@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { Bar, CartesianGrid, ComposedChart, Line, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageBody, PageHeader } from '@/components/shared';
 import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
-import { useUpsellVendas, type UpsellItem } from '@/hooks/usePerpetuo';
+import { useUpsellAplicacoes, useUpsellVendas, type UpsellAplicacaoCiclo, type UpsellItem } from '@/hooks/usePerpetuo';
 
 /* Módulo Upsell (pedido da Joyce, 19/10): Clube R1 e Trator em abas separadas.
  * Cada venda vem com a tag do ciclo (evento_tag, ex.: "RGV 44"); "RGV27" é normalizada para "RGV 27". */
@@ -36,6 +36,50 @@ function K({ l, v, s }: { l: string; v: string; s?: string }) {
   );
 }
 
+const COLS: { k: 'ganho' | 'negociacao' | 'aprovacao' | 'perdida' | 'cancelada' | 'cancelamento_solicitado'; rotulo: string }[] = [
+  { k: 'ganho', rotulo: 'Ganho' }, { k: 'negociacao', rotulo: 'Em negociação' }, { k: 'aprovacao', rotulo: 'Em aprovação' },
+  { k: 'perdida', rotulo: 'Perdidas' }, { k: 'cancelada', rotulo: 'Canceladas' }, { k: 'cancelamento_solicitado', rotulo: 'Cancel. solicitado' },
+];
+const pct = (n: number, t: number) => (t ? `${nf((n / t) * 100, 1)}%` : '-');
+const catN = (c: UpsellAplicacaoCiclo, k: (typeof COLS)[number]['k']) => {
+  const x = c.categorias[k] ?? { n: 0, valor: 0 };
+  return k === 'negociacao' ? { n: x.n + (c.categorias.finalizando?.n ?? 0), valor: x.valor + (c.categorias.finalizando?.valor ?? 0) } : x;
+};
+
+function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
+  return (
+    <div className="surface p-4 overflow-x-auto">
+      <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground">Aplicações por ciclo (funil Clube R1)</h3>
+      <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">Negócios criados no funil durante o evento Método RGV, com a etapa em que estão hoje. Percentuais sobre as aplicações do ciclo.</p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground text-left">
+            <th className="py-1 font-semibold">Ciclo</th><th className="text-right font-semibold">Aplicações</th>
+            {COLS.map((c) => <th key={c.k} className="text-right font-semibold whitespace-nowrap pl-2">{c.rotulo}</th>)}
+            <th className="text-right font-semibold whitespace-nowrap pl-2">Cancel. sobre vendas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ciclos.map((c) => {
+            const ganho = catN(c, 'ganho'), canc = catN(c, 'cancelada');
+            return (
+              <tr key={c.ciclo} className="border-t border-border/50 align-top">
+                <td className="py-1.5 whitespace-nowrap font-semibold">{c.ciclo}<div className="text-[10px] font-normal text-muted-foreground">{dataBr(c.inicio)} a {dataBr(c.fim)}</div></td>
+                <td className="text-right tabular-nums">{c.total}<div className="text-[10px] text-muted-foreground">{brl(c.valor)}</div></td>
+                {COLS.map((col) => { const x = catN(c, col.k); return (
+                  <td key={col.k} className="text-right tabular-nums pl-2">{x.n}<span className="text-muted-foreground"> · {pct(x.n, c.total)}</span><div className="text-[10px] text-muted-foreground">{brl(x.valor)}</div></td>
+                ); })}
+                <td className="text-right tabular-nums pl-2">{pct(canc.n, ganho.n + canc.n)}<div className="text-[10px] text-muted-foreground">{canc.n} de {ganho.n + canc.n}</div></td>
+              </tr>
+            );
+          })}
+          {!ciclos.length && <tr><td colSpan={9} className="py-3 text-muted-foreground">Nenhum evento no período.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Tabela({ titulo, linhas, total }: { titulo: string; linhas: Grupo[]; total: number }) {
   return (
     <div className="surface p-4">
@@ -62,6 +106,7 @@ export default function Upsell() {
   const { aba } = useParams();
   const cfg = aba ? ABAS[aba as keyof typeof ABAS] : undefined;
   const q = useUpsellVendas(!!cfg);
+  const ap = useUpsellAplicacoes(cfg?.grupo === 'clube_r1');
   const [tag, setTag] = useState('todas');
   const per = usePeriodoPadrao('ano');
   const { de, ateConsulta: ate } = per;
@@ -140,6 +185,8 @@ export default function Upsell() {
             </div>
           </div>
         </div>
+
+        {cfg.grupo === 'clube_r1' && <Aplicacoes ciclos={(ap.data?.ciclos ?? []).filter((c) => c.inicio >= de && c.inicio <= ate)} />}
 
         <div className="grid lg:grid-cols-2 gap-3">
           <Tabela titulo="Por tag do ciclo" linhas={[...porTag].reverse()} total={doProduto.reduce((s, i) => s + i.valor, 0)} />

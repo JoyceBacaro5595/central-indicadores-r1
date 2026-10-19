@@ -177,3 +177,23 @@ export function useUpsellVendas(habilitado = true) {
     retry: false,
   });
 }
+
+/** Upsell · Clube R1: aplicações (negócios criados no funil durante cada evento Método RGV) por etapa. */
+export type UpsellCategoria = 'ganho' | 'negociacao' | 'aprovacao' | 'perdida' | 'cancelada' | 'cancelamento_solicitado' | 'finalizando';
+export type UpsellAplicacaoCiclo = {
+  ciclo: string; inicio: string; fim: string; total: number; valor: number;
+  categorias: Partial<Record<UpsellCategoria, { n: number; valor: number }>>;
+};
+export type UpsellAplicacoes = { atualizado_em: string | null; ciclos: UpsellAplicacaoCiclo[] };
+export function useUpsellAplicacoes(habilitado = true) {
+  return useQuery({
+    queryKey: ['upsell-aplicacoes'],
+    queryFn: () => r1Rpc<UpsellAplicacoes>('upsell_aplicacoes'),
+    enabled: habilitado,
+    staleTime: 10 * 60 * 1000,
+    refetchInterval: 5 * 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
