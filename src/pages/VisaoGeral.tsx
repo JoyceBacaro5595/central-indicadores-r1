@@ -228,6 +228,19 @@ export default function VisaoGeral() {
   const projecao = mediaDia != null && ciclo ? Math.round(mediaDia * ciclo.dias) : null;
   const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null; // MQL é o "lead do ciclo"; leads_crm é a base total do CRM
 
+  /* Vendas RGV, Clube R1 e Trator do ciclo, repetidas nos cards de Turnê e Black Friday (Joyce, 19/10) */
+  const vendasPerp = pode('perpetuo') && r ? (
+    <>
+      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{ciclo?.ciclo ?? 'ciclo atual'}</small></div>
+      <div className="rt-kpis rt-kpis-4">
+        <K l="Vendas RGV" v={n(r.vendas)} m={r.faturamento != null ? <>receita <b>{brl(r.faturamento)}</b></> : undefined} />
+        <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
+        <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
+        <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
+      </div>
+    </>
+  ) : null;
+
   // ---- selo de atualização
   const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
   const min = atualizado ? Math.round((Date.now() - atualizado) / 6e4) : null;
@@ -280,6 +293,7 @@ export default function VisaoGeral() {
                     <K l="Faturamento" v={brl(T.fat)} din m="Guru" />
                   </div>
                 ) : <div className="rt-kpis rt-kpis-2">{kpisMdv}</div>}
+                {vendasPerp}
 
                 {ampliado && TIPOS.map((t) => {
                   const aberto = explode?.startsWith(`${t.k}|`) ? explode.slice(t.k.length + 1) : null;
@@ -405,6 +419,7 @@ export default function VisaoGeral() {
                       <K l="Investido" v={brl(bf.investido)} din />
                       <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
                     </div>
+                    {vendasPerp}
                     <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
                     <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
                     <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>
