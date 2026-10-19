@@ -323,7 +323,7 @@ export default function VisaoGeral() {
 
                 <div className="rt-sub">Ocupação por praça</div>
                 <div className={`rt-cities${ampliado ? ' rt-ext' : ''}`}>
-                  <div className="cty cty-h"><div className="nm">Praça</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div><div className="dl">Prazo</div>
+                  <div className="cty cty-h"><div className="nm">Praça</div><div className="dt">Data</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div>{!ampliado && <div className="ct">Receita</div>}<div className="dl">Prazo</div>
                     {ampliado && <><div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></>}
                   </div>
                   {cidades.map(({ x, dias }) => {
@@ -332,9 +332,11 @@ export default function VisaoGeral() {
                     return (
                       <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
                         <div className="nm">{pode('eventos') ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(x.c.cidade)}`} onClick={(e) => e.stopPropagation()} title="Editar a cidade e a data da rota" className="hover:underline">{titulo(x.c.cidade)}</Link> : titulo(x.c.cidade)}</div>
+                        <div className="dt">{x.data ? x.data.split('-').reverse().join('/') : '—'}</div>
                         <div className="pc" style={{ color: cor }}>{Math.round(p)}%</div>
                         <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
                         <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
+                        {!ampliado && <div className="ct">{brl(x.fat)}</div>}
                         <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>
                         {ampliado && (
                           <>
