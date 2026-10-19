@@ -9,6 +9,7 @@ const Planejamento = lazy(() => import("./pages/Planejamento.tsx"));
 const MaquinaVendas = lazy(() => import("./pages/MaquinaVendas.tsx"));
 const VisaoGeral = lazy(() => import("./pages/VisaoGeral.tsx"));
 const HistoricoRicardo = lazy(() => import("./pages/HistoricoRicardo.tsx"));
+const Upsell = lazy(() => import("./pages/Upsell.tsx"));
 const Calendario = lazy(() => import("./pages/Calendario.tsx"));
 const Central = lazy(() => import("./pages/Central.tsx"));
 const Relatorio = lazy(() => import("./pages/Relatorio.tsx"));
@@ -58,6 +59,8 @@ const App = () => (
             <Route path="/perpetuo/trafego" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/trafego/:aba" element={<Perpetuo />} />
             <Route path="/perpetuo/historico" element={<HistoricoRicardo />} />
+            <Route path="/upsell" element={<Navigate to="/upsell/clube-r1" replace />} />
+            <Route path="/upsell/:aba" element={<Upsell />} />
             <Route path="/perpetuo/criativos" element={<Navigate to="/perpetuo/trafego/criativos" replace />} />
             <Route path="/perpetuo/lps" element={<Navigate to="/perpetuo/trafego/lps" replace />} />
           </Route>

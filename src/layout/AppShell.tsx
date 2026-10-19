@@ -40,6 +40,13 @@ const SECOES: Secao[] = [
     ],
   },
   {
+    titulo: 'Upsell',
+    itens: [
+      { to: '/upsell/clube-r1', rotulo: 'Clube R1', icone: UserCheck, recurso: 'perpetuo' },
+      { to: '/upsell/trator', rotulo: 'Trator', icone: ShoppingCart, recurso: 'perpetuo' },
+    ],
+  },
+  {
     titulo: 'Usuários e Permissões',
     recurso: 'usuarios',
     itens: [{ to: '/central/usuarios', rotulo: 'Usuários e permissões', icone: Users }],

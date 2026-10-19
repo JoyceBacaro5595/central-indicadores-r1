@@ -158,3 +158,22 @@ export type MetaCicloRgv = PerpetuoMetas & { ciclo: string };
 export function useMetaCiclo(habilitado = true) {
   return useQuery({ queryKey: ['meta-ciclo'], queryFn: () => r1Rpc<MetaCicloRgv[]>('meta_ciclo_listar'), enabled: habilitado, staleTime: 5 * 60_000, retry: false, placeholderData: keepPreviousData });
 }
+
+/** Módulo Upsell: vendas ganhas de Clube R1 e Trator, uma linha por negócio (rgv.vendas_clube_trator). */
+export type UpsellItem = {
+  deal_id: string; nome: string | null; grupo: 'clube_r1' | 'trator'; produto: string | null;
+  data_fechamento: string | null; valor: number; tag: string | null; origem: string | null; campanha: string | null;
+};
+export type UpsellVendas = { atualizado_em: string | null; itens: UpsellItem[] };
+export function useUpsellVendas(habilitado = true) {
+  return useQuery({
+    queryKey: ['upsell-vendas'],
+    queryFn: () => r1Rpc<UpsellVendas>('upsell_vendas'),
+    enabled: habilitado,
+    staleTime: 10 * 60 * 1000,
+    refetchInterval: 5 * 60_000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+}
