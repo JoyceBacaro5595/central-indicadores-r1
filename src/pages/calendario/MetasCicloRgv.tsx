@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useMetaCiclo, type MetaCicloRgv } from '@/hooks/usePerpetuo';
@@ -23,7 +24,7 @@ export default function MetasCicloRgv({ e }: { e: EventoEditavel }) {
   const abrir = () => { setV(Object.fromEntries([...TAXAS.map(([k]) => k), 'investimento', 'vendas', 'leads'].map((k) => [k, txt(atual?.[k as keyof MetaCicloRgv] as number | null | undefined)]))); setAberto(true); };
   const salvar = useMutation({
     mutationFn: () => r1Rpc('meta_ciclo_salvar', { p_ciclo: ciclo, p_metas: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, numOuNulo(x)])) }),
-    onSuccess: () => { setAberto(false); qc.invalidateQueries({ queryKey: ['meta-ciclo'] }); qc.invalidateQueries({ queryKey: ['perpetuo-funil-v2'] }); },
+    onSuccess: () => { setAberto(false); toast.success('Salvo com sucesso');  qc.invalidateQueries({ queryKey: ['meta-ciclo'] }); qc.invalidateQueries({ queryKey: ['perpetuo-funil-v2'] }); },
   });
   if (!ciclo) return null;
   if (!aberto) return <button type="button" className="text-primary font-semibold text-[11px]" onClick={abrir} title="Metas do ciclo. Valem no Fluxo Marketing RGV.">{atual ? 'metas do ciclo' : 'cadastrar metas do ciclo'}</button>;

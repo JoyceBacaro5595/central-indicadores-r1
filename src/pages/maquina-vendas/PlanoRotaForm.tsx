@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
@@ -102,7 +103,7 @@ export default function PlanoRotaForm() {
       }
       return `Planejamento salvo e replicado em ${ok} eventos${criados ? ` (${criados} criados)` : ''}.`;
     },
-    onSuccess: (m) => { setMsg(m); setRota(nome.trim()); for (const k of ['planejamento-rotas', 'planejamento-auditoria', 'plano-eventos', 'mv-eventos', 'mv-eventos-hist', 'eventos']) qc.invalidateQueries({ queryKey: [k] }); },
+    onSuccess: (m) => { toast.success('Salvo com sucesso'); setMsg(m); setRota(nome.trim()); for (const k of ['planejamento-rotas', 'planejamento-auditoria', 'plano-eventos', 'mv-eventos', 'mv-eventos-hist', 'eventos']) qc.invalidateQueries({ queryKey: [k] }); },
     onError: (e: Error) => setMsg(`Não salvou: ${e.message}`),
   });
 

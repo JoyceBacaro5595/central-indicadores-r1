@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, MailCheck, Pencil, Send, Trash2, UserPlus, Users2 } from 'lucide-react';
@@ -87,7 +88,7 @@ export default function Usuarios() {
       if (email !== v.u.email) await r1Function<{ ok: boolean }>('usuarios', { op: 'editar_email', user_id: v.u.user_id, email });
       return mudouPerfil || email !== v.u.email;
     },
-    onSuccess: (mudou) => { setErro(null); setAviso(mudou ? 'Usuário salvo.' : 'Nada para salvar.'); setEditando(null); setRascunho(null); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
+    onSuccess: (mudou) => { setErro(null); if (mudou) toast.success('Salvo com sucesso');  setAviso(mudou ? 'Usuário salvo.' : 'Nada para salvar.'); setEditando(null); setRascunho(null); qc.invalidateQueries({ queryKey: ['usuarios'] }); },
     onError: (e: Error) => { setAviso(null); setErro(e.message); },
   });
 
@@ -99,7 +100,7 @@ export default function Usuarios() {
 
   const salvarMatriz = useMutation({
     mutationFn: (m: Record<string, Papel[]>) => r1Rpc<Record<string, Papel[]>>('permissoes_salvar', { p_matriz: m }),
-    onSuccess: async () => { setErro(null); setAviso('Matriz de permissões salva.'); setMatriz(null); qc.invalidateQueries({ queryKey: ['permissoes'] }); await recarregarPerfil(); },
+    onSuccess: async () => { setErro(null); toast.success('Salvo com sucesso'); setAviso('Matriz de permissões salva.'); setMatriz(null); qc.invalidateQueries({ queryKey: ['permissoes'] }); await recarregarPerfil(); },
     onError: (e: Error) => { setAviso(null); setErro(/permissoes_salvar/.test(e.message) ? 'A gravação da matriz ainda não está liberada no backend (função permissoes_salvar pendente). Nada foi alterado.' : e.message); },
   });
 

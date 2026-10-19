@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Esq, EsqLinhas } from '@/components/Esqueleto';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -93,12 +94,12 @@ export default function Eventos() {
 
   const salvar = useMutation({
     mutationFn: (v: Partial<Evento> & { id: number }) => r1Rpc('evento_salvar', { p_id: v.id, p_data_evento: v.data_evento ?? null, p_local: v.local ?? null, p_capacidade: v.capacidade ?? null, p_meta_ingressos: v.meta_ingressos ?? null, p_meta_faturamento: v.meta_faturamento ?? null, p_observacao: v.observacao ?? null, p_ativo: true }),
-    onSuccess: () => { setErro(null); setEditando(null); qc.invalidateQueries({ queryKey: ['eventos'] }); },
+    onSuccess: () => { setErro(null); setEditando(null); toast.success('Salvo com sucesso');  qc.invalidateQueries({ queryKey: ['eventos'] }); },
     onError: (e: Error) => setErro(e.message),
   });
   const criar = useMutation({
     mutationFn: () => r1Rpc('evento_criar', { p_linha: 'MÁQUINA DE VENDAS PRESENCIAL', p_cidade: nCidade, p_mes_evento: `${nMes}-01`, p_data_evento: nData || null, p_capacidade: null, p_meta_ingressos: nMeta === '' ? null : Number(nMeta) }),
-    onSuccess: () => { setErro(null); setNovo(false); setNCidade(''); setNMeta(''); setNData(''); qc.invalidateQueries({ queryKey: ['eventos'] }); },
+    onSuccess: () => { setErro(null); toast.success('Salvo com sucesso'); setNovo(false); setNCidade(''); setNMeta(''); setNData(''); qc.invalidateQueries({ queryKey: ['eventos'] }); },
     onError: (e: Error) => setErro(e.message),
   });
 

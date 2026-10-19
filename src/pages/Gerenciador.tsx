@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { EsqBloco } from '@/components/Esqueleto';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
+import { toast } from 'sonner';
 import { r1Rpc } from '@/integrations/r1/client';
 import { PageHeader } from '@/components/shared';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
@@ -64,7 +65,7 @@ function Observacoes({ tipo, chave, texto, aoSalvar }: { tipo: string; chave: st
   const [rascunho, setRascunho] = useState<string | null>(null);
   const salvar = useMutation({
     mutationFn: () => r1Rpc('gerenciador_observacao_salvar', { p_tipo: tipo, p_chave: chave, p_observacoes: rascunho ?? texto }),
-    onSuccess: () => { setRascunho(null); aoSalvar(); },
+    onSuccess: () => { setRascunho(null); aoSalvar(); toast.success('Salvo com sucesso'); },
   });
   return <details className="mt-2 text-xs" title={texto || 'Adicione uma explicação para este ajuste'}>
     <summary className="cursor-pointer text-muted-foreground">Observações</summary>
@@ -87,24 +88,24 @@ export default function Gerenciador() {
   const agendamento = useMutation({
     mutationFn: (v: { jobname: string; schedule?: string; active?: boolean }) =>
       r1Rpc('gerenciador_agendamento_atualizar', { p_jobname: v.jobname, p_schedule: v.schedule ?? null, p_active: v.active ?? null }),
-    onSuccess: () => { setErro(null); setAviso('Agendamento atualizado.'); invalidar(); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onSuccess: () => { setErro(null); setAviso('Agendamento atualizado.'); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
   const parametro = useMutation({
     mutationFn: (v: { chave: string; valor: number }) => r1Rpc('gerenciador_parametro_atualizar', { p_chave: v.chave, p_valor: v.valor }),
-    onSuccess: () => { setErro(null); setAviso('Parâmetro salvo e aplicado nos agendamentos.'); invalidar(); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onSuccess: () => { setErro(null); setAviso('Parâmetro salvo e aplicado nos agendamentos.'); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
   const executar = useMutation({
     mutationFn: (jobname: string) => r1Rpc('gerenciador_executar_agora', { p_jobname: jobname }),
     onSuccess: () => { setErro(null); setAviso('Disparado agora; o resultado aparece nos logs em alguns minutos.'); setTimeout(invalidar, 4000); },
-    onError: (e: Error) => { setAviso(null); setErro(e.message); },
+    onError: (e: Error) => { setAviso(null); setErro(e.message); toast.error(e.message); },
   });
 
   const janela = useMutation({
     mutationFn: (dias: number) => r1Rpc('gerenciador_janela_rgv', { p_tool: 'meta', p_dias: dias }),
-    onSuccess: () => { setErro(null); setAviso('Janela Meta salva; será usada na próxima coleta.'); invalidar(); },
-    onError: (e: Error) => setErro(e.message),
+    onSuccess: () => { setErro(null); setAviso('Janela Meta salva; será usada na próxima coleta.'); setDiasMeta(null); toast.success('Salvo com sucesso'); invalidar(); },
+    onError: (e: Error) => { setErro(e.message); toast.error(e.message); },
   });
   const [diasMeta, setDiasMeta] = useState<string | null>(null);
   const d = estado.data;
@@ -144,7 +145,7 @@ export default function Gerenciador() {
               <p className="text-xs text-muted-foreground mt-2">Relê os dias encerrados e atualiza os valores existentes. Use Sincronizar agora na rotina Meta Perpétuo para iniciar imediatamente.</p>
             </Secao>}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={v => agendamento.mutate(v)} executar={() => executar.mutate(a.jobname)} />)}
+              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={(v, aoSalvar) => agendamento.mutate(v, { onSuccess: aoSalvar })} executar={() => executar.mutate(a.jobname)} />)}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -247,13 +248,15 @@ function cronHorario(inicio: number, fim: number, intervalo: number) {
   for (let i = 0; i < total; i += intervalo >= 60 ? intervalo / 60 : 1) horas.push((inicio + i + 3) % 24);
   return `${intervalo < 60 ? '*/' + intervalo : '0'} ${horas.length === 24 ? '*' : horas.join(',')} * * *`;
 }
-function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: { a: Agendamento; logs: Log[]; observacoes: React.ReactNode; ocupado: boolean; salvar: (v: { jobname: string; schedule?: string; active?: boolean }) => void; executar: () => void }) {
+function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: { a: Agendamento; logs: Log[]; observacoes: React.ReactNode; ocupado: boolean; salvar: (v: { jobname: string; schedule?: string; active?: boolean }, aoSalvar?: () => void) => void; executar: () => void }) {
   const [rascunho, setRascunho] = useState<{ inicio: number; fim: number; intervalo: number } | null>(null);
   const [cronAvancado, setCronAvancado] = useState<string | null>(null);
   const [duracao, setDuracao] = useState<string | null>(null);
   const [logAberto, setLogAberto] = useState(false);
   const [logSelecionado, setLogSelecionado] = useState<Log | null>(null);
   const intervaloValido = duracao === null || /^\d{2}:\d{2}:00$/.test(duracao) && (() => { const [h, m] = duracao.split(':').map(Number); const n = h * 60 + m; return m < 60 && n > 0 && (n < 60 ? 60 % n === 0 : n % 60 === 0 && 24 % (n / 60) === 0); })();
+  const [vez, setVez] = useState(0);
+  const fecharEdicao = () => { setVez(v => v + 1); setRascunho(null); setCronAvancado(null); setDuracao(null); };
   const atual = rascunho ?? horarioSimples(a.schedule);
   const alterar = (campo: 'inicio' | 'fim' | 'intervalo', valor: number) => setRascunho({ ...(atual ?? { inicio: 0, fim: 23, intervalo: 60 }), [campo]: valor });
   return <section className="surface p-5 space-y-4">
@@ -264,9 +267,9 @@ function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: 
     {atual ? <div className="grid grid-cols-3 gap-2"><label className="text-xs">Início<input type="number" min={0} max={23} value={atual.inicio} onChange={e => alterar('inicio', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Fim<input type="number" min={0} max={23} value={atual.fim} onChange={e => alterar('fim', Number(e.target.value))} className="input-r1 mt-1 w-full" /></label><label className="text-xs">Tempo de atualização<input aria-label={`Tempo de atualização ${a.rotulo}`} placeholder="01:00:00" value={duracao ?? `${Math.floor(atual.intervalo / 60).toString().padStart(2, '0')}:${(atual.intervalo % 60).toString().padStart(2, '0')}:00`} onChange={e => { const v = e.target.value; setDuracao(v); if (/^\d{2}:\d{2}:00$/.test(v)) { const [h,m] = v.split(':').map(Number); alterar('intervalo', h * 60 + m); } }} className="input-r1 mt-1 w-full mono" /></label></div> : <p className="text-xs text-muted-foreground">Horário personalizado. Para substituir por uma rotina diária, <button type="button" className="text-primary underline" onClick={() => setRascunho({ inicio: 0, fim: 23, intervalo: 60 })}>configurar horário</button>.</p>}
     {!intervaloValido && <p role="alert" className="text-xs text-red-400">Use HH:MM:00. Intervalos em minutos precisam dividir 60; intervalos em horas precisam dividir 24. Ex.: 00:01:00, 00:15:00, 01:00:00 ou 02:00:00.</p>}
     <p className="text-[11px] text-muted-foreground">Horários de Brasília · fim inclusivo. O agendamento é salvo em UTC.</p>
-    <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || !intervaloValido || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
+    <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || !intervaloValido || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }, fecharEdicao); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
     {observacoes}
-    <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
+    <details key={vez} className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }, fecharEdicao); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
     <div className="border-t border-border pt-3"><button type="button" onClick={() => { setLogSelecionado(null); setLogAberto(true); }} className="font-semibold text-xs underline">Abrir log de atualização</button><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><button type="button" className="underline mr-2" onClick={() => { setLogSelecionado(l); setLogAberto(true); }}>Detalhes</button><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}</li>)}</ul></div>
     <Dialog open={logAberto} onOpenChange={setLogAberto}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
