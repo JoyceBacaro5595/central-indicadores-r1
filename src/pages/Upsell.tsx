@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, Line, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageBody, PageHeader } from '@/components/shared';
 import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { useUpsellVendas, type UpsellItem } from '@/hooks/usePerpetuo';
@@ -111,15 +111,15 @@ export default function Upsell() {
         <div className="grid lg:grid-cols-2 gap-3">
           <div className="surface p-4">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground mb-2">Vendas e faturamento por tag</h3>
-            <div style={{ height: 240 }}>
+            <div className="text-foreground" style={{ height: 240 }}>
               <ResponsiveContainer>
-                <ComposedChart data={porTag}>
+                <ComposedChart data={porTag} margin={{ top: 18 }}>
                   <CartesianGrid stroke="rgba(128,128,128,.2)" vertical={false} />
                   <XAxis dataKey="chave" tick={{ fontSize: 10 }} />
                   <YAxis yAxisId="v" tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <YAxis yAxisId="f" orientation="right" tick={{ fontSize: 10 }} tickFormatter={mi} width={70} />
+                  <YAxis yAxisId="f" orientation="right" tick={{ fontSize: 10 }} tickFormatter={mi} width={90} />
                   <Tooltip formatter={(v: number, n: string) => (n === 'Faturamento' ? brl(v) : v)} />
-                  <Bar yAxisId="v" dataKey="vendas" name="Vendas" fill={VERM} radius={[3, 3, 0, 0]} />
+                  <Bar yAxisId="v" dataKey="vendas" name="Vendas" fill={VERM} radius={[3, 3, 0, 0]}><LabelList dataKey="vendas" position="top" style={{ fontSize: 11, fontWeight: 700, fill: 'currentColor' }} /></Bar>
                   <Line yAxisId="f" dataKey="fat" name="Faturamento" stroke={VERDE} strokeWidth={2} dot />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -127,14 +127,14 @@ export default function Upsell() {
           </div>
           <div className="surface p-4">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground mb-2">Faturamento por mês de fechamento</h3>
-            <div style={{ height: 240 }}>
+            <div className="text-foreground" style={{ height: 240 }}>
               <ResponsiveContainer>
-                <ComposedChart data={porMes}>
+                <ComposedChart data={porMes} margin={{ top: 18 }}>
                   <CartesianGrid stroke="rgba(128,128,128,.2)" vertical={false} />
                   <XAxis dataKey="rotulo" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} tickFormatter={mi} width={70} />
                   <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="fat" name="Faturamento" fill={VERM} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="fat" name="Faturamento" fill={VERM} radius={[3, 3, 0, 0]}><LabelList dataKey="vendas" position="top" formatter={(v: number) => `${v} ${v === 1 ? 'venda' : 'vendas'}`} style={{ fontSize: 11, fontWeight: 700, fill: 'currentColor' }} /></Bar>
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
