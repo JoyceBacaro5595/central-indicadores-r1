@@ -32,7 +32,7 @@ Módulo `/upsell/clube-r1` e `/upsell/trator` (recurso `perpetuo`). Pedido da Jo
 
 ## Tela Ciclos RGV (Relatório Ricardo)
 - Série fechada RGV 29 a 43: planilha "R1 Histórico Dados" (dados fixos, `src/pages/historico/dados.ts`), mantida.
-- RGV 44 (fechado) e RGV 45 (em curso): acumulado real até hoje, sem projeção, do funil do Perpétuo (HubSpot); volume e investimento não são comparados com ciclos fechados.
+- RGV 45 (em curso): real acumulado até hoje e, ao lado, a projeção linear pelo ritmo (tabela, leitura e gráfico), do funil do Perpétuo (HubSpot). A projeção de vendas tende a subestimar, porque as vendas se concentram no evento.
 
 ## Pendências
 Definir se a aba Clube conta só `produto = Clube R1`; mapear a tag do RGV 45; validar "Finalizando"; leitura de disparos (ligações, WhatsApp, SMS) ainda em exploração, sem tela.

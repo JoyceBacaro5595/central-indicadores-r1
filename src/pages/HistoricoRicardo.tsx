@@ -6,7 +6,7 @@ import { usePerpetuo } from '@/hooks/usePerpetuo';
 import { FONTE_HISTORICO, HISTORICO, METAS_BOARD, type CicloHist } from './historico/dados';
 
 /* Relatório Ricardo · Histórico Dados (pedido da Joyce, 19/10): réplica de funil-rgv-perpetuo.vercel.app/historico no layout da Central.
- * Série fechada (RGV 29 a 43) vem da planilha; o RGV 44 fechado vem do funil do Perpétuo (HubSpot) "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e aparece só com o acumulado real até hoje, sem projeção (pedido da Joyce, 19/10). */
+ * Série fechada (RGV 29 a 43) vem da planilha; o RGV 44 fechado vem do funil do Perpétuo (HubSpot) "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e aparece com o real acumulado e, ao lado, a projeção linear pelo ritmo, em todos os blocos (pedido da Joyce, 19/10). */
 const CICLO_ATUAL = { numero: 45, inicio: '2026-09-29', fim: '2026-11-03' };
 const CICLO_44 = { numero: 44, inicio: '2026-08-26', fim: '2026-09-28' }; // fechado, ainda fora da planilha: vem do funil do Perpétuo (HubSpot)
 const VERM = '#FF0026', VERDE = '#4CD68A', AMBAR = '#F5A623', CINZA = '#8A8A93';
@@ -91,7 +91,7 @@ export default function HistoricoRicardo() {
 
   const dias = Math.round((parse(CICLO_ATUAL.fim).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1;
   const decorridos = Math.max(1, Math.min(dias, Math.round((parse(ate).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1));
-  const fator = 1; // sem projeção: só dado real acumulado
+  const fator = dias / decorridos; // só para a projeção; o real nunca é escalado
 
   const monta = (r: NonNullable<typeof perp.data>['resumo'], numero: number, inicio: string, fim: string, f: number): Linha => {
     const invest = (r.investimento ?? 0) * f, mqls = (r.mql ?? 0) * f, vendas = (r.vendas ?? 0) * f, receita = (r.faturamento ?? 0) * f;
@@ -104,7 +104,8 @@ export default function HistoricoRicardo() {
     };
     return deriva(c);
   };
-  const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator), emCurso: true } : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
+  const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, 1), emCurso: true } : null), [r]); // eslint-disable-line react-hooks/exhaustive-deps
+  const proj: Linha | null = useMemo(() => (r ? monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator) : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
   const l44 = useMemo(() => (r44 ? monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1) : null), [r44]); // eslint-disable-line react-hooks/exhaustive-deps
   const fechados = useMemo(() => [...HISTORICO.map(deriva), ...(l44 ? [l44] : [])], [l44]);
 
@@ -115,20 +116,20 @@ export default function HistoricoRicardo() {
     { m: METRICAS[0], neutro: true }, { m: METRICAS[2] }, { m: METRICAS[5] }, { m: METRICAS[6] },
   ];
 
-  const tabelaAtual = atual ? [
-    { rotulo: 'Investimento acumulado', fmt: mi, v: atual.invest, s: fechados.map((c) => c.invest), neutro: true },
-    { rotulo: 'MQLs acumulados', fmt: (v: number) => nf(v), v: atual.mqls, s: fechados.map((c) => c.mqls), neutro: true },
-    { rotulo: 'Vendas acumuladas', fmt: (v: number) => nf(v), v: atual.vendas, s: fechados.map((c) => c.vendas), neutro: true },
-    { rotulo: 'Conversão MQL→venda', fmt: pc, v: atual.conv, s: fechados.map((c) => c.conv) },
-    { rotulo: 'Custo por MQL', fmt: brl, v: atual.cpl, s: fechados.map((c) => c.cpl), menor: true },
-    { rotulo: 'CAC', fmt: brl, v: atual.cac, s: fechados.map((c) => c.cac), menor: true },
-    { rotulo: 'ROAS', fmt: x, v: atual.roas, s: fechados.map((c) => c.roas) },
-    { rotulo: 'Aproveitamento do funil', fmt: pc, v: atual.conv, s: fechados.map((c) => c.conv) },
+  const tabelaAtual = atual && proj ? [
+    { rotulo: 'Investimento', fmt: mi, v: atual.invest, p: proj.invest, s: fechados.map((c) => c.invest), neutro: true },
+    { rotulo: 'MQLs', fmt: (v: number) => nf(v), v: atual.mqls, p: proj.mqls, s: fechados.map((c) => c.mqls) },
+    { rotulo: 'Vendas', fmt: (v: number) => nf(v), v: atual.vendas, p: proj.vendas, s: fechados.map((c) => c.vendas) },
+    { rotulo: 'Conversão MQL→venda', fmt: pc, v: atual.conv, p: proj.conv, s: fechados.map((c) => c.conv) },
+    { rotulo: 'Custo por MQL', fmt: brl, v: atual.cpl, p: proj.cpl, s: fechados.map((c) => c.cpl), menor: true },
+    { rotulo: 'CAC', fmt: brl, v: atual.cac, p: proj.cac, s: fechados.map((c) => c.cac), menor: true },
+    { rotulo: 'ROAS', fmt: x, v: atual.roas, p: proj.roas, s: fechados.map((c) => c.roas) },
+    { rotulo: 'Aproveitamento do funil', fmt: pc, v: atual.conv, p: proj.conv, s: fechados.map((c) => c.conv) },
   ] : [];
 
   const todas: Linha[] = atual ? [...fechados, atual] : fechados;
   const m = METRICAS.find((q) => q.k === met) ?? METRICAS[2];
-  const dadosGrafico = todas.map((c) => ({ ciclo: String(c.numero), periodo: c.periodo, v: m.vl(c) ?? 0, atual: !!c.emCurso }));
+  const dadosGrafico = todas.map((c) => { const v = m.vl(c) ?? 0; const pj = c.emCurso && proj ? m.vl(proj) ?? 0 : v; return { ciclo: String(c.numero), periodo: c.periodo, v, extra: Math.max(pj - v, 0), proj: pj, atual: !!c.emCurso }; });
   const med = mediana(serie(m));
   const cor = (v: number, atualC: boolean) => atualC ? '#7A0A1A' : m.meta == null ? VERM : (m.menorMelhor ? v <= m.meta : v >= m.meta) ? VERDE : VERM;
 
@@ -213,16 +214,17 @@ export default function HistoricoRicardo() {
             <>
               <table className="w-full text-sm min-w-[640px]">
                 <thead><tr className="text-[10px] uppercase tracking-wide text-muted-foreground bg-secondary/40">
-                  <th className="text-left px-3 py-2">Indicador</th><th className="text-right px-3 py-2">Ciclo {CICLO_ATUAL.numero}</th><th className="text-right px-3 py-2">Mediana de {fechados.length} ciclos</th>
+                  <th className="text-left px-3 py-2">Indicador</th><th className="text-right px-3 py-2">Ciclo {CICLO_ATUAL.numero} real</th><th className="text-right px-3 py-2">Projeção pelo ritmo</th><th className="text-right px-3 py-2">Mediana de {fechados.length} ciclos</th>
                   <th className="text-right px-3 py-2">Melhor</th><th className="text-right px-3 py-2">Pior</th><th className="text-right px-3 py-2">Posição</th></tr></thead>
                 <tbody>
                   {tabelaAtual.map((l) => {
                     const melhor = l.menor ? Math.min(...l.s) : Math.max(...l.s), pior = l.menor ? Math.max(...l.s) : Math.min(...l.s);
-                    const p = l.neutro ? null : posicao(l.v, l.s, !!l.menor);
+                    const p = l.neutro ? null : posicao(l.p, l.s, !!l.menor);
                     return (
                       <tr key={l.rotulo} className="border-t border-border">
                         <td className="px-3 py-2 font-medium text-foreground">{l.rotulo}</td>
                         <td className="px-3 py-2 text-right font-bold text-foreground">{l.fmt(l.v)}</td>
+                        <td className="px-3 py-2 text-right text-foreground">{l.fmt(l.p)}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{l.fmt(mediana(l.s))}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{l.fmt(melhor)}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{l.fmt(pior)}</td>
@@ -233,7 +235,7 @@ export default function HistoricoRicardo() {
                 </tbody>
               </table>
               <Insight titulo={`Leitura do ciclo ${CICLO_ATUAL.numero}`}>
-                Dados reais acumulados em {decorridos} de {dias} dias, sem projeção; volume e investimento não são comparados com ciclos fechados. Custo por MQL de <b>{brl(atual.cpl)}</b> contra mediana de {brl(mediana(fechados.map((c) => c.cpl)))}; volume de <b>{nf(atual.mqls)}</b> MQLs contra mediana de {nf(mediana(fechados.map((c) => c.mqls)))}.
+                Real acumulado em {decorridos} de {dias} dias e projeção linear pelo ritmo (as vendas se concentram no evento, então a projeção de vendas tende a subestimar). Projeção: <b>{nf(proj?.mqls ?? 0)}</b> MQLs e <b>{nf(proj?.vendas ?? 0)}</b> vendas, contra medianas de {nf(mediana(fechados.map((c) => c.mqls)))} e {nf(mediana(fechados.map((c) => c.vendas)))}. Custo por MQL de <b>{brl(atual.cpl)}</b> contra mediana de {brl(mediana(fechados.map((c) => c.cpl)))}; volume de <b>{nf(atual.mqls)}</b> MQLs contra mediana de {nf(mediana(fechados.map((c) => c.mqls)))}.
                 {atual.agend != null && <> Agendamento sobre MQL em <b>{pc(atual.agend, 1)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.agend).filter((n): n is number => n != null)), 1)}.</>} Conversão de ponta a ponta em <b>{pc(atual.conv)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.conv)))} e ROAS de <b>{x(atual.roas)}</b>.
               </Insight>
             </>
@@ -256,17 +258,18 @@ export default function HistoricoRicardo() {
                 <XAxis dataKey="ciclo" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => m.fmt(v)} />
                 <Tooltip cursor={{ fill: 'rgba(255,255,255,.04)' }} contentStyle={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [m.fmt(v), m.rotulo]} labelFormatter={(l: string, p) => `RGV ${l}${p?.[0]?.payload?.periodo ? ` · ${p[0].payload.periodo}` : ''}`} />
+                  formatter={(v: number, n: string, it: { payload?: { atual?: boolean; proj?: number; v?: number } }) => (n === 'Projeção' ? [m.fmt(it.payload?.proj ?? v), 'Projeção pelo ritmo'] : [m.fmt(v), it.payload?.atual ? `${m.rotulo} (real)` : m.rotulo])} labelFormatter={(l: string, p) => `RGV ${l}${p?.[0]?.payload?.periodo ? ` · ${p[0].payload.periodo}` : ''}`} />
                 <ReferenceLine y={med} stroke={CINZA} strokeDasharray="4 4" label={{ value: `mediana ${m.fmt(med)}`, fill: CINZA, fontSize: 10, position: 'insideBottomLeft' }} />
                 {m.meta != null && <ReferenceLine y={m.meta} stroke={AMBAR} strokeDasharray="5 4" label={{ value: `meta ${m.fmt(m.meta)}`, fill: AMBAR, fontSize: 10, position: 'insideTopRight' }} />}
-                <Bar dataKey="v" radius={[3, 3, 0, 0]} maxBarSize={36} shape={(p: { x: number; y: number; width: number; height: number; payload: { v: number; atual: boolean } }) => <rect x={p.x} y={p.y} width={p.width} height={Math.max(p.height, 0)} rx={3} fill={cor(p.payload.v, p.payload.atual)} />} />
+                <Bar dataKey="v" name="Real" stackId="a" radius={[3, 3, 0, 0]} maxBarSize={36} shape={(p: { x: number; y: number; width: number; height: number; payload: { v: number; atual: boolean } }) => <rect x={p.x} y={p.y} width={p.width} height={Math.max(p.height, 0)} rx={3} fill={cor(p.payload.v, p.payload.atual)} />} />
+                <Bar dataKey="extra" name="Projeção" stackId="a" maxBarSize={36} fill="#7A0A1A" fillOpacity={0.35} stroke="#7A0A1A" strokeDasharray="3 3" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
             {m.meta != null && <><span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: VERDE }} />dentro da meta</span><span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: VERM }} />fora da meta</span></>}
             <span><i className="inline-block w-3 h-0.5 mr-1.5 align-middle" style={{ background: CINZA }} />mediana dos {fechados.length} fechados</span>
-            <span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: '#7A0A1A' }} />ciclo {CICLO_ATUAL.numero} acumulado até hoje</span>
+            <span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: '#7A0A1A' }} />ciclo {CICLO_ATUAL.numero} real até hoje</span><span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle border border-dashed" style={{ background: 'rgba(122,10,26,.35)', borderColor: '#7A0A1A' }} />projeção pelo ritmo</span>
           </div>
         </div>
 
@@ -405,7 +408,7 @@ export default function HistoricoRicardo() {
           </table>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Ciclos fechados: {FONTE_HISTORICO}. Ciclo {CICLO_ATUAL.numero}: funil do Perpétuo em tempo real, investimento da conta Perpétuo no Meta, acumulado real até hoje, sem projeção ({decorridos} de {dias} dias). Campos sem dado na planilha aparecem como 0.
+          Ciclos fechados: {FONTE_HISTORICO}. Ciclo {CICLO_ATUAL.numero}: funil do Perpétuo em tempo real, investimento da conta Perpétuo no Meta, real até hoje, com projeção linear pelo ritmo ({decorridos} de {dias} dias). Campos sem dado na planilha aparecem como 0.
         </p>
       </PageBody>
     </>
