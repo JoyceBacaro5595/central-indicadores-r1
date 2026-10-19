@@ -212,7 +212,7 @@ export default function Gerenciador() {
                     <td className="py-1.5 mono">{fmt(l.iniciado_em)}</td><td className="py-1.5">{l.fonte} · {l.entidade}</td><td className="py-1.5">{l.tipo_carga}</td>
                     <td className="py-1.5 mono">{l.janela_inicio ?? ''}{l.janela_fim ? ` → ${l.janela_fim}` : ''}</td>
                     <td className={`py-1.5 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</td><td className="py-1.5 text-right mono">{num(l.linhas_lidas)}</td>
-                    <td className="py-1.5 text-red-400 truncate max-w-[280px]" title={l.mensagem_erro ?? ''}>{l.mensagem_erro}</td>
+                    <td className={`py-1.5 align-top ${l.status === 'partial' ? 'max-w-[420px]' : 'text-red-400 truncate max-w-[280px]'}`} title={l.mensagem_erro ?? ''}>{l.status === 'partial' ? <DiagnosticoParcial l={l} /> : l.mensagem_erro}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -233,6 +233,34 @@ export default function Gerenciador() {
       </main>
     </div>
   );
+}
+
+/** Explicação para carga que terminou "partial": por que parou no meio, se é falha e o que fazer. */
+function diagnosticoParcial(l: Pick<Log, 'fonte' | 'entidade' | 'tipo_carga' | 'mensagem_erro'>): { motivo: string; resolver: string } {
+  const fonte = `${l.fonte} ${l.entidade}`.toLowerCase();
+  const erro = l.mensagem_erro ? ` Erro registrado: ${l.mensagem_erro}.` : '';
+  if (fonte.includes('meta')) return {
+    motivo: `A rodada atingiu o limite de tempo da função antes de ler todos os dias e contas da janela (o Meta devolve os anúncios em páginas e a coleta é feita em janelas de 7 dias). Não é falha de token nem de dados: o ponto onde parou fica gravado e a próxima rodada continua dali.${erro}`,
+    resolver: 'Normalmente nada a fazer: as rodadas seguintes (a cada minuto no histórico) completam. Só aja se o partial se repetir por horas sem a quantidade de registros mudar: use "Sincronizar agora" e, se continuar, confira o token do Meta em Tokens das integrações. O funil só publica um dia quando as duas contas do Meta estão completas.',
+  };
+  if (fonte.includes('guru')) return {
+    motivo: `A carga parou antes de varrer toda a janela (limite de tempo ou de tentativas da API da Guru) e guardou o cursor para continuar.${erro}`,
+    resolver: 'Normalmente nada a fazer: a próxima rodada retoma do cursor. Se repetir por horas, use "Sincronizar agora" e confira o token da Guru em Tokens das integrações.',
+  };
+  if (fonte.includes('hubspot') || fonte.includes('upsell')) return {
+    motivo: `A carga leu parte dos registros e parou no limite de tempo ou de lote do HubSpot (até 50 negócios por lote com histórico); o cursor foi guardado.${erro}`,
+    resolver: 'Normalmente nada a fazer: a próxima rodada continua. Se repetir por horas, use "Sincronizar agora" e confira o token do HubSpot em Tokens das integrações.',
+  };
+  return {
+    motivo: `A carga terminou só em parte e o log não informa o motivo exato.${erro}`,
+    resolver: 'Use "Sincronizar agora" para tentar de novo e, se continuar parcial, abra os detalhes da execução e confira o token da integração.',
+  };
+}
+
+function DiagnosticoParcial({ l, aberto }: { l: Pick<Log, 'fonte' | 'entidade' | 'tipo_carga' | 'mensagem_erro'>; aberto?: boolean }) {
+  const d = diagnosticoParcial(l);
+  const corpo = <><p className="mt-1"><span className="font-semibold">Motivo:</span> {d.motivo}</p><p className="mt-1"><span className="font-semibold">Como resolver:</span> {d.resolver}</p></>;
+  return aberto ? <div className="text-sm">{corpo}</div> : <details className="mt-1 text-amber-300/90"><summary className="cursor-pointer">Por que ficou parcial</summary><div className="text-muted-foreground break-words">{corpo}</div></details>;
 }
 
 function horarioSimples(schedule: string | null) {
@@ -270,7 +298,7 @@ function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: 
     <div className="flex flex-wrap gap-2"><button type="button" disabled={!a.existe || ocupado || !rascunho || !intervaloValido || rascunho.inicio < 0 || rascunho.inicio > 23 || rascunho.fim < 0 || rascunho.fim > 23 || !Number.isInteger(rascunho.inicio) || !Number.isInteger(rascunho.fim)} onClick={() => { if (rascunho) salvar({ jobname: a.jobname, schedule: cronHorario(rascunho.inicio, rascunho.fim, rascunho.intervalo) }, fecharEdicao); }} className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-40">Salvar</button><button type="button" disabled={!a.existe || ocupado} onClick={executar} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">Sincronizar agora</button></div>
     {observacoes}
     <details key={vez} className="text-xs"><summary className="cursor-pointer text-muted-foreground">Configuração avançada</summary><label className="block mt-2">Expressão cron em UTC<input aria-label={`Cron ${a.rotulo}`} value={cronAvancado ?? a.schedule ?? ''} onChange={e => setCronAvancado(e.target.value)} className="input-r1 w-full mt-1 mono" /></label><button type="button" disabled={!a.existe || ocupado || cronAvancado === null || cronAvancado === a.schedule} onClick={() => { if (cronAvancado !== null) salvar({ jobname: a.jobname, schedule: cronAvancado }, fecharEdicao); }} className="text-primary mt-2 disabled:opacity-40">Salvar cron</button></details>
-    <div className="border-t border-border pt-3"><button type="button" onClick={() => { setLogSelecionado(null); setLogAberto(true); }} className="font-semibold text-xs underline">Abrir log de atualização</button><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><button type="button" className="underline mr-2" onClick={() => { setLogSelecionado(l); setLogAberto(true); }}>Detalhes</button><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}</li>)}</ul></div>
+    <div className="border-t border-border pt-3"><button type="button" onClick={() => { setLogSelecionado(null); setLogAberto(true); }} className="font-semibold text-xs underline">Abrir log de atualização</button><p className="text-[11px] text-muted-foreground mt-1">Última execução {fmt(a.ultima_execucao)} · <span className={STATUS_COR[a.ultimo_status ?? '']}>{a.ultimo_status || 'Sem execução'}</span></p>{a.ultima_msg && <p className="text-xs break-words mt-1">{a.ultima_msg}</p>}<ul className="space-y-2 max-h-48 overflow-y-auto mt-3">{logs.slice(0, 5).map(l => <li key={l.id} className="text-[11px] border-t border-border pt-2"><button type="button" className="underline mr-2" onClick={() => { setLogSelecionado(l); setLogAberto(true); }}>Detalhes</button><span>{fmt(l.iniciado_em)} · {l.linhas_lidas == null ? 'Quantidade não disponível' : num(l.linhas_lidas) + ' registros'}</span><span className={`ml-2 ${STATUS_COR[l.status] ?? ''}`}>{l.status}</span>{l.mensagem_erro && <p className="text-red-400 mt-1 break-words">{l.mensagem_erro}</p>}{l.status === 'partial' && <DiagnosticoParcial l={l} />}</li>)}</ul></div>
     <Dialog open={logAberto} onOpenChange={setLogAberto}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Atualização · {a.rotulo}</DialogTitle><DialogDescription>Resultado do agendamento e registros disponíveis da fonte.</DialogDescription></DialogHeader>
@@ -281,6 +309,7 @@ function CardSincronizacao({ a, logs, observacoes, ocupado, salvar, executar }: 
           <div><dt className="font-semibold">Registros carregados</dt><dd>{logSelecionado?.linhas_lidas == null ? 'Quantidade não informada pelo log' : num(logSelecionado.linhas_lidas)}</dd></div>
           <div><dt className="font-semibold">Entidade / carga</dt><dd>{logSelecionado ? `${logSelecionado.entidade} · ${logSelecionado.tipo_carga}` : 'Selecione uma execução da fonte abaixo'}</dd></div>
           <div><dt className="font-semibold">Período carregado</dt><dd>{logSelecionado?.janela_inicio ?? 'Não informado'} → {logSelecionado?.janela_fim ?? 'Não informado'}</dd></div>
+          {(logSelecionado?.status ?? a.ultimo_status) === 'partial' && <div><dt className="font-semibold text-amber-400">Por que ficou parcial e como resolver</dt><dd><DiagnosticoParcial l={logSelecionado ?? { fonte: a.fonte, entidade: a.fonte, tipo_carga: '', mensagem_erro: a.ultima_msg ?? null }} aberto /></dd></div>}
           <div><dt className="font-semibold">Mensagem / motivo da falha</dt><dd className="break-words whitespace-pre-wrap">{logSelecionado?.mensagem_erro ?? a.ultima_msg ?? 'Nenhuma mensagem registrada'}</dd></div>
         </dl>
         {!logSelecionado && <p className="text-xs text-muted-foreground">O sucesso do agendamento confirma o disparo. A conclusão da coleta deve ser conferida no log da fonte.</p>}
