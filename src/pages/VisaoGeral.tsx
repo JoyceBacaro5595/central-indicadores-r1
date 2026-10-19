@@ -219,9 +219,9 @@ export default function VisaoGeral() {
   const r = perp.data?.resumo;
   const diarioRgv: Dia[] = (perp.data?.diario ?? []).map((d) => ({ dia: d.data, leads: d.leads_crm ?? 0 }));
   const dCorr = ciclo ? Math.max(0, diasAte(hojeStr, ciclo.inicio) + 1) : null;
-  const mediaDia = r?.leads_crm != null && dCorr ? r.leads_crm / dCorr : null;
+  const mediaDia = r?.mql != null && dCorr ? r.mql / dCorr : null;
   const projecao = mediaDia != null && ciclo ? Math.round(mediaDia * ciclo.dias) : null;
-  const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null;
+  const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null; // MQL é o "lead do ciclo"; leads_crm é a base total do CRM
 
   // ---- selo de atualização
   const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
@@ -364,13 +364,13 @@ export default function VisaoGeral() {
                   <>
                     {(perp.error || perpBase.error) ? <div className="rt-empty" title={String(((perp.error || perpBase.error) as Error).message ?? '')}>Não consegui atualizar o funil agora. Os números abaixo são da última leitura.</div> : null}
                     <div className="rt-hero">
-                      <Anel p={metaLeads && r.leads_crm != null ? (r.leads_crm / metaLeads) * 100 : null} cor="var(--red)" />
-                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>{metaLeads != null ? n(metaLeads) : '—'}</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
+                      <Anel p={metaLeads && r.mql != null ? (r.mql / metaLeads) * 100 : null} cor="var(--red)" />
+                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.mql)}</div><div className="m">meta <b>{metaLeads != null ? n(metaLeads) : '—'}</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Investido" v={brl(r.investimento)} din />
                       <K l="CPL" v={brl(r.cpl)} din />
-                      <K l="MQL" v={n(r.mql)} m={pMql != null ? <><b>{pMql}%</b> dos leads</> : undefined} />
+                      <K l="Leads no CRM" v={n(r.leads_crm)} m={pMql != null ? <>MQL = <b>{pMql}%</b></> : undefined} />
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
