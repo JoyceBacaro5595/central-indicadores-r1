@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { Abas, FiltroPeriodo, PageBody, PageHeader } from '@/components/shared';
+import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
@@ -34,7 +35,6 @@ const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleStr
 const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v.toFixed(0)}%`);
 const dataBR = (d: string | null) => (d ? d.split('-').reverse().join('/') : '—');
-const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 /* Urgência da linha do tempo, como no app original: até 7 dias vermelho, até 14 amarelo, depois azul. */
 /* Parâmetros padrão do app original; só valem quando o evento não tem meta/capacidade próprias. */
 const PADRAO = { meta: 250, capacidade: 350, investimento: 100000, cpa: 400 };
@@ -48,8 +48,8 @@ export default function MaquinaVendas() {
   const { pode } = useAuth();
   usePlanoRota();
   const [aba, setAba] = useState<Aba>('dashboard');
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(4));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const eventos = useQuery({ queryKey: ['mv-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const meta = useQuery({ queryKey: ['mv-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const INICIO_ANO = '2026-01-01';
@@ -67,7 +67,7 @@ export default function MaquinaVendas() {
         titulo="Máquina de Vendas · Presencial"
         subtitulo="Dashboard de performance dos eventos por cidade · Meta Ads, Guru e HubSpot"
         acoes={<>
-          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+          <PeriodoPadrao p={per} />
         </>}
         onAtualizar={() => { eventos.refetch(); meta.refetch(); hub.refetch(); }}
         atualizando={eventos.isFetching}

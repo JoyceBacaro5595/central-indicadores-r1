@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { hojeSP } from '@/lib/periodos';
-import { FiltroPeriodo, FiltroUnico, PageBody, PageHeader } from '@/components/shared';
+import { FiltroUnico, PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 
 /* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
    título da visão com o investimento, faixa do funil em uma linha (cada etapa com número, barra, taxa e custo) e lista por cidade.
@@ -10,6 +11,7 @@ import { FiltroPeriodo, FiltroUnico, PageBody, PageHeader } from '@/components/s
    Fonte: RPC meta_eventos (Meta Ads + Guru). Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas: ficam "—".
    Não há etapas de CRM (MQL/SQL) para eventos, e as abas Criativos e Páginas do RGV não se aplicam aqui. */
 
+interface VendasCidade { cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }
 interface MetaEvento {
   cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number;
   compras_meta: number; faturamento: number; ingressos_pagos: number; roas: number | null; cpa: number | null;
@@ -26,7 +28,7 @@ const div = (a: number, b: number) => (b > 0 ? a / b : null);
 const f2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
 const log = (v: number, max: number) => (v > 0 && max > 0 ? Math.max(2, Math.min(100, (100 * Math.log10(v + 1)) / Math.log10(max + 1))) : 0);
 
-const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border xl:border-b-0 xl:flex-1 xl:basis-0';
+const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border 2xl:border-b-0 2xl:flex-1 2xl:basis-0';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
 const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden';
 const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap overflow-hidden';
@@ -38,9 +40,9 @@ const Linha = ({ k, v }: { k: string; v: string }) => (
   <div className="flex flex-col"><span className="text-muted-foreground">{k}</span><span className="font-bold text-foreground">{v}</span></div>
 );
 
-function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
+function Etapa({ grupo, titulo, valor, largura, linhas, custoRotulo, custo }: { grupo?: boolean; titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
   return (
-    <div className={CARD_FAIXA}><div>
+    <div className={`${CARD_FAIXA} ${grupo ? '2xl:border-l-[3px] 2xl:border-l-violet-400/60' : ''}`}><div>
       <div className={TITULO_FAIXA}>{titulo}</div>
       <div className={NUM_FAIXA} style={nFit(valor)}>{valor}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-primary/80" style={{ width: `${largura}%` }} /></div>
@@ -51,8 +53,6 @@ function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo:
   );
 }
 
-/** Ano pelo calendário de São Paulo (e não UTC), para a virada de ano não deslocar o período. */
-const ANO = hojeSP().slice(0, 4);
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
 interface EventoData { cidade: string; mes_evento: string; data_evento: string | null }
@@ -64,9 +64,10 @@ function aconteceu(dataEvento: string | null | undefined, mes: string, hoje: str
 }
 
 export default function FluxoMarketingMdv() {
-  const [de, setDe] = useState(`${ANO}-01-01`);
-  const [ate, setAte] = useState(`${ANO}-12-01`);
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const vq = useQuery({ queryKey: ['fmm-vendas', de, ate], queryFn: () => r1Rpc<VendasCidade[]>('mdv_vendas_cidade', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const [status, setStatus] = useState<Status>('todos');
   const [cidade, setCidade] = useState('todas');
@@ -83,6 +84,12 @@ export default function FluxoMarketingMdv() {
     });
   }, [todos, evq.data, status, cidade]);
 
+  const vendasPor = useMemo(() => new Map((vq.data ?? []).map((v) => [`${v.cidade}|${v.mes_evento}`, v])), [vq.data]);
+  const vd = (r: MetaEvento) => vendasPor.get(`${r.cidade}|${r.mes_evento}`);
+  const vt = useMemo(() => dados.reduce((s, r) => { const v = vendasPor.get(`${r.cidade}|${r.mes_evento}`); return {
+    rgv: s.rgv + (v?.rgv ?? 0), clube: s.clube + (v?.clube_r1 ?? 0), trator: s.trator + (v?.trator ?? 0),
+    fRgv: s.fRgv + Number(v?.fat_rgv ?? 0), fClube: s.fClube + Number(v?.fat_clube_r1 ?? 0), fTrator: s.fTrator + Number(v?.fat_trator ?? 0),
+  }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor]);
   const t = useMemo(() => dados.reduce((s, r) => ({
     inv: s.inv + Number(r.investimento || 0), imp: s.imp + Number(r.impressoes || 0), cli: s.cli + Number(r.cliques || 0),
     cmp: s.cmp + Number(r.compras_meta || 0), ing: s.ing + Number(r.ingressos_pagos || 0), fat: s.fat + Number(r.faturamento || 0),
@@ -97,14 +104,14 @@ export default function FluxoMarketingMdv() {
         subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
         onAtualizar={() => q.refetch()}
         atualizando={q.isFetching}
-        acoes={<div className="hidden lg:flex items-center gap-2"><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
+        acoes={<div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>}
       />
       <PageBody className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="toggle-group">
             {ABAS.map((a) => <button key={a.valor} className="toggle-item toggle-item-ativo">{a.rotulo}</button>)}
           </div>
-          <div className="flex lg:hidden flex-wrap items-center gap-2"><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
+          <div className="flex lg:hidden flex-wrap items-center gap-2"><PeriodoPadrao p={per} /></div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +141,7 @@ export default function FluxoMarketingMdv() {
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
             <div className="surface overflow-hidden">
-              <div className="grid grid-cols-2 sm:grid-cols-4 xl:flex xl:flex-nowrap xl:divide-x xl:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border xl:[&>*]:border-r-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 2xl:flex 2xl:flex-nowrap 2xl:divide-x 2xl:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border 2xl:[&>*]:border-r-0">
                 <div className={CARD_FAIXA}><div>
                   <div className={TITULO_FAIXA}>Investimento</div>
                   <div className="num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden" style={nFit(brl2(t.inv))}>{brl2(t.inv)}</div>
@@ -153,6 +160,10 @@ export default function FluxoMarketingMdv() {
                 <Etapa titulo="Compras no Meta" valor={num(t.cmp)} largura={log(t.cmp, max)} linhas={[['Clique → compra', pct(t.cmp, t.cli)]]} custoRotulo="Custo por compra" custo={brl2(div(t.inv, t.cmp))} />
                 <Etapa titulo="Ingressos pagos (Guru)" valor={num(t.ing)} largura={log(t.ing, max)} linhas={[['Clique → ingresso', pct(t.ing, t.cli)], ['Ticket médio', brl2(div(t.fat, t.ing))]]} custoRotulo="CAC" custo={brl2(div(t.inv, t.ing))} />
                 <Etapa titulo="Faturamento" valor={brl(t.fat)} largura={log(t.fat, Math.max(t.fat, t.inv, 1))} linhas={[['ROAS', f2(div(t.fat, t.inv))]]} custoRotulo="Resultado − investimento" custo={brl(t.fat - t.inv)} />
+                <Etapa grupo titulo="Vendas RGV" valor={num(vt.rgv)} largura={log(vt.rgv, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv, vt.rgv))} />
+                <Etapa titulo="Vendas Clube R1" valor={num(vt.clube)} largura={log(vt.clube, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fClube)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fClube, vt.clube))} />
+                <Etapa titulo="Vendas Trator" valor={num(vt.trator)} largura={log(vt.trator, Math.max(vt.rgv, vt.clube, vt.trator, 1))} linhas={[['Faturamento', brl(vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fTrator, vt.trator))} />
+                <Etapa titulo="Total de vendas" valor={num(vt.rgv + vt.clube + vt.trator)} largura={log(vt.rgv + vt.clube + vt.trator, Math.max(vt.rgv + vt.clube + vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv + vt.fClube + vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv + vt.fClube + vt.fTrator, vt.rgv + vt.clube + vt.trator))} />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas, por isso aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
@@ -166,11 +177,11 @@ export default function FluxoMarketingMdv() {
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="text-left">
-                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CAC', 'Faturamento', 'ROAS'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
+                    {['Cidade', 'Mês', 'Camp.', 'Investimento', 'Impressões', 'Cliques', 'CTR', 'CPC', 'Compras Meta', 'Ingressos pagos', 'CAC', 'Faturamento', 'ROAS', 'RGV', 'Clube R1', 'Trator'].map((h, i) => <th key={h} className={`px-3 py-2 font-medium ${i > 1 ? 'text-right' : ''}`}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
-                  {dados.length === 0 && <tr><td colSpan={13} className="px-3 py-6 text-center text-muted-foreground">Sem dados no período.</td></tr>}
+                  {dados.length === 0 && <tr><td colSpan={16} className="px-3 py-6 text-center text-muted-foreground">Sem dados no período.</td></tr>}
                   {dados.map((r) => (
                     <tr key={`${r.cidade}-${r.mes_evento}`} className="border-t border-border">
                       <td className="px-3 py-2 font-medium">{r.cidade}</td>
@@ -186,6 +197,9 @@ export default function FluxoMarketingMdv() {
                       <td className="px-3 py-2 text-right mono">{brl2(r.cpa)}</td>
                       <td className="px-3 py-2 text-right mono">{brl(r.faturamento)}</td>
                       <td className="px-3 py-2 text-right mono">{r.roas == null ? '—' : r.roas.toLocaleString('pt-BR')}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.rgv ?? 0)}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.clube_r1 ?? 0)}</td>
+                      <td className="px-3 py-2 text-right mono">{num(vd(r)?.trator ?? 0)}</td>
                     </tr>
                   ))}
                 </tbody>

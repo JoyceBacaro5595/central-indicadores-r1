@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Save, Plus } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { FiltroPeriodo, PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import CardsRota from './maquina-vendas/CardsRota';
 
 interface Evento {
@@ -68,8 +69,8 @@ function Edicao({ e, aoSalvar, salvando }: { e: Evento; aoSalvar: (v: Partial<Ev
 export default function Eventos() {
   const { pode } = useAuth();
   const qc = useQueryClient();
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(3));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const eventos = useQuery({ queryKey: ['eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000 });
   const [editando, setEditando] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -113,7 +114,7 @@ export default function Eventos() {
         titulo="Eventos e metas por cidade"
         subtitulo="Calendário, capacidade, meta, realizado e ritmo necessário · Máquina de Vendas presencial"
         acoes={<>
-          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+          <PeriodoPadrao p={per} />
         </>}
         onAtualizar={() => eventos.refetch()}
         atualizando={eventos.isFetching}

@@ -4,10 +4,10 @@ import { r1Rpc } from '@/integrations/r1/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
-import { DateRangePicker } from '@/components/DateRangePicker';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import MaquinaOnline from './MaquinaOnline';
 import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
 const brl = (v: number | null | undefined) =>
@@ -122,8 +122,8 @@ type AbaMV = 'presencial' | 'online';
 export default function Central() {
   const { aba = 'presencial' } = useParams<{ aba: AbaMV }>();
   const nav = useNavigate();
-  const [inicio, setInicio] = useState(inicioMesISO());
-  const [fim, setFim] = useState(hojeISO());
+  const per = usePeriodoPadrao('mes');
+  const { de: inicio, ate: fim } = per;
   const { data, error, isFetching, refetch } = useCentralIngressos(inicio, fim);
   const [canaisAberto, setCanaisAberto] = useState(false);
 
@@ -155,7 +155,7 @@ export default function Central() {
 
         {aba === 'online' && <MaquinaOnline />}
 
-        {aba === 'presencial' && <DateRangePicker startDate={inicio} endDate={fim} onChange={(s, e) => { setInicio(s); setFim(e); }} />}
+        {aba === 'presencial' && <div className="flex flex-wrap items-center gap-2"><PeriodoPadrao p={per} /></div>}
 
         {aba === 'presencial' && error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
         {aba === 'presencial' && !data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}

@@ -5,7 +5,8 @@ import { Download, Phone, Plus, TriangleAlert } from 'lucide-react';
 import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { Abas, FiltroMulti, FiltroPeriodo, PageHeader } from '@/components/shared';
+import { Abas, FiltroMulti, PageHeader } from '@/components/shared';
+import { FiltroPeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
 
 interface Template { id: string; nome: string; texto: string; ativo: boolean; padrao: boolean; atualizado_em: string }
@@ -289,13 +290,7 @@ export default function Recuperacao() {
                 </label>
                 <FiltroMulti rotulo="Cidade" opcoes={cidades_.map((c) => ({ valor: c, rotulo: c }))} valor={cidades} onChange={setCidades} />
                 <FiltroMulti rotulo="Ingresso" opcoes={TIPOS.filter((t) => t.k).map((t) => ({ valor: t.k, rotulo: t.r }))} valor={tipos} onChange={setTipos} />
-                <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
-                <option value="custom">Personalizado</option>
-                {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-                </select>
-                {periodo === 'custom' && <>
-                <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
-                </>}
+                <FiltroPeriodoPadrao preset={periodo} de={de} ate={ate} onPreset={aplicarPeriodo} onCustom={(x, y) => { setPeriodo('custom'); setDe(x); setAte(y); }} />
               </div>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-full md:w-72" />
             </div>

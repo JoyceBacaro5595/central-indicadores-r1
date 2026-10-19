@@ -8,6 +8,7 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, L
 import { usePerpetuo, usePerpetuoVendasClubeTrator, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { FiltroMulti, FiltroPeriodo, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
+import { FiltroPeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
@@ -232,18 +233,7 @@ export default function Perpetuo() {
         acoes={
           <div className="hidden lg:flex items-center gap-2">
             <ContaPill />
-            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
-              <option value="custom">Personalizado</option>
-              {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-              {data && data.ciclos.length > 0 && (
-                <optgroup label="Ciclos">
-                  {data.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo} · {dataCurta(c.inicio)} a {dataCurta(c.fim)}</option>)}
-                </optgroup>
-              )}
-            </select>
-            {preset === 'custom' && <>
-            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
-            </>}
+            <FiltroPeriodoPadrao preset={preset} de={de} ate={ate} onPreset={aplicarPreset} onCustom={(x, y) => { setPreset('custom'); setDe(x); setAte(y); }} ciclos={data?.ciclos} />
           </div>
         }
       />
@@ -272,14 +262,7 @@ export default function Perpetuo() {
           </div>
           <div className="flex lg:hidden flex-wrap items-center gap-2">
             <ContaPill />
-            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
-              <option value="custom">Personalizado</option>
-              {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-              {data?.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo}</option>)}
-            </select>
-            {preset === 'custom' && <>
-            <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={(a, b) => { setPreset('custom'); setDe(a); setAte(b); }} />
-            </>}
+            <FiltroPeriodoPadrao preset={preset} de={de} ate={ate} onPreset={aplicarPreset} onCustom={(x, y) => { setPreset('custom'); setDe(x); setAte(y); }} ciclos={data?.ciclos} />
           </div>
         </div>
 

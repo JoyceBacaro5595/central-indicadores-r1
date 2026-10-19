@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download } from 'lucide-react';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { FiltroPeriodo, PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 
 interface Presenca {
   linha: string | null; cidade: string; mes_evento: string; data_evento: string | null; evento_id: number | null;
@@ -25,7 +26,6 @@ const num = (v: number | null | undefined) => (v ?? 0).toLocaleString('pt-BR');
 const mesLabel = (d: string) => { const [y, m] = d.split('-'); return `${m}/${y}`; };
 const dataBR = (d: string | null) => (d ? d.split('-').reverse().join('/') : '—');
 const horaBR = (d: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
-const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 const STATUS: Record<string, string> = { checked_in: 'Presente', assigned: 'Não chegou', invited: 'Convidado, não chegou', canceled: 'Cancelado', open: 'Sem participante' };
 const SITUACOES: { k: Situacao; r: string }[] = [
   { k: 'ausentes', r: 'Ainda não chegaram' }, { k: 'presentes', r: 'Presentes' }, { k: 'sem_participante', r: 'Sem participante' }, { k: 'cancelados', r: 'Cancelados' }, { k: 'todos', r: 'Todos (sem cancelados)' },
@@ -41,8 +41,8 @@ function csv(linhas: Linha[]) {
 export default function Checkins() {
   const { pode } = useAuth();
   const [sp, setSp] = useSearchParams();
-  const [de, setDe] = useState(mesISO(-2));
-  const [ate, setAte] = useState(mesISO(2));
+  const per = usePeriodoPadrao('ano', { eventos: true });
+  const { de, ateConsulta: ate } = per;
   const cidade = sp.get('cidade');
   const mes = sp.get('mes');
   const [situacao, setSituacao] = useState<Situacao>('ausentes');
@@ -73,7 +73,7 @@ export default function Checkins() {
         titulo="Check-ins"
         subtitulo={`Esperados, presentes, quem ainda não chegou e cancelados · e-tickets da Guru${r?.atualizado_em ? ` · lido ${horaBR(r.atualizado_em)}` : ''}`}
         acoes={<>
-          <FiltroPeriodo modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} />
+          <PeriodoPadrao p={per} />
         </>}
         onAtualizar={() => { eventos.refetch(); resumo.refetch(); lista.refetch(); }}
         atualizando={eventos.isFetching || lista.isFetching}
