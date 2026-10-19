@@ -6,7 +6,7 @@ import { usePerpetuo } from '@/hooks/usePerpetuo';
 import { FONTE_HISTORICO, HISTORICO, METAS_BOARD, type CicloHist } from './historico/dados';
 
 /* Relatório Ricardo · Histórico Dados (pedido da Joyce, 19/10): réplica de funil-rgv-perpetuo.vercel.app/historico no layout da Central.
- * Série fechada (RGV 29 a 43) vem da planilha; o RGV 44 fechado vem do funil do Perpétuo (HubSpot) "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e é projetado pelo ritmo. */
+ * Série fechada (RGV 29 a 43) vem da planilha; o RGV 44 fechado vem do funil do Perpétuo (HubSpot) "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e aparece só com o acumulado real até hoje, sem projeção (pedido da Joyce, 19/10). */
 const CICLO_ATUAL = { numero: 45, inicio: '2026-09-29', fim: '2026-11-03' };
 const CICLO_44 = { numero: 44, inicio: '2026-08-26', fim: '2026-09-28' }; // fechado, ainda fora da planilha: vem do funil do Perpétuo (HubSpot)
 const VERM = '#FF0026', VERDE = '#4CD68A', AMBAR = '#F5A623', CINZA = '#8A8A93';
@@ -91,7 +91,7 @@ export default function HistoricoRicardo() {
 
   const dias = Math.round((parse(CICLO_ATUAL.fim).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1;
   const decorridos = Math.max(1, Math.min(dias, Math.round((parse(ate).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1));
-  const fator = dias / decorridos;
+  const fator = 1; // sem projeção: só dado real acumulado
 
   const monta = (r: NonNullable<typeof perp.data>['resumo'], numero: number, inicio: string, fim: string, f: number): Linha => {
     const invest = (r.investimento ?? 0) * f, mqls = (r.mql ?? 0) * f, vendas = (r.vendas ?? 0) * f, receita = (r.faturamento ?? 0) * f;
@@ -104,7 +104,7 @@ export default function HistoricoRicardo() {
     };
     return deriva(c);
   };
-  const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator), projetado: true, emCurso: true } : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
+  const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator), emCurso: true } : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
   const l44 = useMemo(() => (r44 ? monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1) : null), [r44]); // eslint-disable-line react-hooks/exhaustive-deps
   const fechados = useMemo(() => [...HISTORICO.map(deriva), ...(l44 ? [l44] : [])], [l44]);
 
@@ -116,9 +116,9 @@ export default function HistoricoRicardo() {
   ];
 
   const tabelaAtual = atual ? [
-    { rotulo: 'Investimento projetado', fmt: mi, v: atual.invest, s: fechados.map((c) => c.invest), neutro: true },
-    { rotulo: 'MQLs projetados', fmt: (v: number) => nf(v), v: atual.mqls, s: fechados.map((c) => c.mqls) },
-    { rotulo: 'Vendas projetadas', fmt: (v: number) => nf(v), v: atual.vendas, s: fechados.map((c) => c.vendas) },
+    { rotulo: 'Investimento acumulado', fmt: mi, v: atual.invest, s: fechados.map((c) => c.invest), neutro: true },
+    { rotulo: 'MQLs acumulados', fmt: (v: number) => nf(v), v: atual.mqls, s: fechados.map((c) => c.mqls), neutro: true },
+    { rotulo: 'Vendas acumuladas', fmt: (v: number) => nf(v), v: atual.vendas, s: fechados.map((c) => c.vendas), neutro: true },
     { rotulo: 'Conversão MQL→venda', fmt: pc, v: atual.conv, s: fechados.map((c) => c.conv) },
     { rotulo: 'Custo por MQL', fmt: brl, v: atual.cpl, s: fechados.map((c) => c.cpl), menor: true },
     { rotulo: 'CAC', fmt: brl, v: atual.cac, s: fechados.map((c) => c.cac), menor: true },
@@ -233,8 +233,8 @@ export default function HistoricoRicardo() {
                 </tbody>
               </table>
               <Insight titulo={`Leitura do ciclo ${CICLO_ATUAL.numero}`}>
-                Projeção pelo ritmo de {decorridos} de {dias} dias. Custo por MQL projetado de <b>{brl(atual.cpl)}</b> contra mediana de {brl(mediana(fechados.map((c) => c.cpl)))}; volume de <b>{nf(atual.mqls)}</b> MQLs contra mediana de {nf(mediana(fechados.map((c) => c.mqls)))}.
-                {atual.agend != null && <> Agendamento sobre MQL em <b>{pc(atual.agend, 1)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.agend).filter((n): n is number => n != null)), 1)}.</>} Conversão de ponta a ponta em <b>{pc(atual.conv)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.conv)))} e ROAS projetado de <b>{x(atual.roas)}</b>.
+                Dados reais acumulados em {decorridos} de {dias} dias, sem projeção; volume e investimento não são comparados com ciclos fechados. Custo por MQL de <b>{brl(atual.cpl)}</b> contra mediana de {brl(mediana(fechados.map((c) => c.cpl)))}; volume de <b>{nf(atual.mqls)}</b> MQLs contra mediana de {nf(mediana(fechados.map((c) => c.mqls)))}.
+                {atual.agend != null && <> Agendamento sobre MQL em <b>{pc(atual.agend, 1)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.agend).filter((n): n is number => n != null)), 1)}.</>} Conversão de ponta a ponta em <b>{pc(atual.conv)}</b> contra mediana de {pc(mediana(fechados.map((c) => c.conv)))} e ROAS de <b>{x(atual.roas)}</b>.
               </Insight>
             </>
           )}
@@ -266,7 +266,7 @@ export default function HistoricoRicardo() {
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
             {m.meta != null && <><span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: VERDE }} />dentro da meta</span><span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: VERM }} />fora da meta</span></>}
             <span><i className="inline-block w-3 h-0.5 mr-1.5 align-middle" style={{ background: CINZA }} />mediana dos {fechados.length} fechados</span>
-            <span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: '#7A0A1A' }} />ciclo {CICLO_ATUAL.numero} projetado</span>
+            <span><i className="inline-block w-3 h-3 rounded-sm mr-1.5 align-middle" style={{ background: '#7A0A1A' }} />ciclo {CICLO_ATUAL.numero} acumulado até hoje</span>
           </div>
         </div>
 
@@ -405,7 +405,7 @@ export default function HistoricoRicardo() {
           </table>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Ciclos fechados: {FONTE_HISTORICO}. Ciclo {CICLO_ATUAL.numero}: funil do Perpétuo em tempo real, investimento da conta Perpétuo no Meta, projetado pelo ritmo atual ({decorridos} de {dias} dias). Campos sem dado na planilha aparecem como 0.
+          Ciclos fechados: {FONTE_HISTORICO}. Ciclo {CICLO_ATUAL.numero}: funil do Perpétuo em tempo real, investimento da conta Perpétuo no Meta, acumulado real até hoje, sem projeção ({decorridos} de {dias} dias). Campos sem dado na planilha aparecem como 0.
         </p>
       </PageBody>
     </>
