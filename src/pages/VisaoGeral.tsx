@@ -12,7 +12,7 @@ import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
    com o mesmo layout, cores e cards do HTML original. Os números vêm do banco (Guru, HubSpot, Meta) e a agenda vem da planilha
-   "R1 | Agenda 2026" lida ao vivo. Ao clicar no card da Turnê Máquina de Vendas, ele se amplia com o detalhamento. Os Próximos eventos agora ficam no Calendário. */
+   "R1 | Agenda 2026" lida ao vivo. Ao clicar no card da Turnê Máquina de Vendas, ele se amplia com o detalhamento. Os Próximos eventos ficam só na Visão Geral. */
 
 const TZ = 'America/Sao_Paulo';
 const DAY = 864e5;

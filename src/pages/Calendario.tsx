@@ -8,8 +8,7 @@ import MetasEventoMdv from './calendario/MetasEventoMdv';
 import MetasCicloRgv from './calendario/MetasCicloRgv';
 import EditorEvento, { novoRascunho, type EventoEditavel, type RascunhoEvento } from './calendario/EditorEvento';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { Abas, FiltroMulti, PageBody, PageHeader } from '@/components/shared';
-import ProximosEventos from './visao-geral/ProximosEventos';
+import { FiltroMulti, PageBody, PageHeader } from '@/components/shared';
 import { CAT_AGENDA, PLANILHA_ID, lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
 
 /* Calendário R1. A agenda mora na Central (config.agenda_evento): a planilha "R1 | Agenda 2026" (aba Calendário MKT) é importada para o banco e, daí em diante,
@@ -37,7 +36,6 @@ export default function Calendario() {
   const [erro, setErro] = useState(false);
   const [ocultas, setOcultas] = useState<Set<string>>(new Set());
   const [dia, setDia] = useState<string | null>(null);
-  const [aba, setAba] = useState<'proximos' | 'calendario'>('proximos');
 
   useEffect(() => {
     let vivo = true;
@@ -88,8 +86,7 @@ export default function Calendario() {
       <PageHeader titulo="Calendário" subtitulo="Agenda do grupo: turnê, RGV, Clube, Black Friday e agenda do Ricardo" />
       <PageBody>
         <div className="space-y-4">
-          <Abas valor={aba} onChange={setAba} itens={[{ valor: 'proximos', rotulo: 'Próximos eventos' }, { valor: 'calendario', rotulo: 'Calendário' }]} />
-          {aba === 'calendario' && (
+          {(
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => mover(-1)} aria-label="Mês anterior" className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:text-foreground text-muted-foreground"><ChevronLeft className="w-4 h-4" /></button>
@@ -108,9 +105,7 @@ export default function Calendario() {
             opcoes={usadas.map((c) => ({ valor: c, rotulo: (CAT_AGENDA[c] || CAT_AGENDA.outros)[1], cor: cor(c) }))}
             onChange={(v) => setOcultas(new Set(v.length ? usadas.filter((c) => !v.includes(c)) : []))} />
 
-          {aba === 'proximos' && eventos.length > 0 && <ProximosEventos eventos={visiveis} fonte={erro ? 'último cache' : fonte} />}
-
-          {aba === 'calendario' && (eventos.length === 0 ? <p className="text-sm text-muted-foreground">{erro ? 'Não consegui ler a planilha agora. Confira se ela está compartilhada com quem tem o link.' : 'Carregando a agenda…'}</p> : (
+          {(eventos.length === 0 ? <p className="text-sm text-muted-foreground">{erro ? 'Não consegui ler a planilha agora. Confira se ela está compartilhada com quem tem o link.' : 'Carregando a agenda…'}</p> : (
             <div className="rounded-xl border border-border overflow-hidden w-full max-w-full">
               <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] bg-secondary/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {SEM.map((s) => <div key={s} className="p-2 text-center">{s}</div>)}
@@ -139,7 +134,7 @@ export default function Calendario() {
             </div>
           ))}
 
-          {aba === 'calendario' && dia && (
+          {dia && (
             <section className="rounded-xl border border-border p-4 space-y-2">
               <h2 className="text-sm font-extrabold text-foreground">{(() => { const d = new Date(`${dia}T12:00:00`); return `${SEM[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`; })()}</h2>
               {msg && <p className="text-xs text-muted-foreground" role="status">{msg}</p>}
