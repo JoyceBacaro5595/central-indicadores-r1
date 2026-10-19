@@ -13,6 +13,9 @@ const RECURSO: Record<string, string> = {
   /* só totais por cidade/ciclo (sem nome, e-mail ou telefone) */
   'mv-hub': 'eventos', 'mv-meta-v2': 'eventos', 'fmm-meta-v2': 'eventos', 'hubspot-eventos': 'eventos', 'qualificacao-faixas': 'eventos',
   'plano-eventos': 'eventos', 'planejamento-rotas': 'eventos', 'mv-presenca': 'presenca', 'checkins-resumo': 'presenca',
+  'mv-cidade-ingressos': 'eventos', 'fmm-vendas': 'eventos', 'fmm-eventos': 'eventos', 'meta-ciclo': 'perpetuo',
+  /* estado das sincronizações e alertas (sem dados pessoais) */
+  'gerenciador': 'gerenciador', 'gerenciador-alertas': 'gerenciador',
   'vg-black10x': 'painel', 'central-vendas-cidade-canal': 'painel', 'recuperacao-resumo': 'recuperacao',
 };
 

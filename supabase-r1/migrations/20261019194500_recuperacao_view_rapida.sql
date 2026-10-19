@@ -1,0 +1,6 @@
+-- Recuperação de carrinho: a lista levava ~10 s (limite do banco para o usuário: 8 s) e o módulo não carregava.
+-- Causa: ja_comprou_depois era uma subconsulta por carrinho que varria mv_ingresso_transacao (25 mil linhas) 251 vezes.
+-- Agora o cálculo cruza tudo de uma vez (CTEs pp, ap, apph, flags por e-mail, documento e telefone), com a mesma regra.
+-- Conferido antes e depois: 251 carrinhos, 79 marcados nos dois, 0 divergências; lista em ~0,3 s.
+-- Aplicado com create or replace view marts.vw_recuperacao_carrinho (mesmas 35 colunas), gerado a partir da definição vigente da view:
+-- só o trecho da coluna ja_comprou_depois foi trocado por (EXISTS (SELECT 1 FROM flags f WHERE f.transacao_id = p.transacao_id)).
