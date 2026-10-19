@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
+import { hojeSP } from '@/lib/periodos';
 import { FiltroPeriodo, FiltroUnico, PageBody, PageHeader } from '@/components/shared';
 
 /* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
@@ -25,7 +26,7 @@ const div = (a: number, b: number) => (b > 0 ? a / b : null);
 const f2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
 const log = (v: number, max: number) => (v > 0 && max > 0 ? Math.max(2, Math.min(100, (100 * Math.log10(v + 1)) / Math.log10(max + 1))) : 0);
 
-const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border md:border-b-0 md:flex-1 md:basis-0';
+const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border xl:border-b-0 xl:flex-1 xl:basis-0';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
 const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden';
 const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap overflow-hidden';
@@ -50,6 +51,8 @@ function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo:
   );
 }
 
+/** Ano pelo calendário de São Paulo (e não UTC), para a virada de ano não deslocar o período. */
+const ANO = hojeSP().slice(0, 4);
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
 interface EventoData { cidade: string; mes_evento: string; data_evento: string | null }
@@ -61,8 +64,8 @@ function aconteceu(dataEvento: string | null | undefined, mes: string, hoje: str
 }
 
 export default function FluxoMarketingMdv() {
-  const [de, setDe] = useState(`${new Date().getUTCFullYear()}-01-01`);
-  const [ate, setAte] = useState(`${new Date().getUTCFullYear()}-12-01`);
+  const [de, setDe] = useState(`${ANO}-01-01`);
+  const [ate, setAte] = useState(`${ANO}-12-01`);
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const [status, setStatus] = useState<Status>('todos');
@@ -70,7 +73,7 @@ export default function FluxoMarketingMdv() {
   const todos = q.data ?? [];
   const cidades = useMemo(() => [...new Set(todos.map((r) => r.cidade))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [todos]);
   const dados = useMemo(() => {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeSP();
     const datas = new Map((evq.data ?? []).map((e) => [`${e.cidade}|${e.mes_evento}`, e.data_evento]));
     return todos.filter((r) => {
       if (cidade !== 'todas' && r.cidade !== cidade) return false;
@@ -131,7 +134,7 @@ export default function FluxoMarketingMdv() {
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
             <div className="surface overflow-hidden">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-nowrap md:divide-x md:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border md:[&>*]:border-r-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 xl:flex xl:flex-nowrap xl:divide-x xl:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border xl:[&>*]:border-r-0">
                 <div className={CARD_FAIXA}><div>
                   <div className={TITULO_FAIXA}>Investimento</div>
                   <div className="num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden" style={nFit(brl2(t.inv))}>{brl2(t.inv)}</div>
