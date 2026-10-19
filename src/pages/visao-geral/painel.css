@@ -194,3 +194,6 @@
 /* título de cada coluna alinhado com os números abaixo dele (Joyce, 19/10) */
 .cty.cty-h>div{text-align:right}
 .cty.cty-h>.nm{text-align:left}
+/* a fonte menor do título vai nas células, não na linha: as colunas (em "em") ficam com a mesma largura das linhas de dados */
+.cty.cty-h,.rt-ext .cty-h{font-size:inherit}
+.cty.cty-h>div{font-size:.78em}
