@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageBody, PageHeader } from '@/components/shared';
+import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { useUpsellVendas, type UpsellItem } from '@/hooks/usePerpetuo';
 
 /* Módulo Upsell (pedido da Joyce, 19/10): Clube R1 e Trator em abas separadas.
@@ -12,7 +13,7 @@ const ABAS = {
 } as const;
 const VERM = '#FF0026', VERDE = '#4CD68A';
 const nf = (v: number, c = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
-const brl = (v: number) => `R$ ${nf(v)}`;
+const brl = (v: number) => `R$ ${nf(v, 2)}`;
 const mi = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${nf(v / 1e6, 2)} mi` : Math.abs(v) >= 1e3 ? `R$ ${nf(v / 1e3)} k` : `R$ ${nf(v)}`);
 const tagNorm = (t: string | null) => { const m = (t ?? '').replace(/\s+/g, '').match(/^([A-Za-z]+)(\d+)$/); return m ? `${m[1].toUpperCase()} ${m[2]}` : (t ?? 'Sem tag'); };
 const numTag = (t: string) => Number(t.replace(/\D/g, '')) || 0;
@@ -62,8 +63,10 @@ export default function Upsell() {
   const cfg = aba ? ABAS[aba as keyof typeof ABAS] : undefined;
   const q = useUpsellVendas(!!cfg);
   const [tag, setTag] = useState('todas');
+  const per = usePeriodoPadrao('ano');
+  const { de, ateConsulta: ate } = per;
 
-  const doProduto = useMemo(() => (q.data?.itens ?? []).filter((i) => i.grupo === cfg?.grupo).map((i) => ({ ...i, tag: tagNorm(i.tag) })), [q.data, cfg]);
+  const doProduto = useMemo(() => (q.data?.itens ?? []).filter((i) => i.grupo === cfg?.grupo && !!i.data_fechamento && i.data_fechamento >= de && i.data_fechamento <= ate).map((i) => ({ ...i, tag: tagNorm(i.tag) })), [q.data, cfg, de, ate]);
   const tags = useMemo(() => [...new Set(doProduto.map((i) => i.tag))].sort((a, b) => numTag(a) - numTag(b)), [doProduto]);
   const itens = useMemo(() => (tag === 'todas' ? doProduto : doProduto.filter((i) => i.tag === tag)), [doProduto, tag]);
 
@@ -89,6 +92,7 @@ export default function Upsell() {
             </Link>
           ))}
           <span className="mx-2 h-5 w-px bg-border" />
+          <PeriodoPadrao p={per} />
           <select value={tag} onChange={(e) => setTag(e.target.value)} className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs font-semibold">
             <option value="todas">Todas as tags</option>
             {tags.map((t) => <option key={t} value={t}>{t}</option>)}
