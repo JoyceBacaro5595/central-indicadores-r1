@@ -9,6 +9,7 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, L
 import { usePerpetuo, usePerpetuoVendasClubeTrator, useMetaCiclo, PerpetuoVendasClubeTrator, PerpetuoMetricas, PerpetuoMetas, PerpetuoFunil, PerpetuoDescritivo } from '@/hooks/usePerpetuo';
 import { FiltroMulti, FiltroUnico, NaoDisponivel, PageBody, PageHeader, Zero, fmtBrl as fmtBrlBase, fmtNum, fmtPct } from '@/components/shared';
 import { hojeSP, addDias, presets } from '@/lib/periodos';
+import { FiltroPeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import lpFotos from '@/data/lpFotos.json';
 
 /* ─── Perpétuo RGV · Fluxo de Tráfego ───
@@ -237,19 +238,7 @@ export default function Perpetuo() {
         acoes={
           <div className="hidden lg:flex items-center gap-2">
             <ContaPill />
-            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
-              <option value="custom">Personalizado</option>
-              {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-              {data && data.ciclos.length > 0 && (
-                <optgroup label="Ciclos">
-                  {data.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo} · {dataCurta(c.inicio)} a {dataCurta(c.fim)}</option>)}
-                </optgroup>
-              )}
-            </select>
-            {preset === 'custom' && <>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => mudarData('de', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => mudarData('ate', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            </>}
+            <FiltroPeriodoPadrao preset={preset} de={de} ate={ate} onPreset={aplicarPreset} onCustom={(x, y) => { setPreset('custom'); setDe(x); setAte(y); }} ciclos={data?.ciclos} />
           </div>
         }
       />
@@ -278,15 +267,7 @@ export default function Perpetuo() {
           </div>
           <div className="flex lg:hidden flex-wrap items-center gap-2">
             <ContaPill />
-            <select aria-label="Período" value={preset} onChange={(e) => aplicarPreset(e.target.value)} className="select-r1">
-              <option value="custom">Personalizado</option>
-              {lista.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-              {data?.ciclos.map((c) => <option key={c.ciclo} value={c.ciclo}>{c.ciclo}</option>)}
-            </select>
-            {preset === 'custom' && <>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => mudarData('de', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => mudarData('ate', e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            </>}
+            <FiltroPeriodoPadrao preset={preset} de={de} ate={ate} onPreset={aplicarPreset} onCustom={(x, y) => { setPreset('custom'); setDe(x); setAte(y); }} ciclos={data?.ciclos} />
           </div>
         </div>
 

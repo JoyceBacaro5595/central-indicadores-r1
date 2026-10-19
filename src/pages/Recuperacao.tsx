@@ -7,6 +7,7 @@ import { presets } from '@/lib/periodos';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { Abas, FiltroMulti, PageHeader } from '@/components/shared';
+import { FiltroPeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import { ROTA, norm, mesmoEvento } from '@/pages/maquina-vendas/rota';
 import '@/pages/visao-geral/painel.css';
 
@@ -303,14 +304,7 @@ export default function Recuperacao() {
                 </label>
                 <FiltroMulti rotulo="Cidade" opcoes={cidades_.map((c) => ({ valor: c, rotulo: c }))} valor={cidades} onChange={setCidades} />
                 <FiltroMulti rotulo="Ingresso" opcoes={TIPOS.filter((t) => t.k).map((t) => ({ valor: t.k, rotulo: t.r }))} valor={tipos} onChange={setTipos} />
-                <select aria-label="Período" title="Período" value={periodo} onChange={(e) => aplicarPeriodo(e.target.value)} className="bg-secondary rounded px-2 py-1 text-xs font-semibold text-foreground">
-                <option value="custom">Personalizado</option>
-                {periodos.map((p) => <option key={p.chave} value={p.chave}>{p.rotulo}</option>)}
-                </select>
-                {periodo === 'custom' && <>
-                <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => { const v = e.target.value; setDe(v); if (v && ate && v > ate) setAte(v); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-            <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => { const v = e.target.value; setAte(v); if (v && de && v < de) setDe(v); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
-                </>}
+                <FiltroPeriodoPadrao preset={periodo} de={de} ate={ate} onPreset={aplicarPeriodo} onCustom={(x, y) => { setPeriodo('custom'); setDe(x); setAte(y); }} />
               </div>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail, telefone, produto" className="bg-secondary rounded px-2 py-1 text-xs text-foreground w-full md:w-72" />
             </div>

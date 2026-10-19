@@ -94,13 +94,13 @@ export default function AppShell() {
       >
         {aberta ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
       </button>
-      {aberta && <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setAberta(false)} />}
+      {aberta && <div className="md:hidden fixed inset-0 z-[55] bg-black/60" onClick={() => setAberta(false)} />}
 
       <div className={`shrink-0 md:sticky md:top-0 md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
       <aside
       onMouseEnter={() => setSobre(true)}
       onMouseLeave={() => setSobre(false)}
-        className={`print:hidden fixed md:absolute md:left-0 top-0 z-40 h-screen shrink-0 flex flex-col ${fixaCompacta && sobre ? 'md:shadow-2xl' : ''} border-r border-border bg-background transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
+        className={`print:hidden fixed md:absolute md:left-0 top-0 z-[60] h-screen shrink-0 flex flex-col ${fixaCompacta && sobre ? 'md:shadow-2xl' : ''} border-r border-border bg-[hsl(var(--sidebar-background))] transition-[transform,width] duration-200 ${compacta ? 'w-60 md:w-20' : 'w-60'} ${
           aberta ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
         data-compacta={compacta ? 'true' : undefined}
