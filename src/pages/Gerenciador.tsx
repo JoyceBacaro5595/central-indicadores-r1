@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { EsqBloco } from '@/components/Esqueleto';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
@@ -109,6 +109,10 @@ export default function Gerenciador() {
   });
   const [diasMeta, setDiasMeta] = useState<string | null>(null);
   const d = estado.data;
+  const [visao, setVisao] = useState<'cards' | 'lista'>(() => { try { return localStorage.getItem('r1-sync-visao') === 'lista' ? 'lista' : 'cards'; } catch { return 'cards'; } });
+  const [linhaAberta, setLinhaAberta] = useState<string | null>(null);
+  const escolherVisao = (v: 'cards' | 'lista') => { setVisao(v); try { localStorage.setItem('r1-sync-visao', v); } catch { /* sem armazenamento: vale só nesta sessão */ } };
+  const cardDe = (a: Agendamento) => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={(v, aoSalvar) => agendamento.mutate(v, { onSuccess: aoSalvar })} executar={() => executar.mutate(a.jobname)} />;
   const logs: Log[] = [...(d?.logs ?? []), ...(d?.rgv_logs ?? []).map(l => ({ id: l.id, fonte: `rgv-${l.tool}`, entidade: l.tool, tipo_carga: l.source, status: l.status, linhas_lidas: l.rows_processed, janela_inicio: l.start_at, janela_fim: l.end_at, iniciado_em: l.started_at ?? '', finalizado_em: l.finished_at, mensagem_erro: l.error_detail }))].sort((a,b) => Date.parse(b.iniciado_em) - Date.parse(a.iniciado_em));
   const grupos = d ? Array.from(new Set(d.parametros.map((p) => p.grupo))) : [];
 
@@ -144,9 +148,37 @@ export default function Gerenciador() {
               <button type="button" disabled={janela.isPending || diasMeta === null || !Number.isInteger(Number(diasMeta)) || Number(diasMeta) < 1 || Number(diasMeta) > 93} onClick={() => janela.mutate(Number(diasMeta))} className="ml-3 text-primary disabled:opacity-40">Salvar janela</button>
               <p className="text-xs text-muted-foreground mt-2">Relê os dias encerrados e atualiza os valores existentes. Use Sincronizar agora na rotina Meta Perpétuo para iniciar imediatamente.</p>
             </Secao>}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {d.agendamentos.map(a => <CardSincronizacao key={a.jobname} a={a} logs={logs.filter(l => l.fonte === a.fonte)} observacoes={observacoes('agendamento', a.jobname)} ocupado={agendamento.isPending || executar.isPending} salvar={(v, aoSalvar) => agendamento.mutate(v, { onSuccess: aoSalvar })} executar={() => executar.mutate(a.jobname)} />)}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold">Sincronizações</h2>
+              <div role="group" aria-label="Formato de visualização" className="inline-flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
+                {(['cards', 'lista'] as const).map(v => <button key={v} type="button" aria-pressed={visao === v} onClick={() => escolherVisao(v)} className={`px-3 py-1.5 ${visao === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{v === 'cards' ? 'Cards' : 'Lista'}</button>)}
+              </div>
             </div>
+            {visao === 'cards' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{d.agendamentos.map(cardDe)}</div>
+            ) : (
+              <div className="surface overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-muted-foreground text-left"><th className="p-3 font-semibold">Sincronização</th><th className="p-3 font-semibold">Auto-sync</th><th className="p-3 font-semibold">Agendamento</th><th className="p-3 font-semibold">Última execução</th><th className="p-3 font-semibold">Status</th><th className="p-3 font-semibold text-right">Registros</th><th className="p-3 font-semibold">Ações</th></tr></thead>
+                  <tbody>{d.agendamentos.map(a => {
+                    const ultimoLog = logs.find(l => l.fonte === a.fonte);
+                    const aberto = linhaAberta === a.jobname;
+                    return <Fragment key={a.jobname}>
+                      <tr className="border-t border-border align-top">
+                        <td className="p-3 font-semibold">{a.rotulo}</td>
+                        <td className="p-3"><input type="checkbox" role="switch" aria-label={`Auto-sync ${a.rotulo}`} checked={!!a.active} disabled={!a.existe || agendamento.isPending || executar.isPending} onChange={e => agendamento.mutate({ jobname: a.jobname, active: e.target.checked })} className="w-4 h-4 accent-[hsl(var(--primary))]" /></td>
+                        <td className="p-3 text-muted-foreground">{a.existe ? explicaCron(a.schedule) : 'Rotina ainda não cadastrada'}</td>
+                        <td className="p-3 mono whitespace-nowrap">{fmt(a.ultima_execucao)}</td>
+                        <td className={`p-3 ${STATUS_COR[a.ultimo_status ?? ''] ?? ''}`}>{a.ultimo_status || 'Sem execução'}{ultimoLog?.status === 'partial' && <DiagnosticoParcial l={ultimoLog} />}</td>
+                        <td className="p-3 text-right mono">{ultimoLog?.linhas_lidas == null ? '—' : num(ultimoLog.linhas_lidas)}</td>
+                        <td className="p-3 whitespace-nowrap"><button type="button" disabled={!a.existe || agendamento.isPending || executar.isPending} onClick={() => executar.mutate(a.jobname)} className="text-primary disabled:opacity-40 mr-3">Sincronizar agora</button><button type="button" aria-expanded={aberto} onClick={() => setLinhaAberta(aberto ? null : a.jobname)} className="underline">{aberto ? 'Fechar' : 'Editar e logs'}</button></td>
+                      </tr>
+                      {aberto && <tr className="border-t border-border"><td colSpan={7} className="p-3">{cardDe(a)}</td></tr>}
+                    </Fragment>;
+                  })}</tbody>
+                </table>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {grupos.map((g) => (
