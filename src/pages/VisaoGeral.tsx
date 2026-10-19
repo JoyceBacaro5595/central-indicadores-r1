@@ -45,7 +45,7 @@ const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.se
 const diasAte = (iso: string, hoje: string) => Math.round((Date.parse(`${iso}T12:00:00`) - Date.parse(`${hoje}T12:00:00`)) / DAY);
 
 interface Evento { id: number; cidade: string; mes_evento: string; data_evento: string | null; capacidade: number | null; meta_ingressos: number | null; meta_faturamento: number | null; realizado: number; pagos: number; cortesias: number; faturamento: number; dias_restantes: number }
-interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip' | 'cortesia'; grupo: 'comercial' | 'cs' | 'seller' | 'social_selling' | 'geral'; ingressos: number; faturamento: number }
+interface LinhaCanal { cidade: string; mes_evento: string; tipo: 'comum' | 'vip' | 'cortesia'; grupo: 'comercial' | 'cs' | 'seller' | 'social_selling' | 'marketing' | 'recuperacao'; cp: 'CP1' | 'CP2' | 'CP3' | null; ingressos: number; faturamento: number }
 interface MetaEvento { cidade: string; mes_evento: string; investimento: number }
 type Dia = { dia: string; [k: string]: number | string | null | undefined };
 
@@ -60,9 +60,9 @@ function Esqueleto() {
   );
 }
 
-function K({ l, v, m, cls, bar, din }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean }) {
+function K({ l, v, m, cls, bar, din, onClick, ativo }: { l: string; v: string; m?: React.ReactNode; cls?: string; bar?: number | null; din?: boolean; onClick?: () => void; ativo?: boolean }) {
   return (
-    <div className="k">
+    <div className={`k${onClick ? ' clk' : ''}${ativo ? ' on' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} aria-expanded={onClick ? !!ativo : undefined} onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}>
       <div className="l">{l}</div>
       <div className={`v ${cls || ''} ${din ? 'din' : ''}`}>{v}</div>
       {m ? <div className="m">{m}</div> : null}
@@ -130,7 +130,8 @@ function Barras({ rows, chave, cor, meta, classe }: { rows: Dia[]; chave: string
   );
 }
 
-const GRUPOS: { k: LinhaCanal['grupo']; r: string }[] = [{ k: 'comercial', r: 'Comercial' }, { k: 'cs', r: 'CS' }, { k: 'seller', r: 'Seller' }, { k: 'social_selling', r: 'Social Selling' }, { k: 'geral', r: 'Sem canal' }];
+const GRUPOS: { k: LinhaCanal['grupo']; r: string }[] = [{ k: 'comercial', r: 'Comercial' }, { k: 'cs', r: 'CS' }, { k: 'seller', r: 'Seller' }, { k: 'social_selling', r: 'Social Selling' }, { k: 'marketing', r: 'Marketing' }, { k: 'recuperacao', r: 'Recuperação' }];
+const CPS: { k: LinhaCanal['cp']; r: string }[] = [{ k: 'CP1', r: 'CP1' }, { k: 'CP2', r: 'CP2' }, { k: 'CP3', r: 'CP3' }, { k: null, r: 'Sem CP' }];
 
 export default function VisaoGeral() {
   const { pode } = useAuth();
@@ -166,7 +167,7 @@ export default function VisaoGeral() {
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
-  const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
+  const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal_v2', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
   const hojeStr = ymd(agora);
   // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
   const perpBase = usePerpetuo(ymd(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 7)), hojeStr, pode('perpetuo'));
@@ -241,7 +242,8 @@ export default function VisaoGeral() {
     ocupados: somaD((d) => d.ingressos), fat: somaD((d) => d.faturamento),
   };
   const livresT = T.ocupados == null ? null : Math.max(0, capTotal - T.ocupados);
-  const porCanal = (tipo: LinhaCanal['tipo'], grupo: LinhaCanal['grupo']) => (canal ? soma(canal.filter((l) => l.tipo === tipo && l.grupo === grupo && rota.some((x) => mesmoEvento(l, x.c))), (l) => l.ingressos) : null);
+  const [explode, setExplode] = useState<string | null>(null);
+  const porCanal = (tipo: LinhaCanal['tipo'], grupo: LinhaCanal['grupo'] | null, cp?: LinhaCanal['cp'] | undefined) => (canal ? soma(canal.filter((l) => l.tipo === tipo && (grupo == null || l.grupo === grupo) && (cp === undefined || l.cp === cp) && rota.some((x) => mesmoEvento(l, x.c))), (l) => l.ingressos) : null);
   const TIPOS: { k: LinhaCanal['tipo']; r: string; total: number | null }[] = [{ k: 'comum', r: 'Ingressos comuns', total: T.comuns }, { k: 'cortesia', r: 'Cortesias', total: T.cort }, { k: 'vip', r: 'VIPs', total: T.vip }];
 
   const kpisMdv = (
@@ -274,14 +276,27 @@ export default function VisaoGeral() {
                   </div>
                 ) : <div className="rt-kpis rt-kpis-2">{kpisMdv}</div>}
 
-                {ampliado && TIPOS.map((t) => (
-                  <div key={t.k}>
-                    <div className="rt-sub">{t.r} <small>total {n(t.total)} · por canal de venda</small></div>
-                    <div className="rt-kpis rt-kpis-5">
-                      {GRUPOS.map((g) => <K key={g.k} l={g.r} v={n(porCanal(t.k, g.k))} />)}
+                {ampliado && TIPOS.map((t) => {
+                  const aberto = explode?.startsWith(`${t.k}|`) ? explode.slice(t.k.length + 1) : null;
+                  const base = aberto == null ? null : aberto === '*' ? porCanal(t.k, null) : porCanal(t.k, aberto as LinhaCanal['grupo']);
+                  const rotuloAberto = aberto === '*' ? t.r : GRUPOS.find((g) => g.k === aberto)?.r;
+                  return (
+                    <div key={t.k}>
+                      <div className="rt-sub rt-sub-clk" role="button" tabIndex={0} aria-expanded={aberto === '*'} onClick={() => setExplode(aberto === '*' ? null : `${t.k}|*`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExplode(aberto === '*' ? null : `${t.k}|*`); } }}>{t.r} <small>total {n(t.total)} · por canal de venda · clique para ver por CP</small></div>
+                      <div className="rt-kpis rt-kpis-6">
+                        {GRUPOS.map((g) => <K key={g.k} l={g.r} v={n(porCanal(t.k, g.k))} onClick={() => setExplode(aberto === g.k ? null : `${t.k}|${g.k}`)} ativo={aberto === g.k} />)}
+                      </div>
+                      {aberto != null && (
+                        <div className="rt-cp">
+                          <div className="rt-sub">{rotuloAberto} por CP <small>{base == null ? '' : `${n(base)} ingressos`}</small></div>
+                          <div className="rt-kpis rt-kpis-4">
+                            {CPS.map((c) => { const v = porCanal(t.k, aberto === '*' ? null : (aberto as LinhaCanal['grupo']), c.k); return <K key={c.r} l={c.r} v={n(v)} m={v != null && base ? <><b>{Math.round((100 * v) / base)}%</b> do total</> : undefined} bar={v != null && base ? (100 * v) / base : null} />; })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {ampliado && !canal && (
                   <div className="rt-empty">{canalQ.isError ? 'A divisão por canal (Comercial, CS, Seller, Social Selling) ainda não existe no banco: aguarda a criação da função de ingressos por canal.' : 'Carregando a divisão por canal…'}</div>
                 )}
