@@ -6,8 +6,9 @@ import { usePerpetuo } from '@/hooks/usePerpetuo';
 import { FONTE_HISTORICO, HISTORICO, METAS_BOARD, type CicloHist } from './historico/dados';
 
 /* Relatório Ricardo · Histórico Dados (pedido da Joyce, 19/10): réplica de funil-rgv-perpetuo.vercel.app/historico no layout da Central.
- * Série fechada (RGV 29 a 43) vem da planilha "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e é projetado pelo ritmo. */
+ * Série fechada (RGV 29 a 43) vem da planilha; o RGV 44 fechado vem do funil do Perpétuo (HubSpot) "R1 | Histórico Dados"; o ciclo 45 vem do funil do Perpétuo em tempo real e é projetado pelo ritmo. */
 const CICLO_ATUAL = { numero: 45, inicio: '2026-09-29', fim: '2026-11-03' };
+const CICLO_44 = { numero: 44, inicio: '2026-08-26', fim: '2026-09-28' }; // fechado, ainda fora da planilha: vem do funil do Perpétuo (HubSpot)
 const VERM = '#FF0026', VERDE = '#4CD68A', AMBAR = '#F5A623', CINZA = '#8A8A93';
 const DIA = 864e5;
 const parse = (s: string) => { const [a, m, d] = s.split('-').map(Number); return new Date(a, m - 1, d); };
@@ -84,26 +85,28 @@ export default function HistoricoRicardo() {
   const ate = hoje < CICLO_ATUAL.fim ? hoje : CICLO_ATUAL.fim;
   const perp = usePerpetuo(CICLO_ATUAL.inicio, ate, true);
   const r = perp.data?.resumo;
+  const perp44 = usePerpetuo(CICLO_44.inicio, CICLO_44.fim, true);
+  const r44 = perp44.data?.resumo;
   const [met, setMet] = useState('vendas');
 
   const dias = Math.round((parse(CICLO_ATUAL.fim).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1;
   const decorridos = Math.max(1, Math.min(dias, Math.round((parse(ate).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1));
   const fator = dias / decorridos;
 
-  const fechados = useMemo(() => HISTORICO.map(deriva), []);
-  const atual: Linha | null = useMemo(() => {
-    if (!r) return null;
-    const invest = (r.investimento ?? 0) * fator, mqls = (r.mql ?? 0) * fator, vendas = (r.vendas ?? 0) * fator, receita = (r.faturamento ?? 0) * fator;
+  const monta = (r: NonNullable<typeof perp.data>['resumo'], numero: number, inicio: string, fim: string, f: number): Linha => {
+    const invest = (r.investimento ?? 0) * f, mqls = (r.mql ?? 0) * f, vendas = (r.vendas ?? 0) * f, receita = (r.faturamento ?? 0) * f;
     const c: CicloHist = {
-      numero: CICLO_ATUAL.numero, periodo: `${CICLO_ATUAL.inicio.slice(8)}/${CICLO_ATUAL.inicio.slice(5, 7)} a ${CICLO_ATUAL.fim.slice(8)}/${CICLO_ATUAL.fim.slice(5, 7)}`,
+      numero, periodo: `${inicio.slice(8)}/${inicio.slice(5, 7)} a ${fim.slice(8)}/${fim.slice(5, 7)}`,
       invest, captacao: invest, mqls, vendas, ticket: vendas ? receita / vendas : 0, receita, cac: vendas ? invest / vendas : invest, cplFundo: 0,
       cpl: r.mql ? (r.investimento ?? 0) / r.mql : 0, saldo: receita - invest, impressoes: r.impressoes ?? 0, cpm: r.cpm ?? 0, alcance: r.alcance ?? 0,
       ctr: r.ctr ?? 0, connect: r.cliques ? ((r.visualizacoes_lp ?? 0) / r.cliques) * 100 : 0, convPagina: r.conversao_lp ?? 0,
       agendados: r.reunioes_agendadas ?? null, reunioes: r.reunioes_realizadas ?? null, origem: null,
     };
-    const l = deriva(c);
-    return { ...l, projetado: true, emCurso: true };
-  }, [r, fator]);
+    return deriva(c);
+  };
+  const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator), projetado: true, emCurso: true } : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
+  const l44 = useMemo(() => (r44 ? monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1) : null), [r44]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fechados = useMemo(() => [...HISTORICO.map(deriva), ...(l44 ? [l44] : [])], [l44]);
 
   const ultimo = fechados[fechados.length - 1], penultimo = fechados[fechados.length - 2];
   const serie = (m: Metrica) => fechados.map((c) => m.vl(c) ?? 0);
@@ -166,19 +169,19 @@ export default function HistoricoRicardo() {
 
   return (
     <>
-      <PageHeader titulo="Relatório Ricardo · Histórico Dados" subtitulo={`Ciclos RGV 29 a 43 fechados · 45 em curso · fonte ${FONTE_HISTORICO}`} />
+      <PageHeader titulo="Relatório Ricardo · Histórico Dados" subtitulo={`Ciclos RGV 29 a ${ultimo.numero} fechados · 45 em curso · fonte ${FONTE_HISTORICO}`} />
       <PageBody>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold text-foreground">Ciclos <span style={{ color: VERM }}>RGV</span></h1>
-            <p className="text-xs text-muted-foreground mt-1">29 a 43 fechados · 45 em curso · dez/2024 a nov/2026</p>
+            <p className="text-xs text-muted-foreground mt-1">29 a {ultimo.numero} fechados · 45 em curso · dez/2024 a nov/2026</p>
           </div>
           <Link to="/perpetuo/trafego" className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary">← Ciclo 45 em curso</Link>
         </div>
         <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide">
           <span className="rounded border border-border px-3 py-1.5 text-muted-foreground">R1 Histórico Dados · aba Relatório Ricardo</span>
           <span className="rounded border border-border px-3 py-1.5 text-muted-foreground">Metas do board · funil Perpétuo</span>
-          <span className="rounded border px-3 py-1.5" style={{ borderColor: AMBAR, color: AMBAR }}>RGV 44 não está na planilha</span>
+          <span className="rounded border px-3 py-1.5" style={{ borderColor: l44 ? VERDE : AMBAR, color: l44 ? VERDE : AMBAR }}>{l44 ? 'RGV 44 e 45 automáticos do HubSpot (funil Perpétuo)' : 'RGV 44 ainda não carregou do HubSpot'}</span>
         </div>
 
         <Secao>{`Último ciclo fechado · RGV ${ultimo.numero}`}</Secao>
@@ -329,7 +332,7 @@ export default function HistoricoRicardo() {
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.t}</div>
                 <div className="mt-1 flex items-baseline gap-2"><span className="text-3xl font-extrabold text-foreground">{pc(v ?? 0, v != null && v < 10 ? 2 : 1)}</span><span className="text-xs text-muted-foreground">ciclo {CICLO_ATUAL.numero}</span></div>
                 <div className="mt-2"><Spark valores={[...s, v ?? 0]} /></div>
-                <div className="mt-2 text-xs text-muted-foreground"><b style={{ color: v != null && v >= md ? VERDE : '#FF4D6A' }}>mediana {pc(md, 1)}</b> · RGV 29→43</div>
+                <div className="mt-2 text-xs text-muted-foreground"><b style={{ color: v != null && v >= md ? VERDE : '#FF4D6A' }}>mediana {pc(md, 1)}</b> · RGV 29→{ultimo.numero}</div>
               </div>
             );
           })}
@@ -344,7 +347,7 @@ export default function HistoricoRicardo() {
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.t}</div>
                 <div className="mt-1 flex items-baseline gap-2"><span className="text-3xl font-extrabold text-foreground">{f.fmt(s[s.length - 1])}</span><span className="text-xs text-muted-foreground">RGV {ultimo.numero}</span></div>
                 <div className="mt-2"><Spark valores={s} /></div>
-                <div className="mt-2 text-xs text-muted-foreground">mediana {f.fmt(mediana(s))} · RGV 29→43</div>
+                <div className="mt-2 text-xs text-muted-foreground">mediana {f.fmt(mediana(s))} · RGV 29→{ultimo.numero}</div>
               </div>
             );
           })}

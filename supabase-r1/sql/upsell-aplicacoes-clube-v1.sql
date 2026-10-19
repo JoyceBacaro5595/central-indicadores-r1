@@ -1,4 +1,6 @@
--- Upsell · Clube R1: aplicações (negócios criados no funil [OFICIAL] Clube R1) por evento Método RGV e por etapa.
+-- Upsell · Clube R1: aplicações = negócios do funil [OFICIAL] Clube R1 (pipeline 135241872) com a tag do ciclo, em qualquer etapa (definição da Joyce, 19/10).
+-- Agrupa por rgv.clube_aplicacao.evento_tag (tag mapeada em rgv.hubspot_tag_ciclo); datas do evento vêm de config.agenda_evento e podem ser nulas.
+-- Migrations reais: upsell_aplicacoes_clube_v1, upsell_aplicacoes_por_tag_v2, upsell_aplicacoes_por_tag_v2_total. Colunas novas: evento_tag, hs_tag_ids, produto.
 -- Pedido da Joyce, 19/10; autorizada por ela em decision card. Carga: Edge Function upsell-aplicacoes-sync (cron 'upsell-aplicacoes-carga', minuto 40).
 -- Categorias: ganho, negociacao, aprovacao, perdida, cancelada (Cancelado e Cancelamento Aprovado), cancelamento_solicitado, finalizando.
 -- Tabela rgv.clube_aplicacao, função public.upsell_aplicacoes() e raw.upsell_aplicacoes_chamar() aplicadas em 19/10/2026 (migration upsell_aplicacoes_clube_v1).
