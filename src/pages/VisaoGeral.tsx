@@ -329,7 +329,7 @@ export default function VisaoGeral() {
             <div className="rt-sync-l">Dados dos painéis</div>
             <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
           </div>
-          <AvisosSino />
+          <div className="rt-sino"><AvisosSino /></div>
         </header>
 
         <main className="rt-grid">
