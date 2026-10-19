@@ -3,6 +3,7 @@
 // em qualquer funil, e faz upsert por deal_id. Negócio que deixou de ser ganho vira etapa 'Reaberto' (nada é apagado).
 // Tag de ciclo: o HubSpot guarda ids de tag (hs_tag_ids). O id -> "RGV nn" é aprendido das vendas já tagueadas e fica em
 // rgv.hubspot_tag_ciclo (ajustável à mão para ciclos novos). Venda sem tag conhecida fica com evento_tag nulo.
+// Campanha: negócio sem utm_camp herda a campanha do contato associado (utm_campaign do contato ou, se faltar, o utm_campaign do link da primeira página), em rgv.vendas_clube_trator.campanha_contato.
 // Autenticação: header x-guru-sync-key = vault 'guru_sync_key' (verify_jwt=false). Precisa do secret HUBSPOT_TOKEN.
 import postgres from "npm:postgres@3.4.4";
 
@@ -21,6 +22,13 @@ async function hs(token: string, body: unknown, t = 0): Promise<any> {
   if (!r.ok) throw new Error(`HubSpot ${r.status}: ${(await r.text()).slice(0, 300)}`);
   return await r.json();
 }
+
+async function hsPost(token: string, path: string, body: unknown): Promise<any> {
+  const r = await fetch(`${HS}${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`HubSpot ${r.status}: ${(await r.text()).slice(0, 300)}`);
+  return await r.json();
+}
+const campanhaDaUrl = (u: string | null) => { try { return u ? new URL(u).searchParams.get("utm_campaign") : null; } catch { return null; } };
 const dataSP = (iso: string | null) => iso ? new Date(Date.parse(iso) - 3 * 3600_000).toISOString().slice(0, 10) : null;
 
 Deno.serve(async (req) => {
@@ -95,11 +103,34 @@ Deno.serve(async (req) => {
           utm_term = coalesce(nullif(excluded.utm_term, ''), rgv.vendas_clube_trator.utm_term),
           pipeline = excluded.pipeline, hs_tag_ids = excluded.hs_tag_ids, carregado_em = now(), sincronizado_em = now()`;
     }
+    // campanha vinda do contato, só para negócios sem utm_camp (falha aqui não derruba a carga)
+    let campanhaContato = 0;
+    try {
+      const sem = linhas.filter((l) => !l.utm_campanha).map((l) => l.deal_id);
+      const porDeal = new Map<string, string[]>();
+      for (let i = 0; i < sem.length; i += 100) {
+        const a = await hsPost(token, "/crm/v4/associations/deals/contacts/batch/read", { inputs: sem.slice(i, i + 100).map((id) => ({ id })) });
+        for (const r of a.results ?? []) porDeal.set(String(r.from.id), (r.to ?? []).map((t: any) => String(t.toObjectId)));
+        await sleep(150);
+      }
+      const contatos = [...new Set([...porDeal.values()].flat())];
+      const props = new Map<string, any>();
+      for (let i = 0; i < contatos.length; i += 100) {
+        const r = await hsPost(token, "/crm/v3/objects/contacts/batch/read", { properties: ["utm_campaign", "hs_analytics_first_url"], inputs: contatos.slice(i, i + 100).map((id) => ({ id })) });
+        for (const c of r.results ?? []) props.set(String(c.id), c.properties);
+        await sleep(150);
+      }
+      for (const [deal, cs] of porDeal) {
+        const ps = cs.map((c) => props.get(c) ?? {});
+        const camp = ps.map((p) => p.utm_campaign).find(Boolean) ?? ps.map((p) => campanhaDaUrl(p.hs_analytics_first_url ?? null)).find(Boolean) ?? null;
+        if (camp) { await sql`update rgv.vendas_clube_trator set campanha_contato = ${camp} where deal_id = ${deal}`; campanhaContato++; }
+      }
+    } catch (e) { console.error("campanha do contato:", (e as Error).message); }
     const ids = linhas.map((l) => l.deal_id);
     const reab = await sql`update rgv.vendas_clube_trator set etapa = 'Reaberto', sincronizado_em = now()
       where grupo in ('clube_r1', 'trator') and etapa = 'Ganho' and not (deal_id = any(${ids})) returning deal_id`;
     const semTag = linhas.filter((l) => !l.evento_tag).length;
-    return json({ ok: true, lidos: deals.length, clube_r1: linhas.filter((l) => l.grupo === "clube_r1").length, trator: linhas.filter((l) => l.grupo === "trator").length, sem_tag: semTag, reabertos: reab.length });
+    return json({ ok: true, lidos: deals.length, clube_r1: linhas.filter((l) => l.grupo === "clube_r1").length, trator: linhas.filter((l) => l.grupo === "trator").length, sem_tag: semTag, campanha_do_contato: campanhaContato, reabertos: reab.length });
   } catch (e) {
     return json({ ok: false, erro: String((e as Error)?.message ?? e) }, 500);
   } finally {

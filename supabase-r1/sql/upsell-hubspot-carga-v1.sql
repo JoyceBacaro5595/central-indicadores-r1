@@ -27,3 +27,7 @@ revoke all on function raw.upsell_hubspot_chamar() from public, anon, authentica
 -- Agendamento (aplicado em 19/10/2026): carga a cada hora, minuto 35.
 -- select cron.schedule('upsell-hubspot-carga', '35 * * * *', $c$select raw.upsell_hubspot_chamar()$c$);
 -- Edge Function: supabase-r1/functions/upsell-hubspot-sync (verify_jwt=false, chave x-guru-sync-key).
+
+-- Campanha do contato (19/10, autorizada por ela em decision card): negócio sem utm_camp herda a campanha do contato associado.
+-- Migration upsell_vendas_campanha_contato_v1: coluna rgv.vendas_clube_trator.campanha_contato; public.upsell_vendas() devolve 'campanha' = coalesce(utm_campanha, campanha_contato).
+alter table rgv.vendas_clube_trator add column if not exists campanha_contato text;

@@ -27,6 +27,9 @@ Módulo `/upsell/clube-r1` e `/upsell/trator` (recurso `perpetuo`). Pedido da Jo
 - Tags mapeadas: 22606637=RGV 38, 23739133=39, 24586381=40, 25657230=41, 26739372=42, 27623526=43, 28587504=44. **RGV 45 ainda sem id mapeado.**
 - Sem mapeamento, o negócio fica sem ciclo (202 negócios na última carga). Datas do evento vêm de `config.agenda_evento`.
 
+- **Campanha (UTM)**: vale o `utm_camp` do negócio; se vazio, a carga usa a campanha do contato associado (utm_campaign do contato ou o do link da primeira página), gravada em `campanha_contato`. É a campanha do primeiro contato do lead, não necessariamente a que gerou a compra. Recuperou 34 dos 88 negócios sem campanha; o resto segue como "Sem campanha".
+- Na lista de negócios, o nome foi trocado pelo ID do HubSpot, com link para o negócio (portal 23586399).
+
 ## Tela Ciclos RGV (Relatório Ricardo)
 - Série fechada RGV 29 a 43: planilha "R1 Histórico Dados" (dados fixos, `src/pages/historico/dados.ts`), mantida.
 - RGV 44 (fechado) e RGV 45 (em curso, projetado pelo ritmo): funil do Perpétuo, automático do HubSpot.
