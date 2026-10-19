@@ -12,7 +12,7 @@ import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
    com o mesmo layout, cores e cards do HTML original. Os números vêm do banco (Guru, HubSpot, Meta) e a agenda vem da planilha
-   "R1 | Agenda 2026" lida ao vivo. Ao clicar no card da Turnê Máquina de Vendas, ele se amplia com o detalhamento. Os Próximos eventos agora ficam no Calendário. */
+   "R1 | Agenda 2026" lida ao vivo. Ao clicar no card da Turnê Máquina de Vendas, ele se amplia com o detalhamento. Os Próximos eventos ficam só na Visão Geral. */
 
 const TZ = 'America/Sao_Paulo';
 const DAY = 864e5;
@@ -168,6 +168,9 @@ export default function VisaoGeral() {
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
+  const vcQ = useQuery({ queryKey: ['vg-vendas-cidade', INICIO_ANO, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number }[]>('mdv_vendas_cidade', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos'), retry: false });
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  const vendasCid = (cidade: string, data: string) => (vcQ.data ?? []).find((v) => v.mes_evento.slice(0, 7) === data.slice(0, 7) && semAcento(v.cidade) === semAcento(cidade));
   const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal_v2', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
   const hojeStr = ymd(agora);
   // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
@@ -211,7 +214,7 @@ export default function VisaoGeral() {
   }
 
   // ---- MDV
-  const cidades = rota.filter((x) => x.data).map((x) => ({ x, d: dt(x.data), dias: Math.round((dt(x.data).getTime() - h0.getTime()) / DAY) })).sort((a, b) => a.d.getTime() - b.d.getTime());
+  const cidades = rota.filter((x) => x.data).map((x) => ({ x, d: dt(x.data), dias: Math.round((dt(x.data).getTime() - h0.getTime()) / DAY) })).sort((a, b) => Number(a.dias < 0) - Number(b.dias < 0) || (a.dias < 0 ? b.d.getTime() - a.d.getTime() : a.d.getTime() - b.d.getTime())); /* ainda vão acontecer primeiro (mais próxima no topo); realizadas depois (mais recente primeiro) */
   const cac = vendas > 0 && invRota > 0 ? invRota / vendas : null;
   const pi = pct(vendas, metaIng), pr = pct(receita, metaFat);
 
@@ -230,17 +233,27 @@ export default function VisaoGeral() {
   const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null; // MQL é o "lead do ciclo"; leads_crm é a base total do CRM
 
   /* Vendas RGV, Clube R1 e Trator do ciclo, repetidas nos cards de Turnê e Black Friday (Joyce, 19/10) */
-  const vendasPerp = pode('perpetuo') && r ? (
+  const vendasBloco = (rotulo: string, v: { rgv: number; fRgv: number | null; cl: number | undefined; fCl: number | undefined; tr: number | undefined; fTr: number | undefined; total: number | null; fTotal: number | null }) => (
     <>
-      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{ciclo?.ciclo ?? 'ciclo atual'}</small></div>
+      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{rotulo}</small></div>
       <div className="rt-kpis rt-kpis-4">
-        <K l="Vendas RGV" v={n(r.vendas)} m={r.faturamento != null ? <>receita <b>{brl(r.faturamento)}</b></> : undefined} />
-        <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
-        <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
-        <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
+        <K l="Vendas RGV" v={n(v.rgv)} m={v.fRgv != null ? <>receita <b>{brl(v.fRgv)}</b></> : undefined} />
+        <K l="Vendas Clube R1" v={n(v.cl)} m={v.fCl != null ? <>receita <b>{brl(v.fCl)}</b></> : undefined} />
+        <K l="Vendas Trator" v={n(v.tr)} m={v.fTr != null ? <>receita <b>{brl(v.fTr)}</b></> : undefined} />
+        <K l="Total de vendas" v={n(v.total)} m={v.fTotal != null ? <>receita <b>{brl(v.fTotal)}</b></> : undefined} />
       </div>
     </>
-  ) : null;
+  );
+  const vendasPerp = pode('perpetuo') && r ? vendasBloco(ciclo?.ciclo ?? 'ciclo atual', {
+    rgv: r.vendas, fRgv: r.faturamento ?? null, cl: ct?.clube_r1.vendas, fCl: ct?.clube_r1.faturamento, tr: ct?.trator.vendas, fTr: ct?.trator.faturamento, total: vTotal, fTotal: fTotal ?? null,
+  }) : null;
+  /* Black Friday 10X: só vendas cujo contato veio da campanha [BLACK26], a partir do início da janela da Black (Joyce, 19/10) */
+  const bvQ = useQuery({ queryKey: ['vg-black10x-vendas'], queryFn: () => r1Rpc<{ rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }>('black10x_vendas', {}), refetchInterval: 15 * 60_000, enabled: pode('painel'), retry: false });
+  const bv = bvQ.data;
+  const vendasBlack = bv ? vendasBloco('campanha Black 2026', {
+    rgv: bv.rgv, fRgv: Number(bv.fat_rgv), cl: bv.clube_r1, fCl: Number(bv.fat_clube_r1), tr: bv.trator, fTr: Number(bv.fat_trator),
+    total: bv.rgv + bv.clube_r1 + bv.trator, fTotal: Number(bv.fat_rgv) + Number(bv.fat_clube_r1) + Number(bv.fat_trator),
+  }) : null;
 
   // ---- selo de atualização
   const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
@@ -323,7 +336,7 @@ export default function VisaoGeral() {
 
                 <div className="rt-sub">Ocupação por praça</div>
                 <div className={`rt-cities${ampliado ? ' rt-ext' : ''}`}>
-                  <div className="cty cty-h"><div className="nm">Praça</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div><div className="dl">Prazo</div>
+                  <div className="cty cty-h"><div className="nm">Praça</div><div className="dt">Data</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div>{!ampliado && <div className="ct">Receita</div>}<div className="ct">RGV</div><div className="ct">Clube</div><div className="ct">Trator</div><div className="dl">Prazo</div>
                     {ampliado && <><div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></>}
                   </div>
                   {cidades.map(({ x, dias }) => {
@@ -332,9 +345,12 @@ export default function VisaoGeral() {
                     return (
                       <div key={x.c.cidade} className={`cty${dias >= 0 && dias <= 7 ? ' soon' : ''}${dias < 0 ? ' past' : ''}`}>
                         <div className="nm">{pode('eventos') ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(x.c.cidade)}`} onClick={(e) => e.stopPropagation()} title="Editar a cidade e a data da rota" className="hover:underline">{titulo(x.c.cidade)}</Link> : titulo(x.c.cidade)}</div>
+                        <div className="dt">{x.data ? x.data.split('-').reverse().join('/') : '—'}</div>
                         <div className="pc" style={{ color: cor }}>{Math.round(p)}%</div>
                         <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
                         <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
+                        {!ampliado && <div className="ct">{brl(x.fat)}</div>}
+                        {(() => { const vc = x.data ? vendasCid(x.c.cidade, x.data) : undefined; const f = (v?: number) => (vcQ.data ? n(v ?? 0) : '—'); return <><div className="ct">{f(vc?.rgv)}</div><div className="ct">{f(vc?.clube_r1)}</div><div className="ct">{f(vc?.trator)}</div></>; })()}
                         <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>
                         {ampliado && (
                           <>
@@ -374,6 +390,34 @@ export default function VisaoGeral() {
         </header>
 
         <main className="rt-grid">
+          {(
+            <section className="rt-card rt-ev" style={pode('eventos') ? { cursor: 'pointer' } : undefined} role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrir(); }}>
+              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
+              {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
+                <>
+                  <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
+                    <div className="tag">Próximo · {(CAT[prox.cat] || CAT.outros)[1]}</div>
+                    <div className="t">{prox.titulo}</div>
+                    <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
+                    <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
+                  </div>
+                  <ol className="rt-list">
+                    {fut.slice(1, 25).map((e, i) => {
+                      const d = dt(e.inicio), c = (CAT[e.cat] || CAT.outros)[0], dd = Math.round((d.getTime() - h0.getTime()) / DAY);
+                      return (
+                        <li key={`${e.inicio}-${e.titulo}-${i}`}>
+                          <div className="d"><b>{String(d.getDate()).padStart(2, '0')}</b><span>{MESC[d.getMonth()]}</span></div>
+                          <div className="n"><b><i className="dot" style={{ ['--c' as string]: c }} />{e.titulo}</b><span>{[SEM[d.getDay()] + (e.fim && e.fim !== e.inicio ? ` a ${fmtD(e.fim)}` : ''), e.local, e.hora].filter(Boolean).join(' · ')}</span></div>
+                          <div className={`q${dd <= 0 ? ' hoje' : ''}`}>{dd <= 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}</div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </section>
+          )}
+
           {turne(false)}
 
           {(
@@ -394,7 +438,7 @@ export default function VisaoGeral() {
                     </div>
                     <div className="rt-kpis rt-kpis-2">
                       <K l="CTR (link)" v={pc2(r.ctr)} />
-                      <K l="Conversão da página" v={pc2(r.conversao_lp)} m={<>visita → lead</>} />
+                      <K l="Conversão da página" v={pc2(r.conversao_lp ?? (r.visualizacoes_lp && r.leads_crm != null ? (r.leads_crm / r.visualizacoes_lp) * 100 : null))} m={<>visita (Meta) → lead (CRM)</>} />
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
@@ -424,7 +468,7 @@ export default function VisaoGeral() {
                       <K l="Investido" v={brl(bf.investido)} din />
                       <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
                     </div>
-                    {vendasPerp}
+                    {vendasBlack}
                     <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
                     <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
                     <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>

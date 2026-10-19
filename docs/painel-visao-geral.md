@@ -1,4 +1,4 @@
-# Painel Visão geral e regras de negócio (atualizado em 19/10/2026)
+# Painel Visão geral e regras de negócio (atualizado em 19/10/2026, noite)
 
 ## Regras de negócio oficiais
 - **Venda RGV:** ver `docs/regra-venda-rgv.md` (pipelines Principal e Boleto; Ganho, Dinheiro Em Casa e finalizando). Vale em qualquer módulo.
@@ -11,6 +11,10 @@
 - **Turnê Máquina de Vendas:** ingressos e receita da Rota 45 por cidade; CAC por ingresso.
 - **Método RGV:** leads, investido, CPL, MQL, vendas RGV, receita e CAC do ciclo exibido (`perpetuo_funil_v2`). A meta de leads do ciclo ainda não existe no banco (`rgv.plano_ciclo` só guarda metas de conversão), por isso "da meta" aparece como "—".
 - **Black Friday 10X:** lê `public.black10x_painel()` (somente consulta, permissão `painel`): ingressos, receita, reembolsos, investido, CAC e ingressos por dia, a partir de `black10x.vw_resumo`, `vw_venda_diaria` e `meta_dia`. O investimento da Meta no banco vai só até 01/10 (carga parada). Inscritos gratuitos não existem no banco.
+- **Próximos eventos:** painel só na Visão geral (primeira coluna do grid). O Calendário mostra apenas o calendário (decisão da Joyce, 19/10).
+- **Tabela da Turnê por praça:** colunas Praça, Data, %, Ocupação, Vend.+cort., Receita, RGV, Clube, Trator, Prazo, cada título sobre a sua coluna. RGV/Clube/Trator vêm de `mdv_vendas_cidade`, que só atribui a praça quando a UTM tem `[80KM][CIDADE][dd/mm]` (cerca de 18 vendas/ano). Atribuição por contato e ingresso (e-mail, CPF/CNPJ, telefone, tabela `rgv.venda_contato`) está em andamento; até lá a tabela mostra menos vendas que o total.
+- **Fluxo Marketing MDV, funil:** sem filtro de status/cidade, Vendas RGV/Clube/Trator usam o total do período por data de fechamento (`public.mdv_vendas_periodo`, só leitura). Em 2026 até 19/10: 740 RGV, 106 Clube R1, 33 Trator. Com filtro, valem só as vendas com praça identificada.
+- **Black Friday 10X, vendas RGV/Clube/Trator:** só vendas cuja UTM do contato tem `[BLACK26]` e cuja data de fechamento é igual ou posterior a `black10x.config.janela_inicio` (24/09/2026), via `public.black10x_vendas()` (só leitura, permissão `painel`; cruza `rgv.venda_contato` com os negócios). Definição confirmada pela Joyce em 19/10. Em 19/10: 1 RGV (R$ 16.400,00), 0 Clube, 0 Trator. Vendas com [BLACK26] antes da janela não entram.
 - Enquanto carregam, os cards mostram esqueleto (estrutura fixa com blocos cinza).
 
 ## Desempenho
@@ -27,6 +31,9 @@ Ver `planejamento.md` (plano da rota, formato do ingresso, ações e Detalhament
 - O recurso `regras` não tem mais tela na central (regras de segmentação ficam só no banco e nesta documentação) e some da matriz de permissões.
 
 ## Pendências conhecidas
+- Valor do Clube R1: R$ 25,5 mi em 106 vendas (~R$ 240 mil cada) parece alto; aguardando confirmação do campo.
+- Conversão da página: `rgv.funil_calc` foi alterado em produção (usa `visualizacoes_lp` e `conversao_lp` quando vêm no JSON, senão leads/visualizações); decisão de manter ou reverter pendente.
+- Réplica da visão Perpétuo do Lovable: só Visão Perpétuo, Dashboard, Planejamento e Board entram; Gerenciador de Integrações, Raio-X de Criativos e RGV Processos foram removidos do escopo (19/10). Aguarda as planilhas/CSVs históricos.
 - Visitas LP e Checkouts do Meta no funil da Turnê (MDV) vêm da RPC `meta_eventos_v2` (`landing_page_view`, `initiate_checkout`, carga `meta-ads-sync` v8) e ficam "—" até a próxima atualização do Meta (cron 09:40 ou botão Atualizar em Integrações).
 - Aba Online da Máquina de Vendas lê outro serviço (Lovable) com datas fixas.
 - Meta de leads do Ciclo 45 e critério de origem das vendas RGV por Turnê e Black Friday aguardam definição.
