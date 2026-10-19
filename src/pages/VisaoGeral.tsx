@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { usePerpetuo, useMetaCiclo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, useMetaCiclo, usePerpetuoVendasClubeTrator } from '@/hooks/usePerpetuo';
 import { Link } from 'react-router-dom';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
@@ -218,6 +218,10 @@ export default function VisaoGeral() {
   const metaCicloQ = useMetaCiclo(pode('perpetuo'));
   const metaLeads = metaCicloQ.data?.find((m) => m.ciclo === ciclo?.ciclo)?.leads ?? null;
   const r = perp.data?.resumo;
+  const ctQ = usePerpetuoVendasClubeTrator(undefined, undefined, pode('perpetuo'), ciclo?.ciclo ?? null);
+  const ct = ctQ.data ?? null;
+  const vTotal = r?.vendas != null && ct ? r.vendas + ct.clube_r1.vendas + ct.trator.vendas + ct.sem_produto.vendas : null;
+  const fTotal = r?.faturamento != null && ct ? r.faturamento + ct.clube_r1.faturamento + ct.trator.faturamento + ct.sem_produto.faturamento : null;
   const diarioRgv: Dia[] = (perp.data?.diario ?? []).map((d) => ({ dia: d.data, leads: d.leads_crm ?? 0 }));
   const dCorr = ciclo ? Math.max(0, diasAte(hojeStr, ciclo.inicio) + 1) : null;
   const mediaDia = r?.mql != null && dCorr ? r.mql / dCorr : null;
@@ -377,6 +381,11 @@ export default function VisaoGeral() {
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
                       <K l="Receita" v={brl(r.faturamento)} din />
                       <K l="CAC" v={brl(r.investimento != null && r.vendas != null ? r.investimento / Math.max(r.vendas, 1) : null)} din />
+                    </div>
+                    <div className="rt-kpis rt-kpis-3">
+                      <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
+                      <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
+                      <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
                     </div>
                     <div className="rt-sub">Leads por dia <small>HubSpot · total do ciclo</small></div>
                     <Barras rows={diarioRgv} chave="leads" cor="var(--red)" classe="rt-bars-rgv" />
