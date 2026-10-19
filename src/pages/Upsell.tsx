@@ -36,6 +36,26 @@ function K({ l, v, s }: { l: string; v: string; s?: string }) {
   );
 }
 
+
+type Ordem = { col: string; dir: 'asc' | 'desc' };
+const useOrdem = (col: string, dir: 'asc' | 'desc' = 'desc') => {
+  const [o, setO] = useState<Ordem>({ col, dir });
+  const alterna = (c: string) => setO((a) => (a.col === c ? { col: c, dir: a.dir === 'asc' ? 'desc' : 'asc' } : { col: c, dir: c === 'rotulo' ? 'asc' : 'desc' }));
+  return [o, alterna] as const;
+};
+const ordena = <T,>(xs: T[], o: Ordem, v: (x: T, col: string) => number | string) =>
+  [...xs].sort((a, b) => { const x = v(a, o.col), y = v(b, o.col); const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'pt-BR', { numeric: true }); return o.dir === 'asc' ? r : -r; });
+function Th({ c, o, alterna, children, className = '' }: { c: string; o: Ordem; alterna: (c: string) => void; children: React.ReactNode; className?: string }) {
+  const ativo = o.col === c;
+  return (
+    <th className={`font-semibold ${className}`} aria-sort={ativo ? (o.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={() => alterna(c)} title="Ordenar do menor para o maior e do maior para o menor" className={`inline-flex items-center gap-1 whitespace-nowrap hover:text-foreground ${ativo ? 'text-foreground' : ''}`}>
+        {children}<span className="text-[9px]">{ativo ? (o.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  );
+};
+
 const COLS: { k: 'ganho' | 'negociacao' | 'aprovacao' | 'perdida' | 'cancelada' | 'cancelamento_solicitado'; rotulo: string }[] = [
   { k: 'ganho', rotulo: 'Ganho' }, { k: 'negociacao', rotulo: 'Em negociação' }, { k: 'aprovacao', rotulo: 'Em aprovação' },
   { k: 'perdida', rotulo: 'Perdidas' }, { k: 'cancelada', rotulo: 'Canceladas' }, { k: 'cancelamento_solicitado', rotulo: 'Cancel. solicitado' },
@@ -47,6 +67,13 @@ const catN = (c: UpsellAplicacaoCiclo, k: (typeof COLS)[number]['k']) => {
 };
 
 function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
+  const [o, alterna] = useOrdem('rotulo', 'desc');
+  const linhas = ordena(ciclos, o, (c, col) => {
+    if (col === 'rotulo') return numTag(c.ciclo);
+    if (col === 'total') return c.total;
+    if (col === 'cancsobre') { const g = catN(c, 'ganho').n, k = catN(c, 'cancelada').n; return g + k ? k / (g + k) : 0; }
+    return catN(c, col as (typeof COLS)[number]['k']).n;
+  });
   return (
     <div className="surface p-4 overflow-x-auto">
       <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground">Aplicações por ciclo (funil Clube R1)</h3>
@@ -54,13 +81,13 @@ function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground text-left">
-            <th className="py-1 font-semibold">Ciclo</th><th className="text-right font-semibold">Aplicações</th>
-            {COLS.map((c) => <th key={c.k} className="text-right font-semibold whitespace-nowrap pl-2">{c.rotulo}</th>)}
-            <th className="text-right font-semibold whitespace-nowrap pl-2">Cancel. sobre vendas</th>
+            <Th c="rotulo" o={o} alterna={alterna} className="py-1">Ciclo</Th><Th c="total" o={o} alterna={alterna} className="text-right">Aplicações</Th>
+            {COLS.map((c) => <Th key={c.k} c={c.k} o={o} alterna={alterna} className="text-right pl-2">{c.rotulo}</Th>)}
+            <Th c="cancsobre" o={o} alterna={alterna} className="text-right pl-2">Cancel. sobre vendas</Th>
           </tr>
         </thead>
         <tbody>
-          {ciclos.map((c) => {
+          {linhas.map((c) => {
             const ganho = catN(c, 'ganho'), canc = catN(c, 'cancelada');
             return (
               <tr key={c.ciclo} className="border-t border-border/50 align-top">
@@ -80,12 +107,14 @@ function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
   );
 }
 
-function Tabela({ titulo, linhas, total }: { titulo: string; linhas: Grupo[]; total: number }) {
+function Tabela({ titulo, linhas: base, total }: { titulo: string; linhas: Grupo[]; total: number }) {
+  const [o, alterna] = useOrdem('fat');
+  const linhas = ordena(base, o, (g, col) => (col === 'rotulo' ? g.chave : col === 'vendas' ? g.vendas : g.fat));
   return (
     <div className="surface p-4">
       <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground mb-2">{titulo}</h3>
       <table className="w-full text-xs">
-        <thead><tr className="text-muted-foreground text-left"><th className="py-1 font-semibold">&nbsp;</th><th className="text-right font-semibold">Vendas</th><th className="text-right font-semibold">Faturamento</th><th className="text-right font-semibold">% do total</th></tr></thead>
+        <thead><tr className="text-muted-foreground text-left"><Th c="rotulo" o={o} alterna={alterna} className="py-1">{titulo.replace('Por ', '')}</Th><Th c="vendas" o={o} alterna={alterna} className="text-right">Vendas</Th><Th c="fat" o={o} alterna={alterna} className="text-right">Faturamento</Th><Th c="fat" o={o} alterna={alterna} className="text-right">% do total</Th></tr></thead>
         <tbody>
           {linhas.map((g) => (
             <tr key={g.chave} className="border-t border-border/50">
@@ -108,11 +137,12 @@ export default function Upsell() {
   const q = useUpsellVendas(!!cfg);
   const ap = useUpsellAplicacoes(cfg?.grupo === 'clube_r1');
   const [tag, setTag] = useState('todas');
+  const [oN, alternaN] = useOrdem('data');
   const per = usePeriodoPadrao('ano');
   const { de, ateConsulta: ate } = per;
 
   const doProduto = useMemo(() => (q.data?.itens ?? []).filter((i) => i.grupo === cfg?.grupo && !!i.data_fechamento && i.data_fechamento >= de && i.data_fechamento <= ate).map((i) => ({ ...i, tag: tagNorm(i.tag) })), [q.data, cfg, de, ate]);
-  const tags = useMemo(() => [...new Set(doProduto.map((i) => i.tag))].sort((a, b) => numTag(a) - numTag(b)), [doProduto]);
+  const tags = useMemo(() => [...new Set((q.data?.itens ?? []).filter((i) => i.grupo === cfg?.grupo).map((i) => tagNorm(i.tag)))].sort((a, b) => numTag(a) - numTag(b)), [q.data, cfg]);
   const itens = useMemo(() => (tag === 'todas' ? doProduto : doProduto.filter((i) => i.tag === tag)), [doProduto, tag]);
 
   if (!cfg) return <Navigate to="/upsell/clube-r1" replace />;
@@ -138,8 +168,8 @@ export default function Upsell() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex lg:hidden"><PeriodoPadrao p={per} /></div>
-            <select value={tag} onChange={(e) => setTag(e.target.value)} className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs font-semibold">
-              <option value="todas">Todas as tags</option>
+            <select aria-label="Filtrar por ciclo" value={tag} onChange={(e) => setTag(e.target.value)} className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs font-semibold">
+              <option value="todas">Todos os ciclos</option>
               {tags.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -161,7 +191,7 @@ export default function Upsell() {
         {q.isError && <div className="surface p-4 text-sm text-muted-foreground">Não foi possível carregar as vendas agora. Tente atualizar.</div>}
 
         <div className="grid grid-cols-2 gap-3">
-          <K l="Vendas" v={nf(itens.length)} s={tag === 'todas' ? 'todas as tags' : tag} />
+          <K l="Vendas" v={nf(itens.length)} s={tag === 'todas' ? 'todos os ciclos' : tag} />
           <K l="Última venda" v={dataBr(ultima)} s={q.data?.atualizado_em ? `base atualizada ${new Date(q.data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : undefined} />
         </div>
 
@@ -198,10 +228,10 @@ export default function Upsell() {
           </div>
         </div>
 
-        {cfg.grupo === 'clube_r1' && <Aplicacoes ciclos={(ap.data?.ciclos ?? []).filter((c) => !c.inicio || (c.inicio >= de && c.inicio <= ate))} />}
+        {cfg.grupo === 'clube_r1' && <Aplicacoes ciclos={(ap.data?.ciclos ?? []).filter((c) => (tag === 'todas' || tagNorm(c.ciclo) === tag) && (!c.inicio || (c.inicio >= de && c.inicio <= ate)))} />}
 
         <div className="grid lg:grid-cols-2 gap-3">
-          <Tabela titulo="Por tag do ciclo" linhas={[...porTag].reverse()} total={doProduto.reduce((s, i) => s + i.valor, 0)} />
+          <Tabela titulo="Por ciclo" linhas={[...porTag].reverse()} total={doProduto.reduce((s, i) => s + i.valor, 0)} />
           <Tabela titulo="Por origem do negócio" linhas={porOrigem} total={fat} />
         </div>
         <Tabela titulo="Por campanha (UTM)" linhas={porCampanha} total={fat} />
@@ -209,9 +239,9 @@ export default function Upsell() {
         <div className="surface p-4 overflow-x-auto">
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground mb-2">Negócios ganhos ({itens.length})</h3>
           <table className="w-full text-xs">
-            <thead><tr className="text-muted-foreground text-left"><th className="py-1 font-semibold">Fechamento</th><th className="font-semibold">ID do negócio</th><th className="font-semibold">Tag</th><th className="font-semibold">Origem</th><th className="text-right font-semibold">Valor</th></tr></thead>
+            <thead><tr className="text-muted-foreground text-left"><Th c="data" o={oN} alterna={alternaN} className="py-1">Fechamento</Th><Th c="id" o={oN} alterna={alternaN}>ID do negócio</Th><Th c="tag" o={oN} alterna={alternaN}>Ciclo</Th><Th c="origem" o={oN} alterna={alternaN}>Origem</Th><Th c="valor" o={oN} alterna={alternaN} className="text-right">Valor</Th></tr></thead>
             <tbody>
-              {itens.map((i) => (
+              {ordena(itens, oN, (i, col) => (col === 'data' ? i.data_fechamento ?? '' : col === 'id' ? Number(i.deal_id) : col === 'tag' ? numTag(i.tag) : col === 'origem' ? i.origem ?? '' : i.valor)).map((i) => (
                 <tr key={i.deal_id} className="border-t border-border/50">
                   <td className="py-1.5 whitespace-nowrap">{dataBr(i.data_fechamento)}</td>
                   <td className="pr-2 whitespace-nowrap tabular-nums"><a href={`https://app.hubspot.com/contacts/23586399/record/0-3/${i.deal_id}`} target="_blank" rel="noopener noreferrer" className="underline decoration-dotted hover:text-primary" title="Abrir o negócio no HubSpot">{i.deal_id}</a></td>
