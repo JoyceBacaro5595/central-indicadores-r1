@@ -70,6 +70,8 @@ export default function FluxoMarketingMdv() {
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const vq = useQuery({ queryKey: ['fmm-vendas', de, ate], queryFn: () => r1Rpc<VendasCidade[]>('mdv_vendas_cidade', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  /* Total de vendas do período, sem depender de a venda ter praça identificada (a UTM com a cidade só existe em parte delas). */
+  const tq = useQuery({ queryKey: ['fmm-vendas-periodo', de, ate], queryFn: () => r1Rpc<Omit<VendasCidade, 'cidade' | 'mes_evento'>>('mdv_vendas_periodo', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, retry: false });
   const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const [status, setStatus] = useState<Status>('todos');
   const [cidade, setCidade] = useState('todas');
@@ -87,10 +89,14 @@ export default function FluxoMarketingMdv() {
   }, [todos, evq.data, status, cidade]);
   const vendasPor = useMemo(() => new Map((vq.data ?? []).map((v) => [`${v.cidade}|${v.mes_evento}`, v])), [vq.data]);
   const vd = (r: MetaEvento) => vendasPor.get(`${r.cidade}|${r.mes_evento}`);
-  const vt = useMemo(() => dados.reduce((s, r) => { const v = vendasPor.get(`${r.cidade}|${r.mes_evento}`); return {
+  const semFiltro = status === 'todos' && cidade === 'todas';
+  const vt = useMemo(() => semFiltro && tq.data ? {
+    rgv: tq.data.rgv, clube: tq.data.clube_r1, trator: tq.data.trator,
+    fRgv: Number(tq.data.fat_rgv), fClube: Number(tq.data.fat_clube_r1), fTrator: Number(tq.data.fat_trator),
+  } : dados.reduce((s, r) => { const v = vendasPor.get(`${r.cidade}|${r.mes_evento}`); return {
     rgv: s.rgv + (v?.rgv ?? 0), clube: s.clube + (v?.clube_r1 ?? 0), trator: s.trator + (v?.trator ?? 0),
     fRgv: s.fRgv + Number(v?.fat_rgv ?? 0), fClube: s.fClube + Number(v?.fat_clube_r1 ?? 0), fTrator: s.fTrator + Number(v?.fat_trator ?? 0),
-  }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor]);
+  }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor, semFiltro, tq.data]);
   const chaves = new Set(dados.map((r) => `${r.cidade}|${r.mes_evento}`));
   const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null && chaves.has(`${r.cidade}|${r.mes_evento}`)); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
   const lpv = soma('lpv'); const chk = soma('checkouts');
@@ -171,7 +177,7 @@ export default function FluxoMarketingMdv() {
                 <Etapa titulo="Total de vendas" valor={num(vt.rgv + vt.clube + vt.trator)} largura={log(vt.rgv + vt.clube + vt.trator, Math.max(vt.rgv + vt.clube + vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv + vt.fClube + vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv + vt.fClube + vt.fTrator, vt.rgv + vt.clube + vt.trator))} />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts chegam do Meta na atualização diária; enquanto não houver dado aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
+            <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts chegam do Meta na atualização diária; enquanto não houver dado aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. Vendas RGV, Clube R1 e Trator contam todas as vendas do período; a tabela por cidade mostra só as que têm praça identificada (UTM ou ingresso). A barra de cada etapa usa escala logarítmica.</p>
           </div>
         )}
 
