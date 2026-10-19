@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
+import MetasEventoMdv from './calendario/MetasEventoMdv';
+import MetasCicloRgv from './calendario/MetasCicloRgv';
 import EditorEvento, { novoRascunho, type EventoEditavel, type RascunhoEvento } from './calendario/EditorEvento';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Abas, FiltroMulti, PageBody, PageHeader } from '@/components/shared';
@@ -143,11 +145,13 @@ export default function Calendario() {
               {selecionados.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum evento neste dia.</p> : (
                 <ul className="divide-y divide-border">
                   {selecionados.map((e, k) => (
-                    <li key={k} className="flex items-center gap-3 py-2 text-xs">
+                    <li key={k} className="flex flex-wrap items-center gap-3 py-2 text-xs">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cor(e.cat) }} />
                       <span className="font-semibold text-foreground">{e.cat === 'mdv' && e.local ? <Link to={`/central/planejamento?cidade=${encodeURIComponent(e.local.replace(/ \(.*\)$/, ''))}`} title="Editar a cidade e a data da rota" className="hover:underline">{e.titulo}</Link> : e.titulo}</span>
                       <span className="text-muted-foreground">{[e.local, e.hora, e.fim !== e.inicio ? `${e.inicio.split('-').reverse().slice(0, 2).join('/')} a ${e.fim.split('-').reverse().slice(0, 2).join('/')}` : ''].filter(Boolean).join(' · ')}</span>
                       <span className="ml-auto text-[10px] text-muted-foreground">{(CAT_AGENDA[e.cat] || CAT_AGENDA.outros)[1]}</span>
+                      {editar && e.cat === 'mdv' && <MetasEventoMdv e={e} />}
+                      {editar && e.cat === 'rgv' && <MetasCicloRgv e={e} />}
                       {editar && doBanco && e.id != null && (
                         <span className="flex items-center gap-2 text-[11px]">
                           <button type="button" className="text-primary font-semibold" onClick={() => { salvar.reset(); setEdicao(novoRascunho(dia, e)); }}>editar</button>
