@@ -181,7 +181,7 @@ export function useUpsellVendas(habilitado = true) {
 /** Upsell · Clube R1: aplicações (negócios criados no funil durante cada evento Método RGV) por etapa. */
 export type UpsellCategoria = 'ganho' | 'negociacao' | 'aprovacao' | 'perdida' | 'cancelada' | 'cancelamento_solicitado' | 'finalizando';
 export type UpsellAplicacaoCiclo = {
-  ciclo: string; inicio: string; fim: string; total: number; valor: number;
+  ciclo: string; inicio: string | null; fim: string | null; total: number; valor: number;
   categorias: Partial<Record<UpsellCategoria, { n: number; valor: number }>>;
 };
 export type UpsellAplicacoes = { atualizado_em: string | null; ciclos: UpsellAplicacaoCiclo[] };

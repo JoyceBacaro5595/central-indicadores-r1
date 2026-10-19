@@ -1,12 +1,12 @@
 // Upsell: aplicações do Clube R1 = negócios criados no funil [OFICIAL] Clube R1 (pedido da Joyce, 19/10).
 // Traz todos os negócios criados desde 01/01/2026 com a etapa atual e o valor, e grava em rgv.clube_aplicacao.
-// A janela de cada ciclo (datas do Método RGV) é aplicada na leitura (public.upsell_aplicacoes). Nada é apagado.
+// Aplicação = negócio do funil com a tag do ciclo (evento_tag), em qualquer etapa (definição da Joyce, 19/10). Nada é apagado.
 // Autenticação: header x-guru-sync-key = vault 'guru_sync_key'. Precisa do secret HUBSPOT_TOKEN.
 import postgres from "npm:postgres@3.4.4";
 
 const HS = "https://api.hubapi.com";
 const PIPELINE = "135241872";
-const DESDE_MS = String(Date.parse("2026-01-01T00:00:00-03:00"));
+const DESDE_MS = String(Date.parse("2025-09-01T00:00:00-03:00")); // negócios de ciclos de 2026 podem ter sido criados antes de janeiro
 const GANHO = new Set(["232902155"]);
 const PERDIDA = new Set(["232902156"]);
 const CANCELADA = new Set(["268514208", "1141304948"]);
@@ -36,13 +36,14 @@ Deno.serve(async (req) => {
 
     const pl = await hs(token, `/crm/v3/pipelines/deals/${PIPELINE}`);
     const nomes = new Map<string, string>((pl.stages ?? []).map((e: any) => [e.id, e.label]));
+    const mapa = new Map<string, string>((await sql`select tag_id, evento_tag from rgv.hubspot_tag_ciclo`).map((r: any) => [r.tag_id, r.evento_tag]));
     const deals: any[] = [];
     let after: string | undefined;
     for (let pg = 0; pg < 40; pg++) {
       const r = await hs(token, "/crm/v3/objects/deals/search", {
         filterGroups: [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE }, { propertyName: "createdate", operator: "GTE", value: DESDE_MS }] }],
         sorts: [{ propertyName: "createdate", direction: "ASCENDING" }],
-        properties: ["dealname", "amount", "createdate", "dealstage", "closedate"], limit: 100, ...(after ? { after } : {}),
+        properties: ["dealname", "amount", "createdate", "dealstage", "closedate", "produto", "hs_tag_ids"], limit: 100, ...(after ? { after } : {}),
       });
       deals.push(...(r.results ?? []));
       after = r.paging?.next?.after;
@@ -52,7 +53,10 @@ Deno.serve(async (req) => {
     if (!deals.length) return json({ ok: false, erro: "HubSpot devolveu 0 negócios; nada foi alterado" }, 500);
     const linhas = deals.map((d) => {
       const p = d.properties; const e = String(p.dealstage ?? "");
+      const ids = String(p.hs_tag_ids ?? "").split(";").filter(Boolean);
+      const evs = [...new Set(ids.map((t) => mapa.get(t)).filter(Boolean))] as string[];
       return {
+        produto: p.produto ?? null, hs_tag_ids: ids.join(";") || null, evento_tag: evs.length === 1 ? evs[0] : null,
         deal_id: String(d.id), nome: p.dealname ?? null, pipeline: PIPELINE, etapa_id: e, etapa: nomes.get(e) ?? e, categoria: categoria(e),
         valor: p.amount != null && p.amount !== "" ? Number(p.amount) : null, criado_em: p.createdate, data_criacao: dataSP(p.createdate),
         fechado_em: GANHO.has(e) || PERDIDA.has(e) || CANCELADA.has(e) ? dataSP(p.closedate) : null,
@@ -60,9 +64,9 @@ Deno.serve(async (req) => {
     });
     for (let i = 0; i < linhas.length; i += 100) {
       const lote = linhas.slice(i, i + 100);
-      await sql`insert into rgv.clube_aplicacao ${sql(lote, "deal_id", "nome", "pipeline", "etapa_id", "etapa", "categoria", "valor", "criado_em", "data_criacao", "fechado_em")}
+      await sql`insert into rgv.clube_aplicacao ${sql(lote, "deal_id", "nome", "pipeline", "etapa_id", "etapa", "categoria", "valor", "criado_em", "data_criacao", "fechado_em", "produto", "hs_tag_ids", "evento_tag")}
         on conflict (deal_id) do update set nome = excluded.nome, etapa_id = excluded.etapa_id, etapa = excluded.etapa, categoria = excluded.categoria,
-          valor = excluded.valor, fechado_em = excluded.fechado_em, sincronizado_em = now()`;
+          valor = excluded.valor, fechado_em = excluded.fechado_em, produto = excluded.produto, hs_tag_ids = excluded.hs_tag_ids, evento_tag = excluded.evento_tag, sincronizado_em = now()`;
     }
     const por: Record<string, number> = {};
     for (const l of linhas) por[l.categoria] = (por[l.categoria] ?? 0) + 1;

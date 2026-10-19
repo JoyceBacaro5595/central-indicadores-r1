@@ -50,7 +50,7 @@ function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
   return (
     <div className="surface p-4 overflow-x-auto">
       <h3 className="text-xs font-extrabold uppercase tracking-wider text-foreground">Aplicações por ciclo (funil Clube R1)</h3>
-      <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">Negócios criados no funil durante o evento Método RGV, com a etapa em que estão hoje. Percentuais sobre as aplicações do ciclo.</p>
+      <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">Negócios do funil com a tag do ciclo, em qualquer etapa, com a etapa em que estão hoje. Percentuais sobre as aplicações do ciclo.</p>
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-foreground text-left">
@@ -64,7 +64,7 @@ function Aplicacoes({ ciclos }: { ciclos: UpsellAplicacaoCiclo[] }) {
             const ganho = catN(c, 'ganho'), canc = catN(c, 'cancelada');
             return (
               <tr key={c.ciclo} className="border-t border-border/50 align-top">
-                <td className="py-1.5 whitespace-nowrap font-semibold">{c.ciclo}<div className="text-[10px] font-normal text-muted-foreground">{dataBr(c.inicio)} a {dataBr(c.fim)}</div></td>
+                <td className="py-1.5 whitespace-nowrap font-semibold">{c.ciclo}<div className="text-[10px] font-normal text-muted-foreground">{c.inicio ? `${dataBr(c.inicio)} a ${dataBr(c.fim)}` : 'tag do ciclo'}</div></td>
                 <td className="text-right tabular-nums">{c.total}<div className="text-[10px] text-muted-foreground">{brl(c.valor)}</div></td>
                 {COLS.map((col) => { const x = catN(c, col.k); return (
                   <td key={col.k} className="text-right tabular-nums pl-2">{x.n}<span className="text-muted-foreground"> · {pct(x.n, c.total)}</span><div className="text-[10px] text-muted-foreground">{brl(x.valor)}</div></td>
@@ -126,30 +126,42 @@ export default function Upsell() {
   const ultima = itens.reduce<string | null>((m, i) => (i.data_fechamento && (!m || i.data_fechamento > m) ? i.data_fechamento : m), null);
 
   return (
-    <>
-      <PageHeader titulo={`Upsell · ${cfg.titulo}`} subtitulo="Vendas ganhas pela tag do ciclo (HubSpot)" onAtualizar={() => q.refetch()} atualizando={q.isFetching} />
-      <PageBody>
-        <div className="flex flex-wrap items-center gap-2">
-          {(Object.keys(ABAS) as (keyof typeof ABAS)[]).map((k) => (
-            <Link key={k} to={`/upsell/${k}`} onClick={() => setTag('todas')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold border ${k === aba ? 'bg-primary text-primary-foreground border-transparent' : 'border-border text-muted-foreground hover:text-foreground'}`}>
-              {ABAS[k].titulo}
-            </Link>
-          ))}
-          <span className="mx-2 h-5 w-px bg-border" />
-          <PeriodoPadrao p={per} />
-          <select value={tag} onChange={(e) => setTag(e.target.value)} className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs font-semibold">
-            <option value="todas">Todas as tags</option>
-            {tags.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+    <div className="min-h-screen bg-background">
+      <PageHeader titulo={`Upsell · ${cfg.titulo}`} subtitulo="Vendas ganhas pela tag do ciclo (HubSpot)" onAtualizar={() => q.refetch()} atualizando={q.isFetching}
+        acoes={<div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>} />
+      <PageBody className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="toggle-group">
+            {(Object.keys(ABAS) as (keyof typeof ABAS)[]).map((k) => (
+              <Link key={k} to={`/upsell/${k}`} onClick={() => setTag('todas')} className={`toggle-item ${k === aba ? 'toggle-item-ativo' : ''}`}>{ABAS[k].titulo}</Link>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex lg:hidden"><PeriodoPadrao p={per} /></div>
+            <select value={tag} onChange={(e) => setTag(e.target.value)} className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs font-semibold">
+              <option value="todas">Todas as tags</option>
+              {tags.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="eyebrow">Upsell</div>
+            <h2 className="text-xl md:text-2xl font-semibold leading-tight mt-1 text-foreground">Vendas do {cfg.titulo}</h2>
+            <div className="mt-2 text-sm text-muted-foreground">{dataBr(de)} a {dataBr(ate)} · <b className="text-foreground">{nf(itens.length)}</b> {itens.length === 1 ? 'venda' : 'vendas'}</div>
+          </div>
+          <div className="text-right">
+            <div className="eyebrow">Faturamento no período</div>
+            <div className="text-2xl md:text-3xl font-semibold leading-none mt-1 text-foreground">{brl(fat)}</div>
+            <div className="text-sm text-muted-foreground mt-1">Ticket médio {itens.length ? brl(fat / itens.length) : brl(0)}</div>
+          </div>
         </div>
 
         {q.isError && <div className="surface p-4 text-sm text-muted-foreground">Não foi possível carregar as vendas agora. Tente atualizar.</div>}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <K l="Vendas" v={nf(itens.length)} s={tag === 'todas' ? 'todas as tags' : tag} />
-          <K l="Faturamento" v={brl(fat)} />
-          <K l="Ticket médio" v={itens.length ? brl(fat / itens.length) : 'R$ 0'} />
           <K l="Última venda" v={dataBr(ultima)} s={q.data?.atualizado_em ? `base atualizada ${new Date(q.data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : undefined} />
         </div>
 
@@ -186,7 +198,7 @@ export default function Upsell() {
           </div>
         </div>
 
-        {cfg.grupo === 'clube_r1' && <Aplicacoes ciclos={(ap.data?.ciclos ?? []).filter((c) => c.inicio >= de && c.inicio <= ate)} />}
+        {cfg.grupo === 'clube_r1' && <Aplicacoes ciclos={(ap.data?.ciclos ?? []).filter((c) => !c.inicio || (c.inicio >= de && c.inicio <= ate))} />}
 
         <div className="grid lg:grid-cols-2 gap-3">
           <Tabela titulo="Por tag do ciclo" linhas={[...porTag].reverse()} total={doProduto.reduce((s, i) => s + i.valor, 0)} />
@@ -212,6 +224,6 @@ export default function Upsell() {
           </table>
         </div>
       </PageBody>
-    </>
+    </div>
   );
 }
