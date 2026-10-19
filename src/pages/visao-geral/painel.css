@@ -191,3 +191,6 @@
 .rt-sk-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(var(--u)*.7)}
 @keyframes rt-sk{to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.rt-sk{animation:none}}
+/* título de cada coluna alinhado com os números abaixo dele (Joyce, 19/10) */
+.cty.cty-h>div{text-align:right}
+.cty.cty-h>.nm{text-align:left}
