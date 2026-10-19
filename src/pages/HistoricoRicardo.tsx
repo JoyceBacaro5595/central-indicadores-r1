@@ -15,8 +15,23 @@ const parse = (s: string) => { const [a, m, d] = s.split('-').map(Number); retur
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const mediana = (v: number[]) => { const s = [...v].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : 0; };
 const nf = (v: number, c = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
-const brl = (v: number) => `R$ ${nf(v)}`;
+const brl = (v: number) => `R$ ${nf(v, 2)}`;
 const mi = (v: number) => { const a = Math.abs(v), s = v < 0 ? '-' : ''; return a >= 1e6 ? `${s}R$ ${nf(a / 1e6, 1)} mi` : a >= 1e3 ? `${s}R$ ${nf(a / 1e3)} k` : `${s}R$ ${nf(a)}`; };
+const dataBr = (iso: string) => `${iso.slice(8)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+/** Período com ano: "10/dez a 27/jan" vira "10/12/2024 a 27/01/2025" (a série é cronológica, o ano vira quando o mês volta). */
+const periodosComAno = (lista: { numero: number; periodo: string }[], anoInicial: number) => {
+  let a = anoInicial, ult = 0;
+  const mes = (t: string) => { const m = t.trim().match(/^(\d{2})\/(\w+)$/); if (!m) return null; const n = Number(m[2]); if (!Number.isNaN(n)) return n; return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'].indexOf(m[2]) + 1; };
+  return new Map(lista.map((c) => {
+    const [i, f] = c.periodo.split(' a ');
+    const mi_ = mes(i)!, mf = mes(f)!;
+    if (mi_ < ult) a += 1;
+    const ai = a; if (mf < mi_) a += 1;
+    ult = mf;
+    const d = (t: string, y: number) => `${t.slice(0, 2)}/${String(mes(t)).padStart(2, '0')}/${y}`;
+    return [c.numero, `${d(i, ai)} a ${d(f, a)}`] as const;
+  }));
+};
 const pc = (v: number, c = 2) => `${nf(v, c)}%`;
 const x = (v: number) => `${nf(v, 2)}x`;
 
@@ -31,16 +46,16 @@ const deriva = (c: CicloHist): Linha => ({
 });
 
 const METRICAS: Metrica[] = [
-  { k: 'invest', rotulo: 'Investimento', fmt: mi, vl: (c) => c.invest },
+  { k: 'invest', rotulo: 'Investimento', fmt: brl, vl: (c) => c.invest },
   { k: 'mqls', rotulo: 'MQLs', fmt: (v) => nf(v), meta: METAS_BOARD.mqls.meta, vl: (c) => c.mqls },
   { k: 'vendas', rotulo: 'Vendas', fmt: (v) => nf(v), meta: METAS_BOARD.vendas.meta, vl: (c) => c.vendas },
-  { k: 'receita', rotulo: 'Receita', fmt: mi, vl: (c) => c.receita },
-  { k: 'saldo', rotulo: 'Saldo', fmt: mi, vl: (c) => c.saldo },
+  { k: 'receita', rotulo: 'Receita', fmt: brl, vl: (c) => c.receita },
+  { k: 'saldo', rotulo: 'Saldo', fmt: brl, vl: (c) => c.saldo },
   { k: 'cac', rotulo: 'CAC', fmt: brl, menorMelhor: true, vl: (c) => c.cac },
   { k: 'roas', rotulo: 'ROAS', fmt: x, meta: METAS_BOARD.roas.meta, vl: (c) => c.roas },
   { k: 'conv', rotulo: 'Conversão MQL→venda', fmt: pc, meta: METAS_BOARD.conversao.meta, vl: (c) => c.conv },
   { k: 'cpl', rotulo: 'Custo por MQL', fmt: brl, menorMelhor: true, meta: METAS_BOARD.cmql.meta, vl: (c) => c.cpl },
-  { k: 'cpm', rotulo: 'CPM', fmt: (v) => `R$ ${nf(v, 2)}`, menorMelhor: true, vl: (c) => c.cpm },
+  { k: 'cpm', rotulo: 'CPM', fmt: brl, menorMelhor: true, vl: (c) => c.cpm },
   { k: 'ctr', rotulo: 'CTR de link', fmt: pc, vl: (c) => c.ctr },
   { k: 'convPagina', rotulo: 'Conversão da página', fmt: pc, vl: (c) => c.convPagina },
 ];
@@ -88,6 +103,7 @@ export default function HistoricoRicardo() {
   const perp44 = usePerpetuo(CICLO_44.inicio, CICLO_44.fim, true);
   const r44 = perp44.data?.resumo;
   const [met, setMet] = useState('vendas');
+  const [ord, setOrd] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'Ciclo', dir: 'desc' });
 
   const dias = Math.round((parse(CICLO_ATUAL.fim).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1;
   const decorridos = Math.max(1, Math.min(dias, Math.round((parse(ate).getTime() - parse(CICLO_ATUAL.inicio).getTime()) / DIA) + 1));
@@ -96,7 +112,7 @@ export default function HistoricoRicardo() {
   const monta = (r: NonNullable<typeof perp.data>['resumo'], numero: number, inicio: string, fim: string, f: number): Linha => {
     const invest = (r.investimento ?? 0) * f, mqls = (r.mql ?? 0) * f, vendas = (r.vendas ?? 0) * f, receita = (r.faturamento ?? 0) * f;
     const c: CicloHist = {
-      numero, periodo: `${inicio.slice(8)}/${inicio.slice(5, 7)} a ${fim.slice(8)}/${fim.slice(5, 7)}`,
+      numero, periodo: `${dataBr(inicio)} a ${dataBr(fim)}`,
       invest, captacao: invest, mqls, vendas, ticket: vendas ? receita / vendas : 0, receita, cac: vendas ? invest / vendas : invest, cplFundo: 0,
       cpl: r.mql ? (r.investimento ?? 0) / r.mql : 0, saldo: receita - invest, impressoes: r.impressoes ?? 0, cpm: r.cpm ?? 0, alcance: r.alcance ?? 0,
       ctr: r.ctr ?? 0, connect: r.cliques ? ((r.visualizacoes_lp ?? 0) / r.cliques) * 100 : 0, convPagina: r.conversao_lp ?? 0,
@@ -106,8 +122,9 @@ export default function HistoricoRicardo() {
   };
   const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, 1), emCurso: true } : null), [r]); // eslint-disable-line react-hooks/exhaustive-deps
   const proj: Linha | null = useMemo(() => (r ? monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator) : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
-  const l44 = useMemo(() => (r44 ? monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1) : null), [r44]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fechados = useMemo(() => [...HISTORICO.map(deriva), ...(l44 ? [l44] : [])], [l44]);
+  const l44 = useMemo(() => (r44 && ((r44.investimento ?? 0) > 0 || (r44.vendas ?? 0) > 0) ? monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1) : null), [r44]); // eslint-disable-line react-hooks/exhaustive-deps
+  const anos = useMemo(() => periodosComAno(HISTORICO, 2024), []);
+  const fechados = useMemo(() => [...HISTORICO.map((c) => deriva({ ...c, periodo: anos.get(c.numero) ?? c.periodo })), ...(l44 ? [l44] : [])], [l44, anos]);
 
   const ultimo = fechados[fechados.length - 1], penultimo = fechados[fechados.length - 2];
   const serie = (m: Metrica) => fechados.map((c) => m.vl(c) ?? 0);
@@ -117,7 +134,7 @@ export default function HistoricoRicardo() {
   ];
 
   const tabelaAtual = atual && proj ? [
-    { rotulo: 'Investimento', fmt: mi, v: atual.invest, p: proj.invest, s: fechados.map((c) => c.invest), neutro: true },
+    { rotulo: 'Investimento', fmt: brl, v: atual.invest, p: proj.invest, s: fechados.map((c) => c.invest), neutro: true },
     { rotulo: 'MQLs', fmt: (v: number) => nf(v), v: atual.mqls, p: proj.mqls, s: fechados.map((c) => c.mqls) },
     { rotulo: 'Vendas', fmt: (v: number) => nf(v), v: atual.vendas, p: proj.vendas, s: fechados.map((c) => c.vendas) },
     { rotulo: 'Conversão MQL→venda', fmt: pc, v: atual.conv, p: proj.conv, s: fechados.map((c) => c.conv) },
@@ -131,6 +148,12 @@ export default function HistoricoRicardo() {
   const m = METRICAS.find((q) => q.k === met) ?? METRICAS[2];
   const dadosGrafico = todas.map((c) => { const v = m.vl(c) ?? 0; const pj = c.emCurso && proj ? m.vl(proj) ?? 0 : v; return { ciclo: String(c.numero), periodo: c.periodo, v, extra: Math.max(pj - v, 0), proj: pj, atual: !!c.emCurso }; });
   const med = mediana(serie(m));
+  const COLUNAS: Record<string, (c: Linha) => number | null> = {
+    Ciclo: (c) => c.numero, 'Período': (c) => c.numero, Investimento: (c) => c.invest, 'Captação': (c) => c.captacao, MQLs: (c) => c.mqls, 'R$/MQL': (c) => c.cpl,
+    Agendados: (c) => c.agendados, 'Reuniões': (c) => c.reunioes, Compareceu: (c) => c.comp, Fecha: (c) => c.fecha, Vendas: (c) => c.vendas, 'Conversão': (c) => c.conv,
+    Ticket: (c) => c.ticket, Receita: (c) => c.receita, CAC: (c) => c.cac, ROAS: (c) => c.roas,
+  };
+  const linhasOrdenadas = [...todas].sort((a, b) => { const f = COLUNAS[ord.col] ?? COLUNAS.Ciclo; const va = f(a) ?? -Infinity, vb = f(b) ?? -Infinity; return ord.dir === 'asc' ? va - vb : vb - va; });
   const cor = (v: number, atualC: boolean) => atualC ? '#7A0A1A' : m.meta == null ? VERM : (m.menorMelhor ? v <= m.meta : v >= m.meta) ? VERDE : VERM;
 
   const classe = (v: number, k: 'cmql' | 'mqls' | 'conversao' | 'vendas' | 'roas') => {
@@ -153,7 +176,7 @@ export default function HistoricoRicardo() {
     { t: 'Aproveitamento do funil', f: (c: Linha) => c.conv },
   ];
   const midia = [
-    { t: 'CPM', f: (c: Linha) => c.cpm, fmt: (v: number) => `R$ ${nf(v)}` },
+    { t: 'CPM', f: (c: Linha) => c.cpm, fmt: brl },
     { t: 'CTR de link', f: (c: Linha) => c.ctr, fmt: pc },
     { t: 'Connect Rate', f: (c: Linha) => c.connect, fmt: (v: number) => pc(v, 1) },
     { t: 'Conversão da página', f: (c: Linha) => c.convPagina, fmt: pc },
@@ -182,7 +205,7 @@ export default function HistoricoRicardo() {
         <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide">
           <span className="rounded border border-border px-3 py-1.5 text-muted-foreground">R1 Histórico Dados · aba Relatório Ricardo</span>
           <span className="rounded border border-border px-3 py-1.5 text-muted-foreground">Metas do board · funil Perpétuo</span>
-          <span className="rounded border px-3 py-1.5" style={{ borderColor: l44 ? VERDE : AMBAR, color: l44 ? VERDE : AMBAR }}>{l44 ? 'RGV 44 e 45 automáticos do HubSpot (funil Perpétuo)' : 'RGV 44 ainda não carregou do HubSpot'}</span>
+          <span className="rounded border px-3 py-1.5" style={{ borderColor: l44 ? VERDE : AMBAR, color: l44 ? VERDE : AMBAR }}>{l44 ? 'RGV 44 e 45 automáticos do HubSpot (funil Perpétuo)' : 'RGV 44 sem dados no funil (o funil só tem dados a partir de 01/09/2026)'}</span>
         </div>
 
         <Secao>{`Último ciclo fechado · RGV ${ultimo.numero}`}</Secao>
@@ -382,9 +405,15 @@ export default function HistoricoRicardo() {
         <div className="surface overflow-x-auto">
           <table className="w-full text-sm min-w-[1100px]">
             <thead><tr className="text-[10px] uppercase tracking-wide text-muted-foreground bg-secondary/40">
-              {['Ciclo', 'Período', 'Investimento', 'Captação', 'MQLs', 'R$/MQL', 'Agendados', 'Reuniões', 'Compareceu', 'Fecha', 'Vendas', 'Conversão', 'Ticket', 'Receita', 'CAC', 'ROAS'].map((h, i) => <th key={h} className={`px-3 py-2 whitespace-nowrap ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>)}</tr></thead>
+              {Object.keys(COLUNAS).map((h, i) => (
+                <th key={h} className={`px-3 py-2 whitespace-nowrap ${i > 1 ? 'text-right' : 'text-left'}`} aria-sort={ord.col === h ? (ord.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button type="button" title="Ordenar do menor para o maior e do maior para o menor" onClick={() => setOrd((o) => ({ col: h, dir: o.col === h && o.dir === 'desc' ? 'asc' : 'desc' }))} className={`inline-flex items-center gap-1 uppercase hover:text-foreground ${ord.col === h ? 'text-foreground' : ''}`}>
+                    {h}<span className="text-[9px]">{ord.col === h ? (ord.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+                  </button>
+                </th>
+              ))}</tr></thead>
             <tbody>
-              {todas.map((c) => (
+              {linhasOrdenadas.map((c) => (
                 <tr key={c.numero} className={`border-t border-border ${c.emCurso ? 'italic text-muted-foreground' : 'text-foreground'}`}>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">{`RGV ${c.numero}`}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{c.emCurso ? `${c.periodo} · ${decorridos} de ${dias} dias` : c.periodo}</td>
