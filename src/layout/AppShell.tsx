@@ -97,7 +97,7 @@ export default function AppShell() {
       </button>
       {aberta && <div className="md:hidden fixed inset-0 z-[55] bg-black/60" onClick={() => setAberta(false)} />}
 
-      <div className={`shrink-0 md:sticky md:top-0 md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
+      <div className={`shrink-0 md:sticky md:top-0 md:z-[60] md:h-screen ${fixaCompacta ? 'md:w-20' : 'md:w-60'}`}>
       <aside
       onMouseEnter={() => setSobre(true)}
       onMouseLeave={() => setSobre(false)}
