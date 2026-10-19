@@ -14,7 +14,7 @@
 - **Próximos eventos:** painel só na Visão geral (primeira coluna do grid). O Calendário mostra apenas o calendário (decisão da Joyce, 19/10).
 - **Tabela da Turnê por praça:** colunas Praça, Data, %, Ocupação, Vend.+cort., Receita, RGV, Clube, Trator, Prazo, cada título sobre a sua coluna. RGV/Clube/Trator vêm de `mdv_vendas_cidade`, que só atribui a praça quando a UTM tem `[80KM][CIDADE][dd/mm]` (cerca de 18 vendas/ano). Atribuição por contato e ingresso (e-mail, CPF/CNPJ, telefone, tabela `rgv.venda_contato`) está em andamento; até lá a tabela mostra menos vendas que o total.
 - **Fluxo Marketing MDV, funil:** sem filtro de status/cidade, Vendas RGV/Clube/Trator usam o total do período por data de fechamento (`public.mdv_vendas_periodo`, só leitura). Em 2026 até 19/10: 740 RGV, 106 Clube R1, 33 Trator. Com filtro, valem só as vendas com praça identificada.
-- **Black Friday 10X, vendas RGV/Clube/Trator:** hoje repete as vendas do ciclo RGV 45, que não são da Black. Definição pendente: vendas cuja UTM do contato tem `[BLACK26]` (19 RGV, 1 Clube, 0 Trator na checagem de 19/10), aguardando confirmação da Joyce.
+- **Black Friday 10X, vendas RGV/Clube/Trator:** só vendas cuja UTM do contato tem `[BLACK26]` e cuja data de fechamento é igual ou posterior a `black10x.config.janela_inicio` (24/09/2026), via `public.black10x_vendas()` (só leitura, permissão `painel`; cruza `rgv.venda_contato` com os negócios). Definição confirmada pela Joyce em 19/10. Em 19/10: 1 RGV (R$ 16.400,00), 0 Clube, 0 Trator. Vendas com [BLACK26] antes da janela não entram.
 - Enquanto carregam, os cards mostram esqueleto (estrutura fixa com blocos cinza).
 
 ## Desempenho

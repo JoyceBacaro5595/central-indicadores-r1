@@ -233,17 +233,27 @@ export default function VisaoGeral() {
   const pMql = r?.leads_crm ? Math.round(((r.mql ?? 0) / r.leads_crm) * 100) : null; // MQL é o "lead do ciclo"; leads_crm é a base total do CRM
 
   /* Vendas RGV, Clube R1 e Trator do ciclo, repetidas nos cards de Turnê e Black Friday (Joyce, 19/10) */
-  const vendasPerp = pode('perpetuo') && r ? (
+  const vendasBloco = (rotulo: string, v: { rgv: number; fRgv: number | null; cl: number | undefined; fCl: number | undefined; tr: number | undefined; fTr: number | undefined; total: number | null; fTotal: number | null }) => (
     <>
-      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{ciclo?.ciclo ?? 'ciclo atual'}</small></div>
+      <div className="rt-sub">Vendas RGV, Clube R1 e Trator <small>{rotulo}</small></div>
       <div className="rt-kpis rt-kpis-4">
-        <K l="Vendas RGV" v={n(r.vendas)} m={r.faturamento != null ? <>receita <b>{brl(r.faturamento)}</b></> : undefined} />
-        <K l="Vendas Clube R1" v={n(ct?.clube_r1.vendas)} m={ct ? <>receita <b>{brl(ct.clube_r1.faturamento)}</b></> : undefined} />
-        <K l="Vendas Trator" v={n(ct?.trator.vendas)} m={ct ? <>receita <b>{brl(ct.trator.faturamento)}</b></> : undefined} />
-        <K l="Total de vendas" v={n(vTotal)} m={fTotal != null ? <>receita <b>{brl(fTotal)}</b></> : undefined} />
+        <K l="Vendas RGV" v={n(v.rgv)} m={v.fRgv != null ? <>receita <b>{brl(v.fRgv)}</b></> : undefined} />
+        <K l="Vendas Clube R1" v={n(v.cl)} m={v.fCl != null ? <>receita <b>{brl(v.fCl)}</b></> : undefined} />
+        <K l="Vendas Trator" v={n(v.tr)} m={v.fTr != null ? <>receita <b>{brl(v.fTr)}</b></> : undefined} />
+        <K l="Total de vendas" v={n(v.total)} m={v.fTotal != null ? <>receita <b>{brl(v.fTotal)}</b></> : undefined} />
       </div>
     </>
-  ) : null;
+  );
+  const vendasPerp = pode('perpetuo') && r ? vendasBloco(ciclo?.ciclo ?? 'ciclo atual', {
+    rgv: r.vendas, fRgv: r.faturamento ?? null, cl: ct?.clube_r1.vendas, fCl: ct?.clube_r1.faturamento, tr: ct?.trator.vendas, fTr: ct?.trator.faturamento, total: vTotal, fTotal: fTotal ?? null,
+  }) : null;
+  /* Black Friday 10X: só vendas cujo contato veio da campanha [BLACK26], a partir do início da janela da Black (Joyce, 19/10) */
+  const bvQ = useQuery({ queryKey: ['vg-black10x-vendas'], queryFn: () => r1Rpc<{ rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }>('black10x_vendas', {}), refetchInterval: 15 * 60_000, enabled: pode('painel'), retry: false });
+  const bv = bvQ.data;
+  const vendasBlack = bv ? vendasBloco('campanha Black 2026', {
+    rgv: bv.rgv, fRgv: Number(bv.fat_rgv), cl: bv.clube_r1, fCl: Number(bv.fat_clube_r1), tr: bv.trator, fTr: Number(bv.fat_trator),
+    total: bv.rgv + bv.clube_r1 + bv.trator, fTotal: Number(bv.fat_rgv) + Number(bv.fat_clube_r1) + Number(bv.fat_trator),
+  }) : null;
 
   // ---- selo de atualização
   const atualizado = Math.max(eventosQ.dataUpdatedAt, metaQ.dataUpdatedAt, perp.dataUpdatedAt, detalheQ.dataUpdatedAt, bfQ.dataUpdatedAt);
@@ -458,7 +468,7 @@ export default function VisaoGeral() {
                       <K l="Investido" v={brl(bf.investido)} din />
                       <K l="CAC ingresso" v={brl(bf.ingressos ? bf.investido / bf.ingressos : null)} din />
                     </div>
-                    {vendasPerp}
+                    {vendasBlack}
                     <div className="rt-sub">Ingressos por dia <small>Guru{bf.meta_ate ? ` · investimento Meta até ${fmtD(bf.meta_ate)}` : ''}</small></div>
                     <Barras rows={bf.diario.map((d) => ({ dia: d.dia, ingressos: d.ingressos }) as unknown as Dia)} chave="ingressos" cor="#FFD43B" classe="rt-bars-rgv" />
                     <div className="rt-empty">Inscritos gratuitos ainda ficam só no painel da Lovable.</div>
