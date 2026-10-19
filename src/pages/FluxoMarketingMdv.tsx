@@ -16,21 +16,22 @@ interface MetaEvento {
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (d: string) => `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(2, 4)}`;
-const mesISO = (offset: number) => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d.toISOString().slice(0, 7) + '-01'; };
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }));
 const brl = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }));
 const brl2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%` : '—');
 const div = (a: number, b: number) => (b > 0 ? a / b : null);
 
-const CONTA_MDV = { nome: 'MÁQUINA DE VENDAS', id: '171474008015977' };
 const f2 = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }));
 const log = (v: number, max: number) => (v > 0 && max > 0 ? Math.max(2, Math.min(100, (100 * Math.log10(v + 1)) / Math.log10(max + 1))) : 0);
 
-const CARD_FAIXA = 'flex-1 basis-0 min-w-[120px] p-2';
+const CARD_FAIXA = 'faixa-slot min-w-0 border-b border-border md:border-b-0 md:flex-1 md:basis-0';
 const TITULO_FAIXA = 'text-[12px] font-bold text-foreground leading-tight min-h-[2rem]';
-const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap';
-const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap';
+const NUM_FAIXA = 'num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden';
+const CUSTO_FAIXA = 'custo-faixa text-foreground whitespace-nowrap overflow-hidden';
+
+/** Número de caracteres do valor: o CSS usa para o texto caber no card sem sobrepor. */
+const nFit = (t: string) => ({ ['--n' as string]: Math.max(3, t.length) }) as React.CSSProperties;
 
 const Linha = ({ k, v }: { k: string; v: string }) => (
   <div className="flex flex-col"><span className="text-muted-foreground">{k}</span><span className="font-bold text-foreground">{v}</span></div>
@@ -38,32 +39,22 @@ const Linha = ({ k, v }: { k: string; v: string }) => (
 
 function Etapa({ titulo, valor, largura, linhas, custoRotulo, custo }: { titulo: string; valor: string; largura: number; linhas: [string, string][]; custoRotulo: string; custo: string }) {
   return (
-    <div className={CARD_FAIXA}>
+    <div className={CARD_FAIXA}><div>
       <div className={TITULO_FAIXA}>{titulo}</div>
-      <div className={NUM_FAIXA}>{valor}</div>
+      <div className={NUM_FAIXA} style={nFit(valor)}>{valor}</div>
       <div className="h-1.5 rounded-full bg-muted mt-2.5 overflow-hidden"><div className="h-full rounded-full bg-primary/80" style={{ width: `${largura}%` }} /></div>
       <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">{linhas.map(([k, v]) => <Linha key={k} k={k} v={v} />)}</div>
       <div className="mt-3 text-[10px] text-muted-foreground leading-tight">{custoRotulo}</div>
-      <div className={CUSTO_FAIXA}>{custo}</div>
-    </div>
-  );
-}
-
-function ContaPill() {
-  return (
-    <div className="inline-flex items-center gap-2 h-9 rounded-lg border border-border bg-secondary/40 px-3">
-      <span className="w-2 h-2 rounded-full bg-muted-foreground" title="Identificação da conta; não indica status de atualização" />
-      <span className="text-xs font-bold text-foreground">{CONTA_MDV.nome}</span>
-      <span className="text-[11px] text-muted-foreground mono">{CONTA_MDV.id}</span>
-    </div>
+      <div className={CUSTO_FAIXA} style={nFit(custo)}>{custo}</div>
+    </div></div>
   );
 }
 
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
 export default function FluxoMarketingMdv() {
-  const [de, setDe] = useState(mesISO(-1));
-  const [ate, setAte] = useState(mesISO(3));
+  const [de, setDe] = useState(`${new Date().getUTCFullYear()}-01-01`);
+  const [ate, setAte] = useState(`${new Date().getUTCFullYear()}-12-01`);
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const dados = q.data ?? [];
 
@@ -81,14 +72,14 @@ export default function FluxoMarketingMdv() {
         subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
         onAtualizar={() => q.refetch()}
         atualizando={q.isFetching}
-        acoes={<div className="hidden lg:flex items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
+        acoes={<div className="hidden lg:flex items-center gap-2"><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>}
       />
       <PageBody className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="toggle-group">
             {ABAS.map((a) => <button key={a.valor} className="toggle-item toggle-item-ativo">{a.rotulo}</button>)}
           </div>
-          <div className="flex lg:hidden flex-wrap items-center gap-2"><ContaPill /><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
+          <div className="flex lg:hidden flex-wrap items-center gap-2"><FiltroPeriodo rotulo="Meses do evento" modo="mes" de={de} ate={ate} onChange={(a, b) => { setDe(a); setAte(b); }} /></div>
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -112,11 +103,11 @@ export default function FluxoMarketingMdv() {
 
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
-            <div className="surface overflow-x-auto">
-              <div className="flex flex-nowrap divide-x divide-border min-w-[1100px]">
-                <div className={CARD_FAIXA}>
+            <div className="surface overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-nowrap md:divide-x md:divide-border [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-border sm:[&>*:nth-child(odd)]:border-r-0 sm:[&>*:not(:nth-child(4n))]:border-r sm:[&>*]:border-border md:[&>*]:border-r-0">
+                <div className={CARD_FAIXA}><div>
                   <div className={TITULO_FAIXA}>Investimento</div>
-                  <div className="num-faixa num-faixa-brl leading-none mt-2 text-foreground whitespace-nowrap">{brl2(t.inv)}</div>
+                  <div className="num-faixa leading-none mt-2 text-foreground whitespace-nowrap overflow-hidden" style={nFit(brl2(t.inv))}>{brl2(t.inv)}</div>
                   <div className="h-1.5 mt-2.5" />
                   <div className="mt-2 space-y-1.5 text-[10px] min-h-[2.5rem]">
                     <Linha k="Campanhas" v={num(t.camp)} />
@@ -124,7 +115,7 @@ export default function FluxoMarketingMdv() {
                   </div>
                   <div className="mt-3 text-[10px] text-muted-foreground leading-tight">Meta Ads · Máquina de Vendas</div>
                   <div className={CUSTO_FAIXA}>&nbsp;</div>
-                </div>
+                </div></div>
                 <Etapa titulo="Impressões" valor={num(t.imp)} largura={log(t.imp, max)} linhas={[['Cliques', num(t.cli)]]} custoRotulo="CPM" custo={brl2(div(t.inv * 1000, t.imp))} />
                 <Etapa titulo="Cliques no link" valor={num(t.cli)} largura={log(t.cli, max)} linhas={[['CTR', pct(t.cli, t.imp)], ['Meta de CTR', '1%']]} custoRotulo="CPC" custo={brl2(div(t.inv, t.cli))} />
                 <Etapa titulo="Visitas LP" valor="—" largura={0} linhas={[['Connect rate', '—']]} custoRotulo="Custo por visita" custo="—" />

@@ -446,9 +446,9 @@ h1, h2, h3, .kpi-value, .funnel-value, .side-metric-value { font-family: 'Bricol
 .faixa-slot { container-type: inline-size; }
 .faixa-slot > div:first-child { padding: 0.75rem 0.85rem; }
 .num-faixa, .custo-faixa { font-family: 'Bricolage Grotesque', 'Rethink Sans', system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.num-faixa { font-size: clamp(14px, calc((100cqw - 1.7rem) / 4), 32px); }
+.num-faixa { font-size: clamp(10px, calc((100cqw - 1.7rem) / (var(--n, 6.45) * 0.62)), 32px); }
 .num-faixa-brl { font-size: clamp(10px, calc((100cqw - 1.7rem) / 8), 26px); }
-.custo-faixa { font-size: clamp(10px, calc((100cqw - 1.7rem) / 8.5), 19px); margin-top: 0.15rem; }
+.custo-faixa { font-size: clamp(10px, calc((100cqw - 1.7rem) / (var(--n, 13.7) * 0.62)), 19px); margin-top: 0.15rem; }
 
 .faixa-slot > div:first-child { padding: 0.7rem clamp(0.4rem, 8cqw, 0.85rem); }
 .faixa-slot .text-\[10px\] { font-size: clamp(9px, 7.2cqw, 11px); }
