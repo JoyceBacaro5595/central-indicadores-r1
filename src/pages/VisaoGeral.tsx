@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { usePerpetuo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, useMetaCiclo } from '@/hooks/usePerpetuo';
 import { Link } from 'react-router-dom';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
@@ -213,6 +213,8 @@ export default function VisaoGeral() {
   const pi = pct(vendas, metaIng), pr = pct(receita, metaFat);
 
   // ---- RGV
+  const metaCicloQ = useMetaCiclo(pode('perpetuo'));
+  const metaLeads = metaCicloQ.data?.find((m) => m.ciclo === ciclo?.ciclo)?.leads ?? null;
   const r = perp.data?.resumo;
   const diarioRgv: Dia[] = (perp.data?.diario ?? []).map((d) => ({ dia: d.data, leads: d.leads_crm ?? 0 }));
   const dCorr = ciclo ? Math.max(0, diasAte(hojeStr, ciclo.inicio) + 1) : null;
@@ -346,8 +348,8 @@ export default function VisaoGeral() {
                 {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
                   <>
                     <div className="rt-hero">
-                      <Anel p={null} cor="var(--red)" />
-                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>—</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
+                      <Anel p={metaLeads && r.leads_crm != null ? (r.leads_crm / metaLeads) * 100 : null} cor="var(--red)" />
+                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>{metaLeads != null ? n(metaLeads) : '—'}</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Investido" v={brl(r.investimento)} din />

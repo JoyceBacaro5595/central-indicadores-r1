@@ -20,7 +20,7 @@ export default function MetasCicloRgv({ e }: { e: EventoEditavel }) {
   const atual = lista.data?.find((m) => m.ciclo === ciclo);
   const [aberto, setAberto] = useState(false);
   const [v, setV] = useState<Record<string, string>>({});
-  const abrir = () => { setV(Object.fromEntries([...TAXAS.map(([k]) => k), 'investimento', 'vendas'].map((k) => [k, txt(atual?.[k as keyof MetaCicloRgv] as number | null | undefined)]))); setAberto(true); };
+  const abrir = () => { setV(Object.fromEntries([...TAXAS.map(([k]) => k), 'investimento', 'vendas', 'leads'].map((k) => [k, txt(atual?.[k as keyof MetaCicloRgv] as number | null | undefined)]))); setAberto(true); };
   const salvar = useMutation({
     mutationFn: () => r1Rpc('meta_ciclo_salvar', { p_ciclo: ciclo, p_metas: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, numOuNulo(x)])) }),
     onSuccess: () => { setAberto(false); qc.invalidateQueries({ queryKey: ['meta-ciclo'] }); qc.invalidateQueries({ queryKey: ['perpetuo-funil-v2'] }); },
@@ -33,6 +33,7 @@ export default function MetasCicloRgv({ e }: { e: EventoEditavel }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {TAXAS.map(([k, r]) => <label key={k} className="text-[10px] text-muted-foreground">{r}<input type="number" min={0} max={100} step="0.1" className={`${campo} mt-1`} value={v[k] ?? ''} onChange={(x) => setV((o) => ({ ...o, [k]: x.target.value }))} /></label>)}
         <label className="text-[10px] text-muted-foreground">Investimento (R$)<input type="number" min={0} step="0.01" className={`${campo} mt-1`} value={v.investimento ?? ''} onChange={(x) => setV((o) => ({ ...o, investimento: x.target.value }))} /></label>
+        <label className="text-[10px] text-muted-foreground">Leads<input type="number" min={0} className={`${campo} mt-1`} value={v.leads ?? ''} onChange={(x) => setV((o) => ({ ...o, leads: x.target.value }))} /></label>
         <label className="text-[10px] text-muted-foreground">Vendas<input type="number" min={0} className={`${campo} mt-1`} value={v.vendas ?? ''} onChange={(x) => setV((o) => ({ ...o, vendas: x.target.value }))} /></label>
       </div>
       {salvar.error && <p className="text-xs text-red-400" role="alert">{(salvar.error as Error).message}</p>}

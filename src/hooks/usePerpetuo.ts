@@ -63,7 +63,7 @@ export interface PerpetuoMetas {
   ciclo?: string; numero?: number; fonte?: string | null;
   conexao?: number | null; qualificacao?: number | null; agendamento?: number | null;
   comparecimento?: number | null; fechamento?: number | null; mql_venda?: number | null;
-  investimento?: number | null; vendas?: number | null;
+  investimento?: number | null; vendas?: number | null; leads?: number | null;
 }
 
 /** Qualidade geral do lote publicado. */
