@@ -29,6 +29,8 @@ async function hsPost(token: string, path: string, body: unknown): Promise<any> 
   return await r.json();
 }
 const campanhaDaUrl = (u: string | null) => { try { return u ? new URL(u).searchParams.get("utm_campaign") : null; } catch { return null; } };
+// ciclo pelo final do nome do negócio ("... / RGV 44"): semeia o aprendizado do id de tag quando o ciclo é novo e ainda não há evento_tag
+const cicloDoNome = (n: string | null) => { const m = String(n ?? "").match(/\bRGV\s*(\d{2,3})\s*$/i); return m ? `RGV ${Number(m[1])}` : null; };
 const dataSP = (iso: string | null) => iso ? new Date(Date.parse(iso) - 3 * 3600_000).toISOString().slice(0, 10) : null;
 
 Deno.serve(async (req) => {
@@ -64,7 +66,7 @@ Deno.serve(async (req) => {
     const tagAtual = new Map<string, string | null>(atuais.map((a: any) => [a.deal_id, a.evento_tag || null]));
     const tally = new Map<string, Map<string, number>>();
     for (const d of deals) {
-      const ev = tagAtual.get(d.id);
+      const ev = tagAtual.get(d.id) || cicloDoNome(d.properties.dealname);
       if (!ev) continue;
       for (const t of String(d.properties.hs_tag_ids ?? "").split(";").filter(Boolean)) {
         const m = tally.get(t) ?? new Map<string, number>(); m.set(ev, (m.get(ev) ?? 0) + 1); tally.set(t, m);
