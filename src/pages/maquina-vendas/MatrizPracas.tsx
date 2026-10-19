@@ -23,7 +23,7 @@ export default function MatrizPracas({ eventos, detalhe, carregando }: { eventos
     const ocup = d ? d.ingressos : null;
     const vend = d ? d.comuns_pagos + d.vip_pagos : null;
     return { e, d, meta: e.meta_ingressos ?? PADRAO.meta, cap, ocup, disp: ocup == null ? null : Math.max(0, cap - ocup), vend, cort: d ? d.cortesias : null, vip: d ? d.vip_pagos : null, fat: d ? d.faturamento : null, passou: (e.data_evento ?? e.mes_evento) < hoje };
-  }), [eventos, detalhe, hoje]);
+  }).sort((a, b) => Number(a.passou) - Number(b.passou)), [eventos, detalhe, hoje]);
   const T = useMemo(() => linhas.reduce((s, l) => ({ meta: s.meta + l.meta, cap: s.cap + l.cap, ocup: s.ocup + (l.ocup ?? 0), disp: s.disp + (l.disp ?? 0), vend: s.vend + (l.vend ?? 0), cort: s.cort + (l.cort ?? 0), vip: s.vip + (l.vip ?? 0), fat: s.fat + (l.fat ?? 0) }), { meta: 0, cap: 0, ocup: 0, disp: 0, vend: 0, cort: 0, vip: 0, fat: 0 }), [linhas]);
 
   return (

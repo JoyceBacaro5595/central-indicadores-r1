@@ -181,8 +181,9 @@ export default function VisaoGeral() {
   const cidadesTurne = useMemo(() => {
     const doBanco = eventos.map((e) => ({ cidade: e.cidade, data: e.data_evento ?? e.mes_evento.slice(0, 7) + '-01', inicio: '' }));
     const faltam = ROTA.cidades.filter((c) => !eventos.some((x) => mesmoEvento(x, c)));
-    return [...doBanco, ...faltam].sort((a, b) => a.data.localeCompare(b.data));
-  }, [eventos]);
+    /* as praças que ainda vão acontecer ficam no topo; as realizadas descem (Joyce, 19/10) */
+    return [...doBanco, ...faltam].sort((a, b) => a.data.localeCompare(b.data)).sort((a, b) => Number(a.data < hojeStr) - Number(b.data < hojeStr));
+  }, [eventos, hojeStr]);
   const rota = useMemo(() => cidadesTurne.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
     const data = e?.data_evento ?? c.data;
