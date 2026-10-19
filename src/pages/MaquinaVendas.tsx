@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import DashboardRota, { type Presenca } from './maquina-vendas/DashboardRota';
 import { usePlanoRota } from './maquina-vendas/plano';
+import MatrizPracas from './maquina-vendas/MatrizPracas';
 import Captacao from './maquina-vendas/Captacao';
 import Calendario from './maquina-vendas/Calendario';
 import Debriefing from './maquina-vendas/Debriefing';
@@ -25,9 +26,9 @@ interface MetaEvento { cidade: string; mes_evento: string; campanhas: number; in
 import type { Cadeiras } from './maquina-vendas/DashboardRota';
 interface HubEvento { cidade: string; mes_evento: string; compradores: number; compradores_hubspot: number; compradores_qualificados: number; leads: number; leads_qualificados: number }
 
-type Aba = 'dashboard' | 'debriefing' | 'captacao' | 'calendario' | 'controle';
+type Aba = 'dashboard' | 'matriz' | 'debriefing' | 'captacao' | 'calendario' | 'controle';
 const ABAS: { valor: Aba; rotulo: string }[] = [
-  { valor: 'dashboard', rotulo: 'Rotas' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
+  { valor: 'dashboard', rotulo: 'Rotas' }, { valor: 'matriz', rotulo: 'Matriz - Praças' }, { valor: 'debriefing', rotulo: 'Debriefing' }, { valor: 'captacao', rotulo: 'Em captação' }, { valor: 'calendario', rotulo: 'Calendário' }, { valor: 'controle', rotulo: 'Painel de Controle' },
 ];
 
 const num = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('pt-BR'));
@@ -76,6 +77,8 @@ export default function MaquinaVendas() {
         {eventos.error && <div className="surface p-4 text-sm text-red-400">{(eventos.error as Error).message}</div>}
 
         {aba === 'dashboard' && <DashboardRota detalhe={detalhe.data ?? []} eventosHist={eventosHist.data ?? []} eventos={eventos.data ?? []} meta={meta.data ?? []} hub={hub.data ?? []} presenca={presenca.data ?? []} cadeiras={cadeiras.data ?? []} carregando={eventos.isLoading || meta.isLoading} />}
+
+        {aba === 'matriz' && <MatrizPracas eventos={eventosHist.data ?? []} detalhe={detalhe.data ?? []} carregando={eventosHist.isLoading || detalhe.isLoading} />}
 
         {aba === 'debriefing' && <Debriefing eventos={eventosHist.data ?? []} meta={metaAno.data ?? []} />}
 
