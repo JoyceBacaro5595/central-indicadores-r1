@@ -8,7 +8,6 @@ import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
-import ProximosEventos from './visao-geral/ProximosEventos';
 import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
@@ -381,6 +380,34 @@ export default function VisaoGeral() {
         </header>
 
         <main className="rt-grid">
+          {(
+            <section className="rt-card rt-ev" style={pode('eventos') ? { cursor: 'pointer' } : undefined} role="button" tabIndex={0} onClick={abrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrir(); }}>
+              <div className="rt-h"><span>Próximos eventos</span><small>{fonteAgenda}</small></div>
+              {!prox ? <div className="rt-empty">Sem eventos futuros na planilha.</div> : (
+                <>
+                  <div className="rt-next" style={{ ['--c' as string]: (CAT[prox.cat] || CAT.outros)[0] }}>
+                    <div className="tag">Próximo · {(CAT[prox.cat] || CAT.outros)[1]}</div>
+                    <div className="t">{prox.titulo}</div>
+                    <div className="w">{quando(prox)}{prox.local ? ` · ${prox.local}` : ''}</div>
+                    <div className="cd">{aoVivo ? <div><b>AO VIVO</b><span>acontecendo agora</span></div> : cd?.map((c) => <div key={c.r}><b>{c.v}</b><span>{c.r}</span></div>)}</div>
+                  </div>
+                  <ol className="rt-list">
+                    {fut.slice(1, 25).map((e, i) => {
+                      const d = dt(e.inicio), c = (CAT[e.cat] || CAT.outros)[0], dd = Math.round((d.getTime() - h0.getTime()) / DAY);
+                      return (
+                        <li key={`${e.inicio}-${e.titulo}-${i}`}>
+                          <div className="d"><b>{String(d.getDate()).padStart(2, '0')}</b><span>{MESC[d.getMonth()]}</span></div>
+                          <div className="n"><b><i className="dot" style={{ ['--c' as string]: c }} />{e.titulo}</b><span>{[SEM[d.getDay()] + (e.fim && e.fim !== e.inicio ? ` a ${fmtD(e.fim)}` : ''), e.local, e.hora].filter(Boolean).join(' · ')}</span></div>
+                          <div className={`q${dd <= 0 ? ' hoje' : ''}`}>{dd <= 0 ? 'hoje' : dd === 1 ? 'amanhã' : `em ${dd} dias`}</div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </section>
+          )}
+
           {turne(false)}
 
           {(
@@ -441,7 +468,6 @@ export default function VisaoGeral() {
             </>
           )}
         </main>
-        <ProximosEventos eventos={lista} fonte={fonteAgenda} />
         {ampliado && (
           <div className="rt-modal" role="dialog" aria-modal="true" aria-label="Detalhamento da Turnê Máquina de Vendas" onClick={() => setAmpliado(false)}>
             <div className="rt-modal-box" onClick={(e) => e.stopPropagation()}>{turne(true)}</div>
