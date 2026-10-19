@@ -116,7 +116,7 @@ export default function HistoricoRicardo() {
       numero, periodo: `${dataBr(inicio)} a ${dataBr(fim)}`,
       invest, captacao: invest, mqls, vendas, ticket: vendas ? receita / vendas : 0, receita, cac: vendas ? invest / vendas : invest, cplFundo: 0,
       cpl: r.mql ? (r.investimento ?? 0) / r.mql : 0, saldo: receita - invest, impressoes: r.impressoes ?? 0, cpm: r.cpm ?? 0, alcance: r.alcance ?? 0,
-      ctr: r.ctr ?? 0, connect: r.cliques ? ((r.visualizacoes_lp ?? 0) / r.cliques) * 100 : 0, convPagina: r.conversao_lp ?? 0,
+      ctr: r.ctr ?? 0, connect: r.cliques ? ((r.visualizacoes_lp ?? 0) / r.cliques) * 100 : 0, convPagina: r.conversao_lp ?? (r.visualizacoes_lp && r.leads_crm != null ? (r.leads_crm / r.visualizacoes_lp) * 100 : 0),
       agendados: r.reunioes_agendadas ?? null, reunioes: r.reunioes_realizadas ?? null, origem: null,
     };
     return deriva(c);

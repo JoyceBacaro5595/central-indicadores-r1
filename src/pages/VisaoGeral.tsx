@@ -428,7 +428,7 @@ export default function VisaoGeral() {
                     </div>
                     <div className="rt-kpis rt-kpis-2">
                       <K l="CTR (link)" v={pc2(r.ctr)} />
-                      <K l="Conversão da página" v={pc2(r.conversao_lp)} m={<>visita → lead</>} />
+                      <K l="Conversão da página" v={pc2(r.conversao_lp ?? (r.visualizacoes_lp && r.leads_crm != null ? (r.leads_crm / r.visualizacoes_lp) * 100 : null))} m={<>visita (Meta) → lead (CRM)</>} />
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
