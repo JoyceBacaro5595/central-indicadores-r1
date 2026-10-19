@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
+import AvisosSino from '@/components/AvisosSino';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CalendarRange, CalendarDays, FileText, UserCheck, ShoppingCart, Waypoints, Users, Settings, Menu, X, ChevronDown, ChevronLeft, ChevronRight,
@@ -154,6 +155,7 @@ export default function AppShell() {
       </aside>
       </div>
 
+      <div className="fixed top-3 right-3 z-40 print:hidden"><AvisosSino /></div>
       <div className="flex-1 min-w-0">
         <Suspense fallback={<div role="status" aria-label="Carregando" className="p-8 space-y-3 animate-pulse motion-reduce:animate-none"><div className="h-8 w-64 rounded-lg bg-secondary" /><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /><div className="h-24 rounded-xl bg-secondary" /></div><div className="h-64 rounded-xl bg-secondary" /></div>}>
           <Outlet />
