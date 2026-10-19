@@ -5,7 +5,7 @@ Módulo `/upsell/clube-r1` e `/upsell/trator` (recurso `perpetuo`). Pedido da Jo
 ## O que a tela mostra
 - Layout padrão da plataforma: filtro de período no topo (`PeriodoPadrao`, regra em `padrao-filtro-periodo.md`), abas `toggle-group`, título com faturamento e ticket médio do período.
 - O filtro de período vale para a **data de fechamento** das vendas. Seletor de tag do ciclo (ex.: "RGV 44").
-- Cards: vendas e última venda. Gráficos: vendas e faturamento por tag; faturamento por mês de fechamento (quantidade acima da barra).
+- Cards: vendas e última venda. Gráficos: vendas e faturamento por tag; vendas (barras, quantidade acima) e faturamento (linha) por mês de fechamento.
 - Tabelas por tag, origem (`origem_dos_negocios`) e campanha (`utm_camp`), mais a lista de negócios ganhos. Valores em reais sempre com 2 decimais.
 - Só na aba Clube R1: tabela **Aplicações por ciclo** (quantidade, % e faturamento por situação).
 
