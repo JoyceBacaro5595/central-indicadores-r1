@@ -76,7 +76,7 @@ function Anel({ p, cor, rot }: { p: number | null; cor: string; rot?: string }) 
   return (
     <div className="ring">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r={r} fill="none" stroke="#232323" strokeWidth="10" /><circle cx="50" cy="50" r={r} fill="none" stroke={cor} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${fill} ${cf}`} /></svg>
-      <div><b>{p == null ? '—' : `${p}%`}</b><span>{rot || 'da meta'}</span></div>
+      <div><b>{p == null ? '—' : `${Math.round(p)}%`}</b><span>{rot || 'da meta'}</span></div>
     </div>
   );
 }
