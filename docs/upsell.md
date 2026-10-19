@@ -31,7 +31,7 @@ Módulo `/upsell/clube-r1` e `/upsell/trator` (recurso `perpetuo`). Pedido da Jo
 - Na lista de negócios, o nome foi trocado pelo ID do HubSpot, com link para o negócio (portal 23586399).
 
 ## Tela Ciclos RGV (Relatório Ricardo)
-- Série fechada RGV 29 a 43: planilha "R1 Histórico Dados" (dados fixos, `src/pages/historico/dados.ts`), mantida.
+- Série fechada RGV 29 a 43: planilha "R1 Histórico Dados" (dados fixos, `src/pages/historico/dados.ts`), mantida como a Joyce enviou (decisão de 19/10). Só do RGV 45 em diante é automático. O RGV 44 fica fora: o funil publicado só tem dados desde 01/09/2026 (carga histórica do Meta ainda em andamento; quando terminar, mudar `start_day` de `rgv.sync_config` tool 'etl' para 2026-01-01). Período mostrado com ano (dd/mm/aaaa); série em ordem decrescente e ordenável por coluna; valores em reais completos, sem "k".
 - RGV 45 (em curso): real acumulado até hoje e, ao lado, a projeção linear pelo ritmo (tabela, leitura e gráfico), do funil do Perpétuo (HubSpot). A projeção de vendas tende a subestimar, porque as vendas se concentram no evento.
 
 ## Pendências
