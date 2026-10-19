@@ -8,6 +8,8 @@ import { FONTE_HISTORICO, HISTORICO, METAS_BOARD, type CicloHist } from './histo
 /* Relatório Ricardo · Histórico Dados (pedido da Joyce, 19/10): réplica de funil-rgv-perpetuo.vercel.app/historico no layout da Central.
  * Série fechada (RGV 29 a 43) vem da planilha; o histórico fica como a Joyce enviou e só o ciclo 45 em diante é automático (19/10); o RGV 44 ficou fora porque o funil só tem dados desde 01/09/2026; o ciclo 45 vem do funil do Perpétuo em tempo real e aparece com o real acumulado e, ao lado, a projeção linear pelo ritmo, em todos os blocos (pedido da Joyce, 19/10). */
 const CICLO_ATUAL = { numero: 45, inicio: '2026-09-29', fim: '2026-11-03' };
+/* Ciclos fechados depois do último da planilha (RGV 43): calculados pelo funil do Perpétuo, sem digitação. Datas seguem a planilha (o 44 começa no dia seguinte ao fim do 43). */
+const CICLO_44 = { numero: 44, inicio: '2026-08-25', fim: '2026-09-28' };
 const VERM = '#FF0026', VERDE = '#4CD68A', AMBAR = '#F5A623', CINZA = '#8A8A93';
 const DIA = 864e5;
 const parse = (s: string) => { const [a, m, d] = s.split('-').map(Number); return new Date(a, m - 1, d); };
@@ -99,6 +101,8 @@ export default function HistoricoRicardo() {
   const ate = hoje < CICLO_ATUAL.fim ? hoje : CICLO_ATUAL.fim;
   const perp = usePerpetuo(CICLO_ATUAL.inicio, ate, true);
   const r = perp.data?.resumo;
+  const perp44 = usePerpetuo(CICLO_44.inicio, CICLO_44.fim, true);
+  const r44 = perp44.data?.resumo;
   const [met, setMet] = useState('vendas');
   const [ord, setOrd] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'Ciclo', dir: 'desc' });
 
@@ -120,7 +124,10 @@ export default function HistoricoRicardo() {
   const atual: Linha | null = useMemo(() => (r ? { ...monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, 1), emCurso: true } : null), [r]); // eslint-disable-line react-hooks/exhaustive-deps
   const proj: Linha | null = useMemo(() => (r ? monta(r, CICLO_ATUAL.numero, CICLO_ATUAL.inicio, CICLO_ATUAL.fim, fator) : null), [r, fator]); // eslint-disable-line react-hooks/exhaustive-deps
   const anos = useMemo(() => periodosComAno(HISTORICO, 2024), []);
-  const fechados = useMemo(() => HISTORICO.map((c) => deriva({ ...c, periodo: anos.get(c.numero) ?? c.periodo })), [anos]);
+  const fechados = useMemo(() => {
+    const lista = HISTORICO.map((c) => deriva({ ...c, periodo: anos.get(c.numero) ?? c.periodo }));
+    return r44 ? [...lista, monta(r44, CICLO_44.numero, CICLO_44.inicio, CICLO_44.fim, 1)] : lista;
+  }, [anos, r44]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ultimo = fechados[fechados.length - 1], penultimo = fechados[fechados.length - 2];
   const serie = (m: Metrica) => fechados.map((c) => m.vl(c) ?? 0);

@@ -169,6 +169,9 @@ export default function VisaoGeral() {
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
+  const vcQ = useQuery({ queryKey: ['vg-vendas-cidade', INICIO_ANO, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number }[]>('mdv_vendas_cidade', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos'), retry: false });
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  const vendasCid = (cidade: string, data: string) => (vcQ.data ?? []).find((v) => v.mes_evento.slice(0, 7) === data.slice(0, 7) && semAcento(v.cidade) === semAcento(cidade));
   const canalQ = useQuery({ queryKey: ['vg-ingressos-canal', INICIO_ANO, ate], queryFn: () => r1Rpc<LinhaCanal[]>('mv_ingressos_canal_v2', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos'), retry: false });
   const hojeStr = ymd(agora);
   // A lista de ciclos vem em qualquer janela; a janela curta evita o limite de 8 s do banco que a leitura sem datas estourava.
@@ -324,7 +327,7 @@ export default function VisaoGeral() {
 
                 <div className="rt-sub">Ocupação por praça</div>
                 <div className={`rt-cities${ampliado ? ' rt-ext' : ''}`}>
-                  <div className="cty cty-h"><div className="nm">Praça</div><div className="dt">Data</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div>{!ampliado && <div className="ct">Receita</div>}<div className="dl">Prazo</div>
+                  <div className="cty cty-h"><div className="nm">Praça</div><div className="dt">Data</div><div className="pc">%</div><div className="ct">Ocupação</div><div className="rit">Vend.+cort.</div>{!ampliado && <div className="ct">Receita</div>}<div className="ct">RGV</div><div className="ct">Clube</div><div className="ct">Trator</div><div className="dl">Prazo</div>
                     {ampliado && <><div className="ct">Meta</div><div className="ct">Vendidos</div><div className="ct">Disponíveis</div><div className="ct">Faturamento</div><div className="ct">Comuns</div><div className="ct">Cortesias</div><div className="ct">VIPs</div></>}
                   </div>
                   {cidades.map(({ x, dias }) => {
@@ -338,6 +341,7 @@ export default function VisaoGeral() {
                         <div className="ct">{n(x.real)} <span>/ {n(x.cap)}</span></div>
                         <div className="rit vc">{n(x.pagos)}<span>+{n(x.cort)}</span></div>
                         {!ampliado && <div className="ct">{brl(x.fat)}</div>}
+                        {(() => { const vc = x.data ? vendasCid(x.c.cidade, x.data) : undefined; const f = (v?: number) => (vcQ.data ? n(v ?? 0) : '—'); return <><div className="ct">{f(vc?.rgv)}</div><div className="ct">{f(vc?.clube_r1)}</div><div className="ct">{f(vc?.trator)}</div></>; })()}
                         <div className="dl">{x.real > x.cap && dias >= 0 ? <b className="good">LOTADO</b> : dias < 0 ? 'realizado' : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `${dias} dias`}</div>
                         {ampliado && (
                           <>
