@@ -8,6 +8,7 @@ import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
+import ProximosEventos from './visao-geral/ProximosEventos';
 import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
@@ -436,6 +437,7 @@ export default function VisaoGeral() {
             </>
           )}
         </main>
+        <ProximosEventos eventos={lista} fonte={fonteAgenda} />
         {ampliado && (
           <div className="rt-modal" role="dialog" aria-modal="true" aria-label="Detalhamento da Turnê Máquina de Vendas" onClick={() => setAmpliado(false)}>
             <div className="rt-modal-box" onClick={(e) => e.stopPropagation()}>{turne(true)}</div>
