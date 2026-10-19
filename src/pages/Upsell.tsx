@@ -158,7 +158,10 @@ export default function Upsell() {
   return (
     <div className="min-h-screen bg-background">
       <PageHeader titulo={`Upsell · ${cfg.titulo}`} subtitulo="Vendas ganhas pela tag do ciclo (HubSpot)" onAtualizar={() => q.refetch()} atualizando={q.isFetching}
-        acoes={<div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>} />
+        acoes={<div className="flex items-center gap-2">
+          {q.data?.atualizado_em && <span className="text-xs text-muted-foreground whitespace-nowrap">Última atualização: {new Date(q.data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}
+          <div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>
+        </div>} />
       <PageBody className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="toggle-group">
@@ -192,7 +195,7 @@ export default function Upsell() {
 
         <div className="grid grid-cols-2 gap-3">
           <K l="Vendas" v={nf(itens.length)} s={tag === 'todas' ? 'todos os ciclos' : tag} />
-          <K l="Última venda" v={dataBr(ultima)} s={q.data?.atualizado_em ? `base atualizada ${new Date(q.data.atualizado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : undefined} />
+          <K l="Última venda" v={dataBr(ultima)} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-3">
