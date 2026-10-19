@@ -339,7 +339,7 @@ export default function VisaoGeral() {
             <>
               <section className="rt-card rt-rgv">
                 <div className="rt-h"><span><i className="dot" style={{ ['--c' as string]: '#FE0026' }} />Método RGV · <b>{ciclo ? ciclo.ciclo.replace(/^RGV\s*/, 'Ciclo ') : 'Ciclo'}</b></span><small>{ciclo && dCorr != null ? `dia ${Math.min(dCorr, ciclo.dias)} de ${ciclo.dias}` : ''}</small></div>
-                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (perp.error || perpBase.error) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
+                {!pode('perpetuo') ? <div className="rt-empty">Sem permissão para ver o Perpétuo.</div> : (!r && (perp.error || perpBase.error)) ? <div className="rt-empty">Erro ao ler o funil: {String(((perp.error || perpBase.error) as Error).message ?? (perp.error || perpBase.error))}</div> : !r ? <Esqueleto /> : (
                   <>
                     <div className="rt-hero">
                       <Anel p={null} cor="var(--red)" />

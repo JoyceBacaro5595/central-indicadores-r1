@@ -121,7 +121,9 @@ export function usePerpetuo(de?: string, ate?: string, habilitado = true) {
     refetchInterval: 5 * 60_000,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
-    retry: false,
+    // O funil pode estourar o limite de 8 s do banco quando o coletor está rodando; tenta de novo antes de mostrar erro.
+    retry: 2,
+    retryDelay: (n) => 2500 * (n + 1),
   });
 }
 
