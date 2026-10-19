@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import UserMenu from '@/components/UserMenu';
 import { presets } from '@/lib/periodos';
-import AvisosSino from '@/components/AvisosSino';
 
 /* ─── Componentes visuais compartilhados da Central ─── */
 
@@ -49,8 +48,8 @@ export function PageHeader({ titulo, subtitulo, acoes, onAtualizar, atualizando 
             <RefreshCw className={`w-4 h-4 ${atualizando ? 'animate-spin' : ''}`} />
           </button>
         )}
-        <AvisosSino />
         <UserMenu />
+        <span className="w-8 shrink-0" aria-hidden="true" />
       </div>
     </header>
   );

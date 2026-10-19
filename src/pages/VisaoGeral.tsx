@@ -2,13 +2,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useAuth } from '@/auth/AuthProvider';
-import { usePerpetuo } from '@/hooks/usePerpetuo';
+import { usePerpetuo, useMetaCiclo } from '@/hooks/usePerpetuo';
 import { Link } from 'react-router-dom';
 import { ROTA, mesmoEvento } from './maquina-vendas/rota';
 import { usePlanoRota } from './maquina-vendas/plano';
 import type { CidadeIng } from './maquina-vendas/CidadeCard';
 import { lerAgendaAoVivo, type EventoAgenda } from './visao-geral/agenda';
-import AvisosSino from '@/components/AvisosSino';
 import './visao-geral/painel.css';
 
 /* Visão geral do grupo, página inicial do app (pedido da Joyce, 14/10): o painel "Sala R1 · tempo real" (lp.grupor1.com/realtime)
@@ -163,7 +162,7 @@ export default function VisaoGeral() {
     return () => { vivo = false; clearInterval(t); };
   }, []);
 
-  const de = mesISO(-1), ate = mesISO(4), INICIO_ANO = '2026-01-01';
+  const INICIO_ANO = '2026-01-01', de = INICIO_ANO, ate = '2026-12-31';
   const eventosQ = useQuery({ queryKey: ['vg-eventos', de, ate], queryFn: () => r1Rpc<Evento[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
   const metaQ = useQuery({ queryKey: ['vg-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000, enabled: pode('eventos') });
   const detalheQ = useQuery({ queryKey: ['vg-cidade-ingressos', INICIO_ANO, ate], queryFn: () => r1Rpc<CidadeIng[]>('mv_cidade_ingressos', { p_de: INICIO_ANO, p_ate: ate }), refetchInterval: 5 * 60_000, enabled: pode('eventos') });
@@ -177,12 +176,18 @@ export default function VisaoGeral() {
   const bfQ = useQuery({ queryKey: ['vg-black10x'], queryFn: () => r1Rpc<{ ingressos: number; receita: number; reembolsos: number; ultima_carga: string; investido: number; lpv: number; checkouts: number; meta_ate: string | null; janela_inicio: string; janela_fim: string; diario: { dia: string; ingressos: number }[] }>('black10x_painel', {}), refetchInterval: 5 * 60_000, enabled: pode('painel'), retry: false });
   const bf = bfQ.data;
   const eventos = eventosQ.data ?? [];
-  const rota = useMemo(() => ROTA.cidades.map((c) => {
+  // Todas as praças cadastradas no ano (Calendário/Guru); a lista fixa da Rota 45 só entra se a cidade ainda não estiver cadastrada.
+  const cidadesTurne = useMemo(() => {
+    const doBanco = eventos.map((e) => ({ cidade: e.cidade, data: e.data_evento ?? e.mes_evento.slice(0, 7) + '-01', inicio: '' }));
+    const faltam = ROTA.cidades.filter((c) => !eventos.some((x) => mesmoEvento(x, c)));
+    return [...doBanco, ...faltam].sort((a, b) => a.data.localeCompare(b.data));
+  }, [eventos]);
+  const rota = useMemo(() => cidadesTurne.map((c) => {
     const e = eventos.find((x) => mesmoEvento(x, c));
     const data = e?.data_evento ?? c.data;
     return { c, e, data, dias: diasAte(data, hojeStr), cap: e?.capacidade ?? PADRAO.capacidade, meta: e?.meta_ingressos ?? PADRAO.meta, pagos: e?.pagos ?? 0, cort: e?.cortesias ?? 0, real: e?.realizado ?? 0, fat: e?.faturamento ?? 0, metaFat: e?.meta_faturamento ?? 0 };
-  }), [eventos, hojeStr]);
-  const metaRota = (metaQ.data ?? []).filter((m) => ROTA.cidades.some((c) => mesmoEvento(m, c)));
+  }), [cidadesTurne, eventos, hojeStr]);
+  const metaRota = (metaQ.data ?? []).filter((m) => cidadesTurne.some((c) => mesmoEvento(m, c)));
   const vendas = soma(rota, (x) => x.real), pagos = soma(rota, (x) => x.pagos), cortT = soma(rota, (x) => x.cort), receita = soma(rota, (x) => x.fat);
   const metaIng = soma(rota, (x) => x.meta), metaFat = soma(rota, (x) => x.metaFat), capTotal = soma(rota, (x) => x.cap);
   const invRota = soma(metaRota, (m) => m.investimento);
@@ -208,6 +213,8 @@ export default function VisaoGeral() {
   const pi = pct(vendas, metaIng), pr = pct(receita, metaFat);
 
   // ---- RGV
+  const metaCicloQ = useMetaCiclo(pode('perpetuo'));
+  const metaLeads = metaCicloQ.data?.find((m) => m.ciclo === ciclo?.ciclo)?.leads ?? null;
   const r = perp.data?.resumo;
   const diarioRgv: Dia[] = (perp.data?.diario ?? []).map((d) => ({ dia: d.data, leads: d.leads_crm ?? 0 }));
   const dCorr = ciclo ? Math.max(0, diasAte(hojeStr, ciclo.inicio) + 1) : null;
@@ -253,7 +260,7 @@ export default function VisaoGeral() {
             <div className="rt-h">
               <span><i className="dot" style={{ ['--c' as string]: '#FF8A1F' }} />Turnê Máquina de Vendas</span>
               {ampliado ? <button type="button" className="rt-voltar" onClick={(e) => { e.stopPropagation(); setAmpliado(false); }}>Fechar ✕</button>
-                : <small>{[ROTA.nome, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
+                : <small>{[`${rota.length} praças em 2026`, capTotal ? `ocupação ${pct(vendas, capTotal)}%` : ''].filter(Boolean).join(' · ')}</small>}
             </div>
             {!pode('eventos') ? <div className="rt-empty">Sem permissão para ver eventos.</div> : carregandoMdv ? <Esqueleto /> : (
               <>
@@ -329,7 +336,6 @@ export default function VisaoGeral() {
             <div className="rt-sync-l">Dados dos painéis</div>
             <div className="rt-sync-v">{atualizado ? `atualizado às ${new Date(atualizado).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })}${min ? ` · há ${min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`}` : ''}` : 'carregando…'}</div>
           </div>
-          <AvisosSino />
         </header>
 
         <main className="rt-grid">
@@ -343,8 +349,8 @@ export default function VisaoGeral() {
                   <>
                     {(perp.error || perpBase.error) ? <div className="rt-empty" title={String(((perp.error || perpBase.error) as Error).message ?? '')}>Não consegui atualizar o funil agora. Os números abaixo são da última leitura.</div> : null}
                     <div className="rt-hero">
-                      <Anel p={null} cor="var(--red)" />
-                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>—</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
+                      <Anel p={metaLeads && r.leads_crm != null ? (r.leads_crm / metaLeads) * 100 : null} cor="var(--red)" />
+                      <div className="hero-t"><div className="l">Leads no ciclo (HubSpot)</div><div className="v">{n(r.leads_crm)}</div><div className="m">meta <b>{metaLeads != null ? n(metaLeads) : '—'}</b>{projecao != null ? <> · projeção <b>{n(projecao)}</b></> : null}{mediaDia != null ? <> · <b>{n(mediaDia, 1)}</b>/dia</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Investido" v={brl(r.investimento)} din />
@@ -367,7 +373,7 @@ export default function VisaoGeral() {
                 {!pode('painel') ? <div className="rt-empty">Sem permissão para ver o painel.</div> : bfQ.error ? <div className="rt-empty">Erro ao ler o Black Friday 10X: {String((bfQ.error as Error).message ?? bfQ.error)}</div> : !bf ? <div className="rt-empty">Carregando…</div> : (
                   <>
                     <div className="rt-hero">
-                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">venda até <b>{fmtD(bf.janela_fim)}</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
+                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">{bf.janela_fim >= '2090-01-01' ? <b>vendas em tempo real</b> : <>venda até <b>{fmtD(bf.janela_fim)}</b></>}{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Receita" v={brl(bf.receita)} din />
