@@ -211,7 +211,7 @@ export default function VisaoGeral() {
   }
 
   // ---- MDV
-  const cidades = rota.filter((x) => x.data).map((x) => ({ x, d: dt(x.data), dias: Math.round((dt(x.data).getTime() - h0.getTime()) / DAY) })).sort((a, b) => a.d.getTime() - b.d.getTime());
+  const cidades = rota.filter((x) => x.data).map((x) => ({ x, d: dt(x.data), dias: Math.round((dt(x.data).getTime() - h0.getTime()) / DAY) })).sort((a, b) => Number(a.dias < 0) - Number(b.dias < 0) || (a.dias < 0 ? b.d.getTime() - a.d.getTime() : a.d.getTime() - b.d.getTime())); /* ainda vão acontecer primeiro (mais próxima no topo); realizadas depois (mais recente primeiro) */
   const cac = vendas > 0 && invRota > 0 ? invRota / vendas : null;
   const pi = pct(vendas, metaIng), pr = pct(receita, metaFat);
 
