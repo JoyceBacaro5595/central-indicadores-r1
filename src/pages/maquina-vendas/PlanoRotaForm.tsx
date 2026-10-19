@@ -35,6 +35,8 @@ const fmtVal = (campo: string, x: unknown) => {
   if (campo === 'cidades' && Array.isArray(x)) return `${x.length} cidades: ${x.map((c: { cidade: string; data: string }) => `${c.cidade} (${c.data.slice(8)}/${c.data.slice(5, 7)})`).join(', ')}`;
   return String(x);
 };
+/** Aceita "397,00", "1.000,50" e "2.4": com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal. */
+const numero = (t: string | undefined): number | null => { const x = (t ?? '').trim(); if (!x) return null; const r = Number(x.includes(',') ? x.replace(/\./g, '').replace(',', '.') : x); return r; };
 const dMais = (iso: string, d: number) => new Date(new Date(`${iso}T00:00:00`).getTime() - d * 86400000).toISOString().slice(0, 10);
 
 /** Cadastro do planejamento de uma rota: cidades, metas e funil reverso. As metas valem para cards, tabelas e Meta Global e podem ser replicadas nos eventos. */
@@ -64,7 +66,7 @@ export default function PlanoRotaForm() {
     setMsg(null);
   }, [rota, plano]);
 
-  const n = (k: string) => (v[k]?.trim() ? Number(v[k]) : null);
+  const n = (k: string) => { const x = numero(v[k]); return x != null && Number.isNaN(x) ? null : x; };
   const total = cids.length;
   /* Engenharia reversa: da meta de ingressos pagos até a verba, com as taxas cadastradas. */
   const funil = useMemo(() => {
@@ -82,7 +84,7 @@ export default function PlanoRotaForm() {
     mutationFn: async () => {
       setMsg(null);
       if (!nome.trim()) throw new Error('Informe o nome da rota.');
-      const metas: Record<string, unknown> = Object.fromEntries(TODOS.map((c) => [c.k, v[c.k]?.trim() === '' ? null : Number(v[c.k])]));
+      const metas: Record<string, unknown> = Object.fromEntries(TODOS.map((c) => [c.k, numero(v[c.k])]));
       if (Object.values(metas).some((x) => x != null && Number.isNaN(x))) throw new Error('Há campo com valor que não é número.');
       const lista = cids.filter((c) => c.cidade.trim() && c.data);
       metas.cidades = lista.map((c) => ({ cidade: c.cidade.trim(), data: c.data, inicio: c.inicio || dMais(c.data, Number(metas.dias_captacao ?? 45)) }));
