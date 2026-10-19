@@ -68,7 +68,7 @@ export default function FluxoMarketingMdv() {
   const per = usePeriodoPadrao('ano', { eventos: true });
   const { de, ateConsulta: ate } = per;
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
-  const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ cidade: string; mes_evento: string; lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const vq = useQuery({ queryKey: ['fmm-vendas', de, ate], queryFn: () => r1Rpc<VendasCidade[]>('mdv_vendas_cidade', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const [status, setStatus] = useState<Status>('todos');
@@ -91,7 +91,8 @@ export default function FluxoMarketingMdv() {
     rgv: s.rgv + (v?.rgv ?? 0), clube: s.clube + (v?.clube_r1 ?? 0), trator: s.trator + (v?.trator ?? 0),
     fRgv: s.fRgv + Number(v?.fat_rgv ?? 0), fClube: s.fClube + Number(v?.fat_clube_r1 ?? 0), fTrator: s.fTrator + Number(v?.fat_trator ?? 0),
   }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor]);
-  const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
+  const chaves = new Set(dados.map((r) => `${r.cidade}|${r.mes_evento}`));
+  const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null && chaves.has(`${r.cidade}|${r.mes_evento}`)); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
   const lpv = soma('lpv'); const chk = soma('checkouts');
 
   const t = useMemo(() => dados.reduce((s, r) => ({
