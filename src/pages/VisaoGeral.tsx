@@ -370,7 +370,7 @@ export default function VisaoGeral() {
                 {!pode('painel') ? <div className="rt-empty">Sem permissão para ver o painel.</div> : bfQ.error ? <div className="rt-empty">Erro ao ler o Black Friday 10X: {String((bfQ.error as Error).message ?? bfQ.error)}</div> : !bf ? <div className="rt-empty">Carregando…</div> : (
                   <>
                     <div className="rt-hero">
-                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">venda até <b>{fmtD(bf.janela_fim)}</b>{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
+                      <div className="hero-t"><div className="l">Ingressos vendidos</div><div className="v">{n(bf.ingressos)}</div><div className="m">{bf.janela_fim >= '2090-01-01' ? <b>vendas em tempo real</b> : <>venda até <b>{fmtD(bf.janela_fim)}</b></>}{bf.reembolsos ? <> · <b>{n(bf.reembolsos)}</b> reembolso</> : null}</div></div>
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Receita" v={brl(bf.receita)} din />
