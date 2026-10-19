@@ -22,6 +22,7 @@ const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const PADRAO = { meta: 250, capacidade: 350 }; /* iguais aos da Máquina de Vendas: valem só quando o evento não tem valor próprio */
 
 const n = (v: number | null | undefined, d = 0) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const pc2 = (v: number | null | undefined) => (v == null || isNaN(v) ? '—' : `${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`);
 const brl = (v: number | null | undefined) => (v == null || isNaN(v) ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (a: number | null | undefined, b: number | null | undefined) => (a != null && b ? Math.round((a / b) * 100) : null);
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -390,6 +391,10 @@ export default function VisaoGeral() {
                       <K l="Investido" v={brl(r.investimento)} din />
                       <K l="CPL" v={brl(r.cpl)} din />
                       <K l="Leads no CRM" v={n(r.leads_crm)} m={pMql != null ? <>MQL = <b>{pMql}%</b></> : undefined} />
+                    </div>
+                    <div className="rt-kpis rt-kpis-2">
+                      <K l="CTR (link)" v={pc2(r.ctr)} />
+                      <K l="Conversão da página" v={pc2(r.conversao_lp)} m={<>visita → lead</>} />
                     </div>
                     <div className="rt-kpis rt-kpis-3">
                       <K l="Vendas RGV" v={n(r.vendas)} m={r.leads_crm ? <>do ciclo</> : undefined} />
