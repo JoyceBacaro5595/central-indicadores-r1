@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Esq, EsqLinhas } from '@/components/Esqueleto';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, RefreshCw, Download } from 'lucide-react';
@@ -89,7 +90,7 @@ export default function Checkins() {
               <th className="pb-2 font-semibold">Evento</th><th className="pb-2 font-semibold">Data</th><th className="pb-2 font-semibold text-right">Esperados</th><th className="pb-2 font-semibold text-right">Presentes</th><th className="pb-2 font-semibold text-right">Não chegaram</th><th className="pb-2 font-semibold text-right">Cancelados</th><th className="pb-2 font-semibold text-right">Presença</th>
             </tr></thead>
             <tbody>
-              {eventos.isLoading && <tr><td colSpan={7} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+              {eventos.isLoading && <EsqLinhas colunas={7} />}
               {!eventos.isLoading && (eventos.data ?? []).length === 0 && <tr><td colSpan={7} className="py-3 text-muted-foreground">Nenhum e-ticket no período.</td></tr>}
               {(eventos.data ?? []).map((e) => {
                 const sel = e.cidade === cidade && e.mes_evento === mes;
@@ -112,11 +113,11 @@ export default function Checkins() {
         {cidade && mes && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="kpi-card"><div className="kpi-label">{cidade} · {mesLabel(mes)}</div><div className="kpi-value mono">{r ? dataBR(r.data_evento) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">data do evento</div></div>
-              <div className="kpi-card"><div className="kpi-label">Esperados</div><div className="kpi-value mono">{r ? num(r.esperados) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{r?.sem_participante ? `${num(r.sem_participante)} ainda sem participante` : 'e-tickets não cancelados'}</div></div>
-              <div className="kpi-card"><div className="kpi-label">Presentes</div><div className="kpi-value mono text-emerald-400">{r ? num(r.presentes) : '…'}</div><div className="text-[10px] text-muted-foreground mt-1">{taxa != null ? `${taxa}% de presença` : ''}</div></div>
-              <div className="kpi-card"><div className="kpi-label">Ainda não chegaram</div><div className="kpi-value mono text-amber-400">{r ? num(r.nao_chegaram) : '…'}</div></div>
-              <div className="kpi-card"><div className="kpi-label">Cancelados</div><div className="kpi-value mono">{r ? num(r.cancelados) : '…'}</div></div>
+              <div className="kpi-card"><div className="kpi-label">{cidade} · {mesLabel(mes)}</div><div className="kpi-value mono">{r ? dataBR(r.data_evento) : <Esq h="1.2em" w="4em" />}</div><div className="text-[10px] text-muted-foreground mt-1">data do evento</div></div>
+              <div className="kpi-card"><div className="kpi-label">Esperados</div><div className="kpi-value mono">{r ? num(r.esperados) : <Esq h="1.2em" w="4em" />}</div><div className="text-[10px] text-muted-foreground mt-1">{r?.sem_participante ? `${num(r.sem_participante)} ainda sem participante` : 'e-tickets não cancelados'}</div></div>
+              <div className="kpi-card"><div className="kpi-label">Presentes</div><div className="kpi-value mono text-emerald-400">{r ? num(r.presentes) : <Esq h="1.2em" w="4em" />}</div><div className="text-[10px] text-muted-foreground mt-1">{taxa != null ? `${taxa}% de presença` : ''}</div></div>
+              <div className="kpi-card"><div className="kpi-label">Ainda não chegaram</div><div className="kpi-value mono text-amber-400">{r ? num(r.nao_chegaram) : <Esq h="1.2em" w="4em" />}</div></div>
+              <div className="kpi-card"><div className="kpi-label">Cancelados</div><div className="kpi-value mono">{r ? num(r.cancelados) : <Esq h="1.2em" w="4em" />}</div></div>
             </div>
 
             {r?.por_tipo && r.por_tipo.length > 0 && (
@@ -148,7 +149,7 @@ export default function Checkins() {
                     <th className="pb-2 font-semibold">Participante</th><th className="pb-2 font-semibold">E-mail do comprador</th><th className="pb-2 font-semibold">Situação</th><th className="pb-2 font-semibold">Tipo</th><th className="pb-2 font-semibold">Check-in visto</th><th className="pb-2 font-semibold text-right">Ingressos do comprador</th>
                   </tr></thead>
                   <tbody>
-                    {lista.isLoading && <tr><td colSpan={6} className="py-3 text-muted-foreground">Carregando…</td></tr>}
+                    {lista.isLoading && <EsqLinhas colunas={6} />}
                     {lista.error && <tr><td colSpan={6} className="py-3 text-red-400">{(lista.error as Error).message}</td></tr>}
                     {!lista.isLoading && filtrada.length === 0 && <tr><td colSpan={6} className="py-3 text-muted-foreground">Ninguém nesta situação.</td></tr>}
                     {filtrada.map((l, i) => (

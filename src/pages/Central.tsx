@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { AlertTriangle } from 'lucide-react';
 import { useCentralIngressos, CentralEvento } from '@/hooks/useCentralIngressos';
 import MaquinaOnline from './MaquinaOnline';
-import { Abas, PageBody, PageHeader } from '@/components/shared';
+import { Abas, PageBody, PageHeader, subVisivel } from '@/components/shared';
 import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import AtualizarPeriodo from '@/components/AtualizarPeriodo';
 
@@ -26,10 +27,10 @@ function inicioMesISO() {
 
 function Kpi({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'}>
+    <div className={highlight ? 'kpi-card-highlight' : 'kpi-card'} title={sub && !subVisivel(sub) ? sub : undefined}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value mono">{value}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && subVisivel(sub) && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }
@@ -158,7 +159,7 @@ export default function Central() {
         {aba === 'presencial' && <div className="flex flex-wrap items-center gap-2"><PeriodoPadrao p={per} /></div>}
 
         {aba === 'presencial' && error && <div className="surface p-4 text-sm text-red-400">{(error as Error).message}</div>}
-        {aba === 'presencial' && !data && !error && <div className="text-sm text-muted-foreground">Carregando…</div>}
+        {aba === 'presencial' && !data && !error && <EsqBloco linhas={4} h="4em" />}
 
         {aba === 'presencial' && data && r && ritmo && (
           <>
@@ -307,7 +308,7 @@ function VendasCidadeCanal({ onFechar }: { onFechar: () => void }) {
             <button key={k} onClick={() => setVisao(k)} className={`px-3 py-1 rounded-md ${visao === k ? 'bg-background text-foreground font-semibold' : 'text-muted-foreground'}`}>{r}</button>
           ))}
         </div>
-        {q.isLoading && <p className="text-sm text-muted-foreground mt-4">Carregando…</p>}
+        {q.isLoading && <div className="mt-4"><EsqBloco linhas={3} /></div>}
         {q.error && <p className="text-sm text-red-400 mt-4">{(q.error as Error).message}</p>}
         {!q.isLoading && !q.error && meses.length === 0 && <p className="text-sm text-muted-foreground mt-4">Sem vendas no período.</p>}
         <div className="mt-4 space-y-3">

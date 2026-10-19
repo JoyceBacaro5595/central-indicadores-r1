@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { FiltroPeriodo } from '@/components/shared';
 import { presets } from '@/lib/periodos';
 
 /* FILTRO DE PERÍODO PADRÃO (Joyce, 19/10: "em todas as abas, igual ao do Perpétuo RGV · Fluxo Marketing RGV; nunca mais mude").
  * É o mesmo controle do Fluxo Marketing RGV: menu de períodos prontos (Personalizado, Hoje, Ontem, 2026 até hoje, Últimos N dias, mês...)
- * e, em "Personalizado", o seletor de datas por dia. Toda tela de período deve usar este componente; não criar outro formato. */
+ * e, em "Personalizado", os campos De e Até. Toda tela de período deve usar este componente; não criar outro formato. */
 
 export type CicloOpcao = { ciclo: string; inicio?: string; fim?: string };
 const curta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -27,7 +26,10 @@ export function FiltroPeriodoPadrao({ preset, de, ate, onPreset, onCustom, ciclo
           </optgroup>
         )}
       </select>
-      {preset === 'custom' && <FiltroPeriodo modo="dia" de={de} ate={ate} onChange={onCustom} />}
+      {preset === 'custom' && <>
+        <label className="text-[11px] text-muted-foreground flex items-center gap-1">De <input type="date" value={de} max={ate || undefined} onChange={(e) => { const v = e.target.value; if (v) onCustom(v, v > ate ? v : ate); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+        <label className="text-[11px] text-muted-foreground flex items-center gap-1">Até <input type="date" value={ate} min={de || undefined} onChange={(e) => { const v = e.target.value; if (v) onCustom(v < de ? v : de, v); }} className="bg-secondary rounded px-2 py-1 text-xs text-foreground" /></label>
+      </>}
     </>
   );
 }

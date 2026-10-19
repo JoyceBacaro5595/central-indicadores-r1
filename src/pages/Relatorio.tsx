@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowLeft, RefreshCw, Download, Printer } from 'lucide-react';
-import { PageHeader } from '@/components/shared';
+import { PageHeader, subVisivel } from '@/components/shared';
 import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
 import {
   useRelatorioIngressos,
@@ -199,10 +199,10 @@ function CidadeMes({ data }: { data: RelatorioIngressos }) {
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="kpi-card">
+    <div className="kpi-card" title={sub && !subVisivel(sub) ? sub : undefined}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value mono">{value}</div>
-      {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
+      {sub && subVisivel(sub) && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }

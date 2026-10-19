@@ -63,6 +63,7 @@ export interface PerpetuoMetas {
   ciclo?: string; numero?: number; fonte?: string | null;
   conexao?: number | null; qualificacao?: number | null; agendamento?: number | null;
   comparecimento?: number | null; fechamento?: number | null; mql_venda?: number | null;
+  investimento?: number | null; vendas?: number | null;
 }
 
 /** Qualidade geral do lote publicado. */
@@ -148,4 +149,10 @@ export function usePerpetuoVendasClubeTrator(de?: string, ate?: string, habilita
     refetchOnWindowFocus: false,
     retry: false,
   });
+}
+
+/** Metas do ciclo cadastradas no calendário (config.meta_ciclo). Valem no Fluxo Marketing RGV quando a RPC do funil não devolve `metas`. */
+export type MetaCicloRgv = PerpetuoMetas & { ciclo: string };
+export function useMetaCiclo(habilitado = true) {
+  return useQuery({ queryKey: ['meta-ciclo'], queryFn: () => r1Rpc<MetaCicloRgv[]>('meta_ciclo_listar'), enabled: habilitado, staleTime: 5 * 60_000, retry: false, placeholderData: keepPreviousData });
 }

@@ -22,6 +22,6 @@
 - O recurso `regras` não tem mais tela na central (regras de segmentação ficam só no banco e nesta documentação) e some da matriz de permissões.
 
 ## Pendências conhecidas
-- Visitas LP e Checkouts do Meta no funil da Turnê (MDV) aparecem como "—": a carga da Meta da Turnê não coleta `landing_page_view` nem `initiate_checkout`.
+- Visitas LP e Checkouts do Meta no funil da Turnê (MDV) vêm da RPC `meta_eventos_v2` (`landing_page_view`, `initiate_checkout`, carga `meta-ads-sync` v8) e ficam "—" até a próxima atualização do Meta (cron 09:40 ou botão Atualizar em Integrações).
 - Aba Online da Máquina de Vendas lê outro serviço (Lovable) com datas fixas.
 - Meta de leads do Ciclo 45 e critério de origem das vendas RGV por Turnê e Black Friday aguardam definição.

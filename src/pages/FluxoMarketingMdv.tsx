@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react';
+import { EsqBloco } from '@/components/Esqueleto';
 import { useQuery } from '@tanstack/react-query';
 import { r1Rpc } from '@/integrations/r1/client';
-import { hojeSP } from '@/lib/periodos';
 import { FiltroUnico, PageBody, PageHeader } from '@/components/shared';
 import { PeriodoPadrao, usePeriodoPadrao } from '@/components/FiltroPeriodoPadrao';
+import { hojeSP } from '@/lib/periodos';
 
 /* Fluxo Marketing da Máquina de Vendas, no mesmo padrão do Fluxo Marketing RGV (Perpetuo.tsx): cabeçalho com conta e período,
    título da visão com o investimento, faixa do funil em uma linha (cada etapa com número, barra, taxa e custo) e lista por cidade.
    As etapas são as dos eventos: mídia Meta → cliques → visitas LP → checkouts → compras no Meta → ingressos pagos → faturamento.
-   Fonte: RPC meta_eventos (Meta Ads + Guru). Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas: ficam "—".
+   Fonte: RPC meta_eventos (Meta Ads + Guru). Visitas LP e Checkouts vêm da RPC meta_eventos_v2; sem dado do Meta ficam "—".
    Não há etapas de CRM (MQL/SQL) para eventos, e as abas Criativos e Páginas do RGV não se aplicam aqui. */
 
-interface VendasCidade { cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }
 interface MetaEvento {
   cidade: string; mes_evento: string; campanhas: number; investimento: number; impressoes: number; cliques: number;
   compras_meta: number; faturamento: number; ingressos_pagos: number; roas: number | null; cpa: number | null;
@@ -55,6 +55,7 @@ function Etapa({ grupo, titulo, valor, largura, linhas, custoRotulo, custo }: { 
 
 const ABAS = [{ valor: 'cidades', rotulo: 'Cidades' }];
 
+interface VendasCidade { cidade: string; mes_evento: string; rgv: number; clube_r1: number; trator: number; fat_rgv: number; fat_clube_r1: number; fat_trator: number }
 interface EventoData { cidade: string; mes_evento: string; data_evento: string | null }
 type Status = 'todos' | 'aconteceu' | 'nao';
 const STATUS = [{ valor: 'todos', rotulo: 'Todos os eventos' }, { valor: 'aconteceu', rotulo: 'Aconteceu' }, { valor: 'nao', rotulo: 'Não aconteceu' }];
@@ -67,6 +68,7 @@ export default function FluxoMarketingMdv() {
   const per = usePeriodoPadrao('ano', { eventos: true });
   const { de, ateConsulta: ate } = per;
   const q = useQuery({ queryKey: ['fmm-meta', de, ate], queryFn: () => r1Rpc<MetaEvento[]>('meta_eventos', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
+  const q2 = useQuery({ queryKey: ['fmm-meta-v2', de, ate], queryFn: () => r1Rpc<{ lpv: number | null; checkouts: number | null }[]>('meta_eventos_v2', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const vq = useQuery({ queryKey: ['fmm-vendas', de, ate], queryFn: () => r1Rpc<VendasCidade[]>('mdv_vendas_cidade', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const evq = useQuery({ queryKey: ['fmm-eventos', de, ate], queryFn: () => r1Rpc<EventoData[]>('eventos_listar', { p_de: de, p_ate: ate }), refetchInterval: 15 * 60_000 });
   const [status, setStatus] = useState<Status>('todos');
@@ -83,13 +85,15 @@ export default function FluxoMarketingMdv() {
       return status === 'aconteceu' ? ja : !ja;
     });
   }, [todos, evq.data, status, cidade]);
-
   const vendasPor = useMemo(() => new Map((vq.data ?? []).map((v) => [`${v.cidade}|${v.mes_evento}`, v])), [vq.data]);
   const vd = (r: MetaEvento) => vendasPor.get(`${r.cidade}|${r.mes_evento}`);
   const vt = useMemo(() => dados.reduce((s, r) => { const v = vendasPor.get(`${r.cidade}|${r.mes_evento}`); return {
     rgv: s.rgv + (v?.rgv ?? 0), clube: s.clube + (v?.clube_r1 ?? 0), trator: s.trator + (v?.trator ?? 0),
     fRgv: s.fRgv + Number(v?.fat_rgv ?? 0), fClube: s.fClube + Number(v?.fat_clube_r1 ?? 0), fTrator: s.fTrator + Number(v?.fat_trator ?? 0),
   }; }, { rgv: 0, clube: 0, trator: 0, fRgv: 0, fClube: 0, fTrator: 0 }), [dados, vendasPor]);
+  const soma = (k: 'lpv' | 'checkouts') => { const v = (q2.data ?? []).filter((r) => r[k] != null); return v.length ? v.reduce((s, r) => s + Number(r[k]), 0) : null; };
+  const lpv = soma('lpv'); const chk = soma('checkouts');
+
   const t = useMemo(() => dados.reduce((s, r) => ({
     inv: s.inv + Number(r.investimento || 0), imp: s.imp + Number(r.impressoes || 0), cli: s.cli + Number(r.cliques || 0),
     cmp: s.cmp + Number(r.compras_meta || 0), ing: s.ing + Number(r.ingressos_pagos || 0), fat: s.fat + Number(r.faturamento || 0),
@@ -102,8 +106,8 @@ export default function FluxoMarketingMdv() {
       <PageHeader
         titulo="Máquina de Vendas · Fluxo Marketing MDV"
         subtitulo="Da mídia ao ingresso pago, por cidade da Máquina de Vendas"
-        onAtualizar={() => q.refetch()}
-        atualizando={q.isFetching}
+        onAtualizar={() => { q.refetch(); q2.refetch(); }}
+        atualizando={q.isFetching || q2.isFetching}
         acoes={<div className="hidden lg:flex items-center gap-2"><PeriodoPadrao p={per} /></div>}
       />
       <PageBody className="space-y-5">
@@ -136,7 +140,7 @@ export default function FluxoMarketingMdv() {
         </div>
 
         {q.error && <div className="surface p-4 text-sm text-red-400">Erro ao ler os dados: {String((q.error as Error).message ?? q.error)}</div>}
-        {q.isLoading && <div className="text-sm text-muted-foreground">Carregando o funil…</div>}
+        {q.isLoading && <EsqBloco linhas={2} h="6em" />}
 
         {!q.isLoading && !q.error && (
           <div className="space-y-1.5">
@@ -155,8 +159,8 @@ export default function FluxoMarketingMdv() {
                 </div></div>
                 <Etapa titulo="Impressões" valor={num(t.imp)} largura={log(t.imp, max)} linhas={[['Cliques', num(t.cli)]]} custoRotulo="CPM" custo={brl2(div(t.inv * 1000, t.imp))} />
                 <Etapa titulo="Cliques no link" valor={num(t.cli)} largura={log(t.cli, max)} linhas={[['CTR', pct(t.cli, t.imp)], ['Meta de CTR', '1%']]} custoRotulo="CPC" custo={brl2(div(t.inv, t.cli))} />
-                <Etapa titulo="Visitas LP" valor="—" largura={0} linhas={[['Connect rate', '—']]} custoRotulo="Custo por visita" custo="—" />
-                <Etapa titulo="Checkouts" valor="—" largura={0} linhas={[['Visitas → checkout', '—']]} custoRotulo="Custo por checkout" custo="—" />
+                <Etapa titulo="Visitas LP" valor={num(lpv)} largura={lpv ? log(lpv, max) : 0} linhas={[['Connect rate', lpv != null ? pct(lpv, t.cli) : '—']]} custoRotulo="Custo por visita" custo={lpv ? brl2(div(t.inv, lpv)) : '—'} />
+                <Etapa titulo="Checkouts" valor={num(chk)} largura={chk ? log(chk, max) : 0} linhas={[['Visitas → checkout', lpv != null && chk != null ? pct(chk, lpv) : '—']]} custoRotulo="Custo por checkout" custo={chk ? brl2(div(t.inv, chk)) : '—'} />
                 <Etapa titulo="Compras no Meta" valor={num(t.cmp)} largura={log(t.cmp, max)} linhas={[['Clique → compra', pct(t.cmp, t.cli)]]} custoRotulo="Custo por compra" custo={brl2(div(t.inv, t.cmp))} />
                 <Etapa titulo="Ingressos pagos (Guru)" valor={num(t.ing)} largura={log(t.ing, max)} linhas={[['Clique → ingresso', pct(t.ing, t.cli)], ['Ticket médio', brl2(div(t.fat, t.ing))]]} custoRotulo="CAC" custo={brl2(div(t.inv, t.ing))} />
                 <Etapa titulo="Faturamento" valor={brl(t.fat)} largura={log(t.fat, Math.max(t.fat, t.inv, 1))} linhas={[['ROAS', f2(div(t.fat, t.inv))]]} custoRotulo="Resultado − investimento" custo={brl(t.fat - t.inv)} />
@@ -166,7 +170,7 @@ export default function FluxoMarketingMdv() {
                 <Etapa titulo="Total de vendas" valor={num(vt.rgv + vt.clube + vt.trator)} largura={log(vt.rgv + vt.clube + vt.trator, Math.max(vt.rgv + vt.clube + vt.trator, 1))} linhas={[['Faturamento', brl(vt.fRgv + vt.fClube + vt.fTrator)]]} custoRotulo="Ticket médio" custo={brl2(div(vt.fRgv + vt.fClube + vt.fTrator, vt.rgv + vt.clube + vt.trator))} />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts ainda não são coletados do Meta para a Máquina de Vendas, por isso aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
+            <p className="text-[11px] text-muted-foreground">Visitas LP e Checkouts chegam do Meta na atualização diária; enquanto não houver dado aparecem "—" (nunca zero). Compras no Meta e ingressos pagos são fontes diferentes: a taxa entre elas é só referência. A barra de cada etapa usa escala logarítmica.</p>
           </div>
         )}
 
